@@ -1,6 +1,6 @@
-#include "platform/gamecube/GameCubeBootHost.hpp"
+#include "platform/gamecube/GameCubeApplication.hpp"
 
 int main() {
-    helengine::gamecube::GameCubeBootHost host;
-    return host.Run();
+    helengine::gamecube::GameCubeApplication application;
+    return application.Run();
 }
