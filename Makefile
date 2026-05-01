@@ -3,17 +3,20 @@ DEVKITPPC ?= $(DEVKITPRO)/devkitPPC
 LIBOGC ?= $(DEVKITPRO)/libogc
 HELENGINE_CORE_CPP_ROOT ?=
 
+include $(DEVKITPPC)/gamecube_rules
+
 BUILD_DIR := build
 TARGET_ELF := $(BUILD_DIR)/helengine_gc.elf
 TARGET_DOL := $(BUILD_DIR)/helengine_gc.dol
 SOURCE_DIR := src
+LIBOGC_GAMECUBE_LIB_DIR := $(LIBOGC)/lib/cube
 SOURCES := \
 	$(SOURCE_DIR)/main.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeBootHost.cpp
 OBJECTS := $(patsubst $(SOURCE_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES))
 
-CXX := powerpc-eabi-g++
-ELF2DOL := elf2dol
+CXX := $(DEVKITPPC)/bin/powerpc-eabi-g++
+ELF2DOL := $(DEVKITPRO)/tools/bin/elf2dol
 
 CPPFLAGS := \
 	-I$(SOURCE_DIR) \
@@ -32,11 +35,14 @@ CXXFLAGS := \
 	-O2 \
 	-Wall \
 	-Wextra \
+	$(MACHDEP) \
 	-ffunction-sections \
 	-fdata-sections
 
 LDFLAGS := \
-	-specs=$(LIBOGC)/lib/cube.specs \
+	$(MACHDEP) \
+	-L$(LIBOGC_GAMECUBE_LIB_DIR) \
+	-L$(LIBOGC)/lib \
 	-Wl,-Map,$(BUILD_DIR)/helengine_gc.map \
 	-Wl,--gc-sections
 
