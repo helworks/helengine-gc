@@ -5,6 +5,9 @@
 #include <cstdint>
 
 class Component;
+class ComponentExecutionPolicy;
+class Core;
+class ObjectManager;
 class float4;
 class float3;
 
@@ -15,6 +18,11 @@ class float3;
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
 #include "Component.hpp"
+#include "ComponentExecutionPolicy.hpp"
+#include "ComponentExecutionPolicy.hpp"
+#include "Core.hpp"
+#include "Core.hpp"
+#include "ObjectManager.hpp"
 #include "runtime/native_list.hpp"
 #include "runtime/native_list.hpp"
 #include "Component.hpp"
@@ -24,6 +32,8 @@ class float3;
 class Entity : public IDisposable
 {
 public:
+    virtual ~Entity() = default;
+
     List<::Entity*>* Children;
 
     List<::Entity*>* get_Children();
@@ -77,6 +87,11 @@ public:
     bool get_Static();
 
     void set_Static(bool value);
+
+    bool SuppressUpdateComponentExecutionInEditor;
+
+    bool get_SuppressUpdateComponentExecutionInEditor();
+    void set_SuppressUpdateComponentExecutionInEditor(bool value);
 
     void AddChild(::Entity* entity);
 

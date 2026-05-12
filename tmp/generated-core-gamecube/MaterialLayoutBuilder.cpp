@@ -15,33 +15,11 @@
 #include "ShaderResourceType.hpp"
 #include "ShaderBindingAsset.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
 #include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
 #include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
 
 ::MaterialLayout* MaterialLayoutBuilder::Build(::MaterialAsset* materialAsset, ::ShaderAsset* shaderAsset)
 {
@@ -63,15 +41,15 @@ AddBindings(vertexProgram, textureBindings, constantBufferBindings, samplerBindi
 AddBindings(pixelProgram, textureBindings, constantBufferBindings, samplerBindings, bindingByKey);
 ::MaterialRenderState *renderState = (materialAsset->RenderState != nullptr ? materialAsset->RenderState : throw new InvalidOperationException("Material render state must be provided."));
 return ([&]() {
-auto __ctor_arg_4f5e5ee5 = materialAsset->ShaderAssetId;
-auto __ctor_arg_c97bd707 = materialAsset->VertexProgram;
-auto __ctor_arg_b032ab82 = materialAsset->PixelProgram;
-auto __ctor_arg_1b3390de = materialAsset->Variant;
-auto __ctor_arg_bd0d4bf7 = renderState->Clone();
-auto __ctor_arg_f828b1b9 = textureBindings->ToArray();
-auto __ctor_arg_ff623637 = constantBufferBindings->ToArray();
-auto __ctor_arg_454b8ee6 = samplerBindings->ToArray();
-return new ::MaterialLayout(__ctor_arg_4f5e5ee5, __ctor_arg_c97bd707, __ctor_arg_b032ab82, __ctor_arg_1b3390de, __ctor_arg_bd0d4bf7, __ctor_arg_f828b1b9, __ctor_arg_ff623637, __ctor_arg_454b8ee6);
+auto __ctor_arg_000000D7 = materialAsset->ShaderAssetId;
+auto __ctor_arg_000000D8 = materialAsset->VertexProgram;
+auto __ctor_arg_000000D9 = materialAsset->PixelProgram;
+auto __ctor_arg_000000DA = materialAsset->Variant;
+auto __ctor_arg_000000DB = renderState->Clone();
+auto __ctor_arg_000000DC = textureBindings->ToArray();
+auto __ctor_arg_000000DD = constantBufferBindings->ToArray();
+auto __ctor_arg_000000DE = samplerBindings->ToArray();
+return new ::MaterialLayout(__ctor_arg_000000D7, __ctor_arg_000000D8, __ctor_arg_000000D9, __ctor_arg_000000DA, __ctor_arg_000000DB, __ctor_arg_000000DC, __ctor_arg_000000DD, __ctor_arg_000000DE);
 })();}
 
 std::string MaterialLayoutBuilder::TransformBufferName = "TransformBuffer";

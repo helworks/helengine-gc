@@ -48,6 +48,8 @@ class CoreInitializationOptions;
 class ObjectManager
 {
 public:
+    virtual ~ObjectManager() = default;
+
     List<::ICamera*>* Cameras;
 
     List<::ICamera*>* get_Cameras();
@@ -72,6 +74,8 @@ public:
 
     List<::IInteractable2D*>* get_Interactables();
     void set_Interactables(List<::IInteractable2D*>* value);
+
+    bool get_IsUpdateLoopActive();
 
     uint8_t RenderOrderLayers3D;
 

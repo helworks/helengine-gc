@@ -6,43 +6,13 @@
 #include "Entity.hpp"
 #include "runtime/native_list.hpp"
 #include "Component.hpp"
+#include "ComponentExecutionPolicy.hpp"
+#include "Core.hpp"
+#include "ObjectManager.hpp"
 #include "float4.hpp"
 #include "float3.hpp"
-#include "Core.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_stack.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/binary_primitives.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/directory.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/security/cryptography/sha256.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
-#include "system/text/string-builder.hpp"
 
 List<::Entity*>* Entity::get_Children()
 {
@@ -195,6 +165,16 @@ this->ParentStaticChange(value);
 this->isStatic = value;
 }
 
+bool Entity::get_SuppressUpdateComponentExecutionInEditor()
+{
+return this->SuppressUpdateComponentExecutionInEditor;
+}
+
+void Entity::set_SuppressUpdateComponentExecutionInEditor(bool value)
+{
+this->SuppressUpdateComponentExecutionInEditor = value;
+}
+
 void Entity::AddChild(::Entity* entity)
 {
     if (entity->get_Parent() != nullptr)
@@ -214,14 +194,37 @@ entity->ParentEnabledChange(isHierarchyEnabled);
 void Entity::AddComponent(::Component* comp)
 {
 this->Components->Add(comp);
+comp->AttachToEntity(this);
+    if (ComponentExecutionPolicy::ShouldRunComponentLifecycle(comp, this))
+    {
 comp->ComponentAdded(this);
+    }
 }
 
 void Entity::Dispose()
 {
+    if (this->Children != nullptr)
+    {
+while (this->Children->Count() > 0) {
+::Entity *child = (*this->Children)[this->Children->Count() - 1];
+this->RemoveChild(child);
+child->Dispose();
+}
+    }
+    if (this->Components != nullptr)
+    {
+while (this->Components->Count() > 0) {
+this->RemoveComponent((*this->Components)[this->Components->Count() - 1]);
+}
+    }
+    if (this->Parent != nullptr)
+    {
+this->Parent->RemoveChild(this);
+    }
+Core::get_Instance()->get_ObjectManager()->RemoveEntity(this);
 }
 
-Entity::Entity() : Children(), Components(), LayerMask(), Parent(), isEnabled(), isStatic(), orientation(), position(), scale()
+Entity::Entity() : Children(), Components(), LayerMask(), Parent(), SuppressUpdateComponentExecutionInEditor(), isEnabled(), isStatic(), orientation(), position(), scale()
 {
 this->isEnabled = true;
 this->set_Orientation(float4::get_Identity());
@@ -285,11 +288,16 @@ throw new InvalidOperationException("Component is not attached to this entity.")
     {
 throw new InvalidOperationException("Component could not be removed from the component collection.");
     }
-    if (this->get_IsHierarchyEnabled())
+const bool shouldRunLifecycle = ComponentExecutionPolicy::ShouldRunComponentLifecycle(comp, this);
+    if (this->get_IsHierarchyEnabled() && shouldRunLifecycle)
     {
 comp->ParentEnabledChange(false);
     }
+    if (shouldRunLifecycle)
+    {
 comp->ComponentRemoved(this);
+    }
+comp->DetachFromEntity();
 }
 
 void Entity::ParentEnabledChange(bool newEnabled)
@@ -297,7 +305,12 @@ void Entity::ParentEnabledChange(bool newEnabled)
     if (this->Components != nullptr)
     {
 for (int32_t i = 0; i < this->Components->Count(); i++) {
-(*this->Components)[i]->ParentEnabledChange(newEnabled);
+::Component *component = (*this->Components)[i];
+    if (!ComponentExecutionPolicy::ShouldRunComponentLifecycle(component, this))
+    {
+continue;
+    }
+component->ParentEnabledChange(newEnabled);
 }
     }
     if (this->Children != nullptr)

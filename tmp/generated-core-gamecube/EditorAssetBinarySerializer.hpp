@@ -11,10 +11,27 @@ class Asset;
 class EngineBinaryReader;
 class TextureAsset;
 class ModelAsset;
+class ModelSubmeshAsset;
 class TextAsset;
 class MaterialAsset;
+class Ps2MaterialAsset;
+class AnimationClipAsset;
+class PositionKeyframeTrackAsset;
+class PositionOffsetKeyframeTrackAsset;
+class ScaleKeyframeTrackAsset;
+class RotationKeyframeTrackAsset;
+class PositionKeyframeAsset;
+class RotationKeyframeAsset;
 class SceneAsset;
+class SceneSettingsAsset;
+class SceneCanvasProfile;
+class float3;
+class float4;
 class SceneEntityAsset;
+class SceneEntityPlatformTransformOverrideAsset;
+class SceneEntityPlatformComponentOverrideAsset;
+class SceneEntityPlatformAddedComponentAsset;
+class SceneAssetReference;
 class SceneComponentAssetRecord;
 class MaterialRenderState;
 class MaterialConstantBufferAsset;
@@ -26,8 +43,6 @@ class ShaderConstantMemberAsset;
 class ShaderVariantAsset;
 class ShaderVertexElementAsset;
 class float2;
-class float3;
-class float4;
 
 #include "runtime/native_exceptions.hpp"
 #include "EditorAssetBinaryValueKind.hpp"
@@ -43,14 +58,39 @@ class float4;
 #include "EditorAssetBinaryValueKind.hpp"
 #include "TextureAsset.hpp"
 #include "ModelAsset.hpp"
+#include "ModelSubmeshAsset.hpp"
 #include "TextAsset.hpp"
 #include "MaterialAsset.hpp"
 #include "MaterialAsset.hpp"
+#include "Ps2MaterialAsset.hpp"
+#include "AnimationClipAsset.hpp"
+#include "PositionKeyframeTrackAsset.hpp"
+#include "PositionOffsetKeyframeTrackAsset.hpp"
+#include "ScaleKeyframeTrackAsset.hpp"
+#include "RotationKeyframeTrackAsset.hpp"
+#include "PositionKeyframeAsset.hpp"
+#include "RotationKeyframeAsset.hpp"
+#include "AnimationInterpolationMode.hpp"
 #include "SceneAsset.hpp"
-#include "SceneEntityAsset.hpp"
-#include "SceneComponentAssetRecord.hpp"
-#include "MaterialRenderState.hpp"
+#include "SceneSettingsAsset.hpp"
+#include "SceneCanvasProfile.hpp"
 #include "runtime/native_string.hpp"
+#include "float3.hpp"
+#include "float4.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
+#include "SceneEntityAsset.hpp"
+#include "SceneEntityPlatformTransformOverrideAsset.hpp"
+#include "SceneEntityPlatformComponentOverrideAsset.hpp"
+#include "SceneEntityPlatformAddedComponentAsset.hpp"
+#include "SceneAssetReference.hpp"
+#include "runtime/array.hpp"
+#include "SceneComponentAssetRecord.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
+#include "MaterialRenderState.hpp"
 #include "MaterialConstantBufferAsset.hpp"
 #include "ShaderAsset.hpp"
 #include "ShaderProgramAsset.hpp"
@@ -66,15 +106,32 @@ class float4;
 #include "EngineBinaryEndianness.hpp"
 #include "Asset.hpp"
 #include "system/io/stream.hpp"
+#include "AnimationClipAsset.hpp"
+#include "AnimationInterpolationMode.hpp"
 #include "float2.hpp"
-#include "float3.hpp"
-#include "float4.hpp"
 #include "MaterialConstantBufferAsset.hpp"
 #include "MaterialRenderState.hpp"
 #include "ModelAsset.hpp"
+#include "ModelSubmeshAsset.hpp"
+#include "PositionKeyframeAsset.hpp"
+#include "PositionKeyframeTrackAsset.hpp"
+#include "PositionOffsetKeyframeTrackAsset.hpp"
+#include "Ps2MaterialAsset.hpp"
+#include "RotationKeyframeAsset.hpp"
+#include "RotationKeyframeTrackAsset.hpp"
+#include "ScaleKeyframeTrackAsset.hpp"
 #include "SceneAsset.hpp"
+#include "SceneAssetReference.hpp"
+#include "runtime/array.hpp"
+#include "SceneCanvasProfile.hpp"
 #include "SceneComponentAssetRecord.hpp"
+#include "runtime/array.hpp"
 #include "SceneEntityAsset.hpp"
+#include "runtime/array.hpp"
+#include "SceneEntityPlatformAddedComponentAsset.hpp"
+#include "SceneEntityPlatformComponentOverrideAsset.hpp"
+#include "SceneEntityPlatformTransformOverrideAsset.hpp"
+#include "SceneSettingsAsset.hpp"
 #include "ShaderAsset.hpp"
 #include "ShaderBinaryAsset.hpp"
 #include "ShaderBindingAsset.hpp"
@@ -88,6 +145,8 @@ class float4;
 class EditorAssetBinarySerializer
 {
 public:
+    virtual ~EditorAssetBinarySerializer() = default;
+
     static uint8_t CurrentVersion;
 
     static uint16_t FormatId;
@@ -102,9 +161,15 @@ public:
 private:
     static ::EngineBinaryEndianness PayloadEndianness;
 
+    static uint8_t SceneEntityPayloadVersion;
+
     static ::EditorAssetBinaryValueKind GetValueKind(::Asset* asset);
 
-    static ::Asset* ReadAssetPayload(::EngineBinaryReader* reader, ::EditorAssetBinaryValueKind valueKind);
+    static ::AnimationClipAsset* ReadAnimationClipAsset(::EngineBinaryReader* reader);
+
+    static ::AnimationInterpolationMode ReadAnimationInterpolationMode(::EngineBinaryReader* reader);
+
+    static ::Asset* ReadAssetPayload(::EngineBinaryReader* reader, ::EditorAssetBinaryValueKind valueKind, uint8_t version);
 
     static ::float2 ReadFloat2(::EngineBinaryReader* reader);
 
@@ -112,19 +177,55 @@ private:
 
     static ::float4 ReadFloat4(::EngineBinaryReader* reader);
 
-    static ::MaterialAsset* ReadMaterialAsset(::EngineBinaryReader* reader);
+    static ::MaterialAsset* ReadMaterialAsset(::EngineBinaryReader* reader, uint8_t version);
 
     static ::MaterialConstantBufferAsset* ReadMaterialConstantBufferAsset(::EngineBinaryReader* reader);
 
     static ::MaterialRenderState* ReadMaterialRenderState(::EngineBinaryReader* reader);
 
-    static ::ModelAsset* ReadModelAsset(::EngineBinaryReader* reader);
+    static ::ModelAsset* ReadModelAsset(::EngineBinaryReader* reader, uint8_t version);
 
-    static ::SceneAsset* ReadSceneAsset(::EngineBinaryReader* reader);
+    static ::ModelSubmeshAsset* ReadModelSubmeshAsset(::EngineBinaryReader* reader);
 
-    static ::SceneComponentAssetRecord* ReadSceneComponentAssetRecord(::EngineBinaryReader* reader);
+    static ::PositionKeyframeAsset* ReadPositionKeyframeAsset(::EngineBinaryReader* reader);
 
-    static ::SceneEntityAsset* ReadSceneEntityAsset(::EngineBinaryReader* reader);
+    static ::PositionKeyframeTrackAsset* ReadPositionKeyframeTrackAsset(::EngineBinaryReader* reader);
+
+    static ::PositionOffsetKeyframeTrackAsset* ReadPositionOffsetKeyframeTrackAsset(::EngineBinaryReader* reader);
+
+    static ::Ps2MaterialAsset* ReadPs2MaterialAsset(::EngineBinaryReader* reader);
+
+    static ::RotationKeyframeAsset* ReadRotationKeyframeAsset(::EngineBinaryReader* reader);
+
+    static ::RotationKeyframeTrackAsset* ReadRotationKeyframeTrackAsset(::EngineBinaryReader* reader);
+
+    static ::ScaleKeyframeTrackAsset* ReadScaleKeyframeTrackAsset(::EngineBinaryReader* reader);
+
+    static ::SceneAsset* ReadSceneAsset(::EngineBinaryReader* reader, uint8_t version);
+
+    static ::SceneAssetReference* ReadSceneAssetReference(::EngineBinaryReader* reader);
+
+    static Array<::SceneAssetReference*>* ReadSceneAssetReferenceArray(::EngineBinaryReader* reader);
+
+    static ::SceneCanvasProfile* ReadSceneCanvasProfile(::EngineBinaryReader* reader);
+
+    static ::SceneComponentAssetRecord* ReadSceneComponentAssetRecord(::EngineBinaryReader* reader, uint8_t sceneEntityPayloadVersion);
+
+    static Array<::SceneComponentAssetRecord*>* ReadSceneComponentAssetRecordArray(::EngineBinaryReader* reader, uint8_t sceneEntityPayloadVersion);
+
+    static ::SceneEntityAsset* ReadSceneEntityAsset(::EngineBinaryReader* reader, uint8_t version);
+
+    static Array<::SceneEntityAsset*>* ReadSceneEntityAssetArray(::EngineBinaryReader* reader, uint8_t version);
+
+    static ::SceneEntityPlatformAddedComponentAsset* ReadSceneEntityPlatformAddedComponentAsset(::EngineBinaryReader* reader, uint8_t sceneEntityPayloadVersion);
+
+    static ::SceneEntityPlatformAddedComponentAsset* ReadSceneEntityPlatformAddedComponentAssetValue(::EngineBinaryReader* reader);
+
+    static ::SceneEntityPlatformComponentOverrideAsset* ReadSceneEntityPlatformComponentOverrideAsset(::EngineBinaryReader* reader);
+
+    static ::SceneEntityPlatformTransformOverrideAsset* ReadSceneEntityPlatformTransformOverrideAsset(::EngineBinaryReader* reader);
+
+    static ::SceneSettingsAsset* ReadSceneSettingsAsset(::EngineBinaryReader* reader);
 
     static ::ShaderAsset* ReadShaderAsset(::EngineBinaryReader* reader);
 
@@ -152,6 +253,10 @@ private:
 
     static void ValidateHeader(::EngineBinaryHeader* header);
 
+    static void WriteAnimationClipAsset(::EngineBinaryWriter* writer, ::AnimationClipAsset* asset);
+
+    static void WriteAnimationInterpolationMode(::EngineBinaryWriter* writer, ::AnimationInterpolationMode value);
+
     static void WriteAssetPayload(::EngineBinaryWriter* writer, ::Asset* asset);
 
     static void WriteFloat2(::EngineBinaryWriter* writer, ::float2 value);
@@ -168,11 +273,41 @@ private:
 
     static void WriteModelAsset(::EngineBinaryWriter* writer, ::ModelAsset* asset);
 
+    static void WriteModelSubmeshAsset(::EngineBinaryWriter* writer, ::ModelSubmeshAsset* submesh);
+
+    static void WritePositionKeyframeAsset(::EngineBinaryWriter* writer, ::PositionKeyframeAsset* asset);
+
+    static void WritePositionKeyframeTrackAsset(::EngineBinaryWriter* writer, ::PositionKeyframeTrackAsset* asset);
+
+    static void WritePositionOffsetKeyframeTrackAsset(::EngineBinaryWriter* writer, ::PositionOffsetKeyframeTrackAsset* asset);
+
+    static void WritePs2MaterialAsset(::EngineBinaryWriter* writer, ::Ps2MaterialAsset* asset);
+
+    static void WriteRotationKeyframeAsset(::EngineBinaryWriter* writer, ::RotationKeyframeAsset* asset);
+
+    static void WriteRotationKeyframeTrackAsset(::EngineBinaryWriter* writer, ::RotationKeyframeTrackAsset* asset);
+
+    static void WriteScaleKeyframeTrackAsset(::EngineBinaryWriter* writer, ::ScaleKeyframeTrackAsset* asset);
+
     static void WriteSceneAsset(::EngineBinaryWriter* writer, ::SceneAsset* asset);
 
-    static void WriteSceneComponentAssetRecord(::EngineBinaryWriter* writer, ::SceneComponentAssetRecord* record);
+    static void WriteSceneAssetReference(::EngineBinaryWriter* writer, ::SceneAssetReference* reference);
+
+    static void WriteSceneCanvasProfile(::EngineBinaryWriter* writer, ::SceneCanvasProfile* canvasProfile);
+
+    static void WriteSceneComponentAssetRecord(::EngineBinaryWriter* writer, ::SceneComponentAssetRecord* record, uint8_t sceneEntityPayloadVersion);
+
+    static void WriteSceneComponentAssetRecordValue(::EngineBinaryWriter* writer, ::SceneComponentAssetRecord* asset);
 
     static void WriteSceneEntityAsset(::EngineBinaryWriter* writer, ::SceneEntityAsset* asset);
+
+    static void WriteSceneEntityPlatformAddedComponentAsset(::EngineBinaryWriter* writer, ::SceneEntityPlatformAddedComponentAsset* asset);
+
+    static void WriteSceneEntityPlatformComponentOverrideAsset(::EngineBinaryWriter* writer, ::SceneEntityPlatformComponentOverrideAsset* asset);
+
+    static void WriteSceneEntityPlatformTransformOverrideAsset(::EngineBinaryWriter* writer, ::SceneEntityPlatformTransformOverrideAsset* asset);
+
+    static void WriteSceneSettingsAsset(::EngineBinaryWriter* writer, ::SceneSettingsAsset* sceneSettings);
 
     static void WriteShaderAsset(::EngineBinaryWriter* writer, ::ShaderAsset* asset);
 

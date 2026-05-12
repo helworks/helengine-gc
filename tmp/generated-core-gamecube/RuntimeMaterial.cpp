@@ -6,45 +6,28 @@
 #include "RuntimeMaterial.hpp"
 #include "MaterialPropertyBlock.hpp"
 #include "RuntimeTexture.hpp"
+#include "runtime/native_string.hpp"
 #include "MaterialLayout.hpp"
+#include "runtime/array.hpp"
 #include "runtime/native_list.hpp"
 #include "MaterialConstantBufferAsset.hpp"
 #include "MaterialRenderState.hpp"
+#include "RuntimeMaterialLightingModel.hpp"
 #include "MaterialLayoutBinding.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_stack.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/binary_primitives.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/directory.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/security/cryptography/sha256.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
-#include "system/text/string-builder.hpp"
+
+bool RuntimeMaterial::get_CastsShadows()
+{
+return this->CastsShadows;
+}
+
+void RuntimeMaterial::set_CastsShadows(bool value)
+{
+this->CastsShadows = value;
+}
 
 ::MaterialLayout* RuntimeMaterial::get_Layout()
 {
@@ -54,6 +37,16 @@ return this->Layout;
 void RuntimeMaterial::set_Layout(::MaterialLayout* value)
 {
 this->Layout = value;
+}
+
+::RuntimeMaterialLightingModel RuntimeMaterial::get_LightingModel()
+{
+return this->LightingModel;
+}
+
+void RuntimeMaterial::set_LightingModel(::RuntimeMaterialLightingModel value)
+{
+this->LightingModel = value;
 }
 
 ::RuntimeMaterial* RuntimeMaterial::get_ParentMaterial()
@@ -71,6 +64,16 @@ void RuntimeMaterial::set_Properties(::MaterialPropertyBlock* value)
 this->Properties = value;
 }
 
+bool RuntimeMaterial::get_ReceivesShadows()
+{
+return this->ReceivesShadows;
+}
+
+void RuntimeMaterial::set_ReceivesShadows(bool value)
+{
+this->ReceivesShadows = value;
+}
+
 ::MaterialRenderState* RuntimeMaterial::get_RenderState()
 {
 return this->RenderState;
@@ -79,6 +82,26 @@ return this->RenderState;
 void RuntimeMaterial::set_RenderState(::MaterialRenderState* value)
 {
 this->RenderState = value;
+}
+
+bool RuntimeMaterial::get_SupportsEmissive()
+{
+return this->SupportsEmissive;
+}
+
+void RuntimeMaterial::set_SupportsEmissive(bool value)
+{
+this->SupportsEmissive = value;
+}
+
+bool RuntimeMaterial::get_SupportsNormalMapping()
+{
+return this->SupportsNormalMapping;
+}
+
+void RuntimeMaterial::set_SupportsNormalMapping(bool value)
+{
+this->SupportsNormalMapping = value;
 }
 
 void RuntimeMaterial::ApplyConstantBufferDefaults(Array<::MaterialConstantBufferAsset*>* constantBuffers)
@@ -114,15 +137,19 @@ return propertyTexture;    }
 else     if (this->ParentMaterialValue != nullptr)
     {
 return this->ParentMaterialValue->ResolveTexture();    }
-throw new InvalidOperationException("Runtime material does not define a texture for the active material layout.");
-}
+return nullptr;}
 
-RuntimeMaterial::RuntimeMaterial() : Layout(), Properties(), RenderState(), ChildMaterialsValue(), ParentMaterialValue()
+RuntimeMaterial::RuntimeMaterial() : CastsShadows(), Layout(), LightingModel(), Properties(), ReceivesShadows(), RenderState(), SupportsEmissive(), SupportsNormalMapping(), ChildMaterialsValue(), ParentMaterialValue()
 {
 this->set_Layout(MaterialLayout::get_Empty());
 this->set_RenderState(new ::MaterialRenderState());
 this->set_Properties(new ::MaterialPropertyBlock(this->Layout));
 this->ChildMaterialsValue = new List<::RuntimeMaterial*>();
+this->set_LightingModel(RuntimeMaterialLightingModel::Unlit);
+this->set_SupportsNormalMapping(false);
+this->set_SupportsEmissive(false);
+this->set_CastsShadows(true);
+this->set_ReceivesShadows(true);
 }
 
 void RuntimeMaterial::SetLayout(::MaterialLayout* layout)
@@ -172,6 +199,27 @@ throw new InvalidOperationException("Parented runtime materials inherit their re
 this->set_RenderState(renderState->Clone());
 this->SynchronizeChildMaterials();
 }
+
+bool RuntimeMaterial::TryResolveConstantBufferData(std::string bindingName, Array<uint8_t>*& data)
+{
+    if (String::IsNullOrWhiteSpace(bindingName))
+    {
+data = nullptr;
+return false;    }
+const int32_t bindingIndex = this->Layout->FindConstantBufferBindingIndex(bindingName);
+    if (bindingIndex >= 0)
+    {
+Array<uint8_t> *localData = this->Properties->GetConstantBufferData(bindingIndex);
+    if (localData != nullptr)
+    {
+data = localData;
+return true;    }
+    }
+    if (this->ParentMaterialValue != nullptr)
+    {
+return this->ParentMaterialValue->TryResolveConstantBufferData(bindingName, data);    }
+data = nullptr;
+return false;}
 
 std::string RuntimeMaterial::get_Id()
 {

@@ -14,22 +14,29 @@ class RuntimeModel;
 
 #include "Component.hpp"
 #include "IDrawable3D.hpp"
+#include "runtime/native_exceptions.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
 #include "Component.hpp"
 #include "Entity.hpp"
 #include "Core.hpp"
 #include "Core.hpp"
 #include "ObjectManager.hpp"
 #include "RuntimeMaterial.hpp"
+#include "runtime/array.hpp"
 #include "RuntimeModel.hpp"
 #include "Entity.hpp"
 
 class MeshComponent : public Component, public IDrawable3D
 {
 public:
-    ::RuntimeMaterial* Material;
+    virtual ~MeshComponent() = default;
 
     ::RuntimeMaterial* get_Material();
+
     void set_Material(::RuntimeMaterial* value);
+
+    Array<::RuntimeMaterial*>* get_Materials();
 
     ::RuntimeModel* Model;
 
@@ -46,9 +53,13 @@ public:
 
     void ParentEnabledChange(bool newEnabled);
 
+    void SetMaterials(Array<::RuntimeMaterial*>* runtimeMaterials);
+
     ::Entity* get_Parent();
 
     void set_Parent(::Entity* value);
 private:
+    Array<::RuntimeMaterial*>* MaterialsBySlot;
+
     uint8_t renderOrder3D;
 };

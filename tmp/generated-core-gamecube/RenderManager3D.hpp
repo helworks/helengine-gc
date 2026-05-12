@@ -4,6 +4,7 @@
 #endif
 #include <cstdint>
 
+class RendererBackendCapabilityProfile;
 class int2;
 class RuntimeMaterial;
 class MaterialAsset;
@@ -14,6 +15,7 @@ class RenderTarget;
 
 #include "runtime/native_disposable.hpp"
 #include "runtime/native_exceptions.hpp"
+#include "RendererBackendCapabilityProfile.hpp"
 #include "int2.hpp"
 #include "runtime/native_event.hpp"
 #include "RuntimeMaterial.hpp"
@@ -22,11 +24,14 @@ class RenderTarget;
 #include "RuntimeModel.hpp"
 #include "ModelAsset.hpp"
 #include "RenderTarget.hpp"
+#include "RendererBackendCapabilityProfile.hpp"
 #include "runtime/native_string.hpp"
 
 class RenderManager3D : public IDisposable
 {
 public:
+    virtual ~RenderManager3D() = default;
+
     RenderManager3D();
 
     ::int2 MainWindowSize;
@@ -47,6 +52,8 @@ public:
     virtual void Dispose();
 
     virtual void Draw();
+
+    virtual ::RendererBackendCapabilityProfile* GetCapabilityProfile();
 
     virtual void InvalidateShaderResources(std::string shaderAssetId, ::ShaderAsset* shaderAsset);
 

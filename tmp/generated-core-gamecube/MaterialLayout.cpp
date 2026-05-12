@@ -2,54 +2,17 @@
 #undef DrawText
 #endif
 #include "MaterialLayout.hpp"
+#include "MaterialLayout.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_string.hpp"
-#include "MaterialLayout.hpp"
 #include "MaterialRenderState.hpp"
 #include "MaterialLayoutBinding.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
 
 ::MaterialLayout* MaterialLayout::get_Empty()
 {
-if (EmptyValue == nullptr)
-{
-auto __ctor_arg_44fdbd33 = String::Empty;
-auto __ctor_arg_e4f34a4a = String::Empty;
-auto __ctor_arg_41ec80c4 = String::Empty;
-auto __ctor_arg_8435ff56 = String::Empty;
-auto __ctor_arg_78772687 = new ::MaterialRenderState();
-auto __ctor_arg_aa7e2cce = Array<MaterialLayoutBinding*>::Empty();
-auto __ctor_arg_3cebaca1 = Array<MaterialLayoutBinding*>::Empty();
-auto __ctor_arg_866ce621 = Array<MaterialLayoutBinding*>::Empty();
-EmptyValue = new ::MaterialLayout(__ctor_arg_44fdbd33, __ctor_arg_e4f34a4a, __ctor_arg_41ec80c4, __ctor_arg_8435ff56, __ctor_arg_78772687, __ctor_arg_aa7e2cce, __ctor_arg_3cebaca1, __ctor_arg_866ce621);
-}
 return EmptyValue;
 }
 
@@ -117,7 +80,21 @@ this->ConstantBufferBindings = (constantBufferBindings != nullptr ? constantBuff
 this->SamplerBindings = (samplerBindings != nullptr ? samplerBindings : throw new ArgumentNullException("samplerBindings"));
 }
 
-::MaterialLayout* MaterialLayout::EmptyValue = nullptr;
+::MaterialLayout* MaterialLayout::EmptyValue = CreateEmptyValue();
+
+::MaterialLayout* MaterialLayout::CreateEmptyValue()
+{
+return ([&]() {
+auto __ctor_arg_000000C5 = String::Empty;
+auto __ctor_arg_000000C6 = String::Empty;
+auto __ctor_arg_000000C7 = String::Empty;
+auto __ctor_arg_000000C8 = String::Empty;
+auto __ctor_arg_000000C9 = new ::MaterialRenderState();
+auto __ctor_arg_000000CA = Array<MaterialLayoutBinding*>::Empty();
+auto __ctor_arg_000000CB = Array<MaterialLayoutBinding*>::Empty();
+auto __ctor_arg_000000CC = Array<MaterialLayoutBinding*>::Empty();
+return new ::MaterialLayout(__ctor_arg_000000C5, __ctor_arg_000000C6, __ctor_arg_000000C7, __ctor_arg_000000C8, __ctor_arg_000000C9, __ctor_arg_000000CA, __ctor_arg_000000CB, __ctor_arg_000000CC);
+})();}
 
 int32_t MaterialLayout::FindBindingIndex(Array<::MaterialLayoutBinding*>* bindings, std::string bindingName)
 {
@@ -128,9 +105,9 @@ throw new ArgumentNullException("bindings");
     if (String::IsNullOrWhiteSpace(bindingName))
     {
 throw ([&]() {
-auto __ctor_arg_ae411c05 = "Binding name must be provided.";
-auto __ctor_arg_f24d9b41 = "bindingName";
-return new ArgumentException(__ctor_arg_ae411c05, __ctor_arg_f24d9b41);
+auto __ctor_arg_000000CD = "Binding name must be provided.";
+auto __ctor_arg_000000CE = "bindingName";
+return new ArgumentException(__ctor_arg_000000CD, __ctor_arg_000000CE);
 })();
     }
 for (int32_t bindingIndex = 0; bindingIndex < bindings->Length; bindingIndex++) {

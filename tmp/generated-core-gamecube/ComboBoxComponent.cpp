@@ -9,9 +9,8 @@
 #include "Entity.hpp"
 #include "ComboBoxUpdateComponent.hpp"
 #include "runtime/native_string.hpp"
-#include "InputManager.hpp"
+#include "InputSystem.hpp"
 #include "Core.hpp"
-#include "int2.hpp"
 #include "float3.hpp"
 #include "system/math.hpp"
 #include "FontTightMetrics.hpp"
@@ -22,48 +21,18 @@
 #include "GeometryUtils.hpp"
 #include "ObjectManager.hpp"
 #include "Keys.hpp"
-#include "RenderOrder2D.hpp"
 #include "RoundedRectComponent.hpp"
 #include "ThemeManager.hpp"
 #include "InteractableComponent.hpp"
 #include "TextComponent.hpp"
+#include "RenderOrder2D.hpp"
 #include "PointerInteraction.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_equatable.hpp"
+#include "int2.hpp"
+#include "system/math.hpp"
 #include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_stack.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/binary_primitives.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/directory.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream-reader.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/security/cryptography/sha256.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
-#include "system/text/string-builder.hpp"
 
 bool ComboBoxComponent::get_CanReceiveFocus()
 {
@@ -169,9 +138,9 @@ void ComboBoxComponent::set_Size(::int2 value)
     if (value.X <= 0 || value.Y <= 0)
     {
 throw ([&]() {
-auto __ctor_arg_f66eb3c7 = "value";
-auto __ctor_arg_6dab3d7d = "ComboBox size must be positive.";
-return new ArgumentOutOfRangeException(__ctor_arg_f66eb3c7, __ctor_arg_6dab3d7d);
+auto __ctor_arg_00000284 = "value";
+auto __ctor_arg_00000285 = "ComboBox size must be positive.";
+return new ArgumentOutOfRangeException(__ctor_arg_00000284, __ctor_arg_00000285);
 })();
     }
 this->size = value;
@@ -206,9 +175,9 @@ ComboBoxComponent::ComboBoxComponent(::int2 size, ::FontAsset* font, List<std::s
     if (size.X <= 0 || size.Y <= 0)
     {
 throw ([&]() {
-auto __ctor_arg_db72eac7 = "size";
-auto __ctor_arg_20d03dae = "ComboBox size must be positive.";
-return new ArgumentOutOfRangeException(__ctor_arg_db72eac7, __ctor_arg_20d03dae);
+auto __ctor_arg_00000286 = "size";
+auto __ctor_arg_00000287 = "ComboBox size must be positive.";
+return new ArgumentOutOfRangeException(__ctor_arg_00000286, __ctor_arg_00000287);
 })();
     }
 else     if (font == nullptr)
@@ -233,10 +202,7 @@ void ComboBoxComponent::ComponentAdded(::Entity* entity)
 Component::ComponentAdded(entity);
     if (!this->hasRenderOrderOverrides)
     {
-this->backgroundOrder = RenderOrder2D::PanelSurface;
-this->textOrder = RenderOrder2D::PanelForeground;
-this->listBackgroundOrder = RenderOrder2D::OverlayBackground;
-this->listTextOrder = RenderOrder2D::OverlayForeground;
+this->UsePanelPresentation();
     }
 this->background = new ::RoundedRectComponent();
 this->background->set_Size(this->size);
@@ -303,13 +269,13 @@ this->ResetItemStates();
 this->SetTargetFocused(false);
 }
 
-bool ComboBoxComponent::ContainsScreenPoint(::int2 point)
+bool ComboBoxComponent::ContainsScreenPoint(int32_t x, int32_t y)
 {
     if (Parent == nullptr)
     {
 return false;    }
 ::float3 origin = Parent->get_Position();
-return point.X >= origin.X && point.X < origin.X + this->size.X && point.Y >= origin.Y && point.Y < origin.Y + this->size.Y;}
+return x >= origin.X && x < origin.X + this->size.X && y >= origin.Y && y < origin.Y + this->size.Y;}
 
 void ComboBoxComponent::ParentEnabledChange(bool newEnabled)
 {
@@ -375,15 +341,26 @@ void ComboBoxComponent::Update()
     if (!this->isOpen || Parent == nullptr || this->listRoot == nullptr)
     {
 return;    }
-::InputManager *inputManager = Core::get_Instance()->get_InputManager();
+::InputSystem *inputManager = Core::get_Instance()->get_Input();
     if (!inputManager->WasMouseLeftButtonPressed())
     {
 return;    }
-::int2 mousePosition = inputManager->GetMousePosition();
-    if (this->IsPointerInsideCombo(mousePosition))
+const int32_t mouseX = inputManager->GetMouseX();
+const int32_t mouseY = inputManager->GetMouseY();
+    if (this->IsPointerInsideCombo(mouseX, mouseY))
     {
 return;    }
 this->set_IsOpen(false);
+}
+
+void ComboBoxComponent::UseModalPresentation()
+{
+this->SetRenderOrders(RenderOrder2D::ModalBackground, RenderOrder2D::ModalForeground, RenderOrder2D::ModalOverlayBackground, RenderOrder2D::ModalOverlayForeground);
+}
+
+void ComboBoxComponent::UsePanelPresentation()
+{
+this->SetRenderOrders(RenderOrder2D::PanelSurface, RenderOrder2D::PanelForeground, RenderOrder2D::OverlayBackground, RenderOrder2D::OverlayForeground);
 }
 
 ::Entity* ComboBoxComponent::get_Parent()
@@ -569,15 +546,15 @@ entry->get_Label()->set_Size(::int2(0, 0));
 }
 }
 
-bool ComboBoxComponent::IsPointerInsideCombo(::int2 mousePosition)
+bool ComboBoxComponent::IsPointerInsideCombo(int32_t mouseX, int32_t mouseY)
 {
-::ICamera *camera = this->FindTopmostCameraAt(mousePosition.X, mousePosition.Y, Parent->get_LayerMask());
+::ICamera *camera = this->FindTopmostCameraAt(mouseX, mouseY, Parent->get_LayerMask());
     if (camera == nullptr)
     {
 return false;    }
 ::float4 viewport = camera->get_Viewport();
-const double localX = mousePosition.X - viewport.X;
-const double localY = mousePosition.Y - viewport.Y;
+const double localX = mouseX - viewport.X;
+const double localY = mouseY - viewport.Y;
 ::float3 origin = Parent->get_Position();
     if (GeometryUtils::IsPointInsideRect(localX, localY, origin, this->size.X, this->size.Y))
     {
@@ -752,9 +729,9 @@ entry->get_Label()->set_Font(this->font);
 entry->get_Label()->set_Color(ThemeManager::get_Colors()->get_InputForegroundPrimary());
 ::FontTightMetrics itemMetrics = this->font->MeasureTight(itemText);
 entry->get_Label()->set_Size(([&]() {
-auto __ctor_arg_c36d9a48 = static_cast<int32_t>(Math::Ceiling(itemMetrics.Width));
-auto __ctor_arg_97801900 = static_cast<int32_t>(Math::Ceiling(Math::Max(static_cast<double>(itemMetrics.get_Height()), 1.0)));
-return ::int2(__ctor_arg_c36d9a48, __ctor_arg_97801900);
+auto __ctor_arg_00000288 = static_cast<int32_t>(Math::Ceiling(itemMetrics.Width));
+auto __ctor_arg_00000289 = static_cast<int32_t>(Math::Ceiling(Math::Max(static_cast<double>(itemMetrics.get_Height()), 1.0)));
+return ::int2(__ctor_arg_00000288, __ctor_arg_00000289);
 })());
 const double textY = Math::Round((this->itemHeight - lineHeight) / 2.0, MidpointRounding::AwayFromZero);
 entry->get_LabelHost()->set_Position(::float3(TextPaddingX, static_cast<float>(textY), 0.1f));
@@ -802,9 +779,9 @@ for (int32_t i = 0; i < items->get_Count(); i++) {
     if (String::IsNullOrEmpty((*items)[i]))
     {
 throw ([&]() {
-auto __ctor_arg_b832fc58 = "ComboBox items must not contain null entries.";
-auto __ctor_arg_e968f397 = "items";
-return new ArgumentException(__ctor_arg_b832fc58, __ctor_arg_e968f397);
+auto __ctor_arg_0000028A = "ComboBox items must not contain null entries.";
+auto __ctor_arg_0000028B = "items";
+return new ArgumentException(__ctor_arg_0000028A, __ctor_arg_0000028B);
 })();
     }
 }
@@ -815,9 +792,9 @@ int32_t ComboBoxComponent::ValidateSelectedIndex(int32_t itemCount, int32_t inde
     if (index < -1 || index >= itemCount)
     {
 throw ([&]() {
-auto __ctor_arg_68a9d704 = "index";
-auto __ctor_arg_0145672b = "SelectedIndex must be -1 or within the item range.";
-return new ArgumentOutOfRangeException(__ctor_arg_68a9d704, __ctor_arg_0145672b);
+auto __ctor_arg_0000028C = "index";
+auto __ctor_arg_0000028D = "SelectedIndex must be -1 or within the item range.";
+return new ArgumentOutOfRangeException(__ctor_arg_0000028C, __ctor_arg_0000028D);
 })();
     }
 return index;}

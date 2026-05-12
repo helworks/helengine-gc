@@ -13,34 +13,10 @@
 #include "IDrawable2D.hpp"
 #include "IDrawable3D.hpp"
 #include "IInteractable2D.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
-#include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
 #include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
+#include "runtime/native_exceptions.hpp"
+#include "runtime/finally.hpp"
+#include "runtime/native_list.hpp"
 
 List<::ICamera*>* ObjectManager::get_Cameras()
 {
@@ -90,6 +66,11 @@ return this->Interactables;
 void ObjectManager::set_Interactables(List<::IInteractable2D*>* value)
 {
 this->Interactables = value;
+}
+
+bool ObjectManager::get_IsUpdateLoopActive()
+{
+return this->updateLoopActive;
 }
 
 uint8_t ObjectManager::get_RenderOrderLayers3D()
@@ -318,7 +299,7 @@ this->Updateables->SetCapacity(desired);
 void ObjectManager::Update()
 {
 {
-auto __finallyGuard_882531ec = he_cpp_make_scope_exit([&]() {
+auto __finallyGuard_000000FE = he_cpp_make_scope_exit([&]() {
 this->updateLoopActive = false;
 });
 this->updateLoopActive = true;

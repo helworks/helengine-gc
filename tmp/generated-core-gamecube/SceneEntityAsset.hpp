@@ -7,17 +7,25 @@
 class SceneComponentAssetRecord;
 class float4;
 class float3;
+class SceneEntityPlatformComponentOverrideAsset;
+class SceneEntityPlatformTransformOverrideAsset;
 
 #include "runtime/array.hpp"
 #include "runtime/array.hpp"
 #include "SceneComponentAssetRecord.hpp"
+#include "runtime/native_string.hpp"
 #include "float4.hpp"
 #include "float3.hpp"
-#include "runtime/native_string.hpp"
+#include "runtime/array.hpp"
+#include "SceneEntityPlatformComponentOverrideAsset.hpp"
+#include "runtime/array.hpp"
+#include "SceneEntityPlatformTransformOverrideAsset.hpp"
 
 class SceneEntityAsset
 {
 public:
+    virtual ~SceneEntityAsset() = default;
+
     SceneEntityAsset();
 
     Array<::SceneEntityAsset*>* Children;
@@ -29,6 +37,11 @@ public:
 
     Array<::SceneComponentAssetRecord*>* get_Components();
     void set_Components(Array<::SceneComponentAssetRecord*>* value);
+
+    std::string Id;
+
+    std::string get_Id();
+    void set_Id(std::string value);
 
     ::float4 LocalOrientation;
 
@@ -49,4 +62,14 @@ public:
 
     std::string get_Name();
     void set_Name(std::string value);
+
+    Array<::SceneEntityPlatformComponentOverrideAsset*>* PlatformComponentOverrides;
+
+    Array<::SceneEntityPlatformComponentOverrideAsset*>* get_PlatformComponentOverrides();
+    void set_PlatformComponentOverrides(Array<::SceneEntityPlatformComponentOverrideAsset*>* value);
+
+    Array<::SceneEntityPlatformTransformOverrideAsset*>* PlatformTransformOverrides;
+
+    Array<::SceneEntityPlatformTransformOverrideAsset*>* get_PlatformTransformOverrides();
+    void set_PlatformTransformOverrides(Array<::SceneEntityPlatformTransformOverrideAsset*>* value);
 };

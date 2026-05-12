@@ -7,36 +7,9 @@
 #include "ShaderProgramBinary.hpp"
 #include "ShaderProgramDefinition.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_stack.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
-#include "system/text/string-builder.hpp"
 
 List<::ShaderProgramBinary*>* ShaderModuleDefinition::get_Binaries()
 {
@@ -65,9 +38,9 @@ throw new InvalidOperationException("No compiled shader binary was found for the
     if (String::IsNullOrWhiteSpace(programName))
     {
 throw ([&]() {
-auto __ctor_arg_730b9e80 = "Program name must be provided.";
-auto __ctor_arg_638617f5 = "programName";
-return new ArgumentException(__ctor_arg_730b9e80, __ctor_arg_638617f5);
+auto __ctor_arg_000001BC = "Program name must be provided.";
+auto __ctor_arg_000001BD = "programName";
+return new ArgumentException(__ctor_arg_000001BC, __ctor_arg_000001BD);
 })();
     }
 for (int32_t i = 0; i < this->programs->Length; i++) {
@@ -84,9 +57,9 @@ ShaderModuleDefinition::ShaderModuleDefinition(std::string name, Array<::ShaderP
     if (String::IsNullOrWhiteSpace(name))
     {
 throw ([&]() {
-auto __ctor_arg_7690ed63 = "Module name must be provided.";
-auto __ctor_arg_fa914f5f = "name";
-return new ArgumentException(__ctor_arg_7690ed63, __ctor_arg_fa914f5f);
+auto __ctor_arg_000001BE = "Module name must be provided.";
+auto __ctor_arg_000001BF = "name";
+return new ArgumentException(__ctor_arg_000001BE, __ctor_arg_000001BF);
 })();
     }
     if (programs == nullptr)
@@ -96,9 +69,9 @@ throw new ArgumentNullException("programs");
     if (programs->Length == 0)
     {
 throw ([&]() {
-auto __ctor_arg_be2a6d9d = "At least one program definition is required.";
-auto __ctor_arg_62e09efa = "programs";
-return new ArgumentException(__ctor_arg_be2a6d9d, __ctor_arg_62e09efa);
+auto __ctor_arg_000001C0 = "At least one program definition is required.";
+auto __ctor_arg_000001C1 = "programs";
+return new ArgumentException(__ctor_arg_000001C0, __ctor_arg_000001C1);
 })();
     }
     if (binaries == nullptr)
@@ -115,25 +88,25 @@ bool ShaderModuleDefinition::TryGetBinary(std::string programName, std::string t
     if (String::IsNullOrWhiteSpace(programName))
     {
 throw ([&]() {
-auto __ctor_arg_4b0af47d = "Program name must be provided.";
-auto __ctor_arg_9d6620b8 = "programName";
-return new ArgumentException(__ctor_arg_4b0af47d, __ctor_arg_9d6620b8);
+auto __ctor_arg_000001C2 = "Program name must be provided.";
+auto __ctor_arg_000001C3 = "programName";
+return new ArgumentException(__ctor_arg_000001C2, __ctor_arg_000001C3);
 })();
     }
     if (String::IsNullOrWhiteSpace(target))
     {
 throw ([&]() {
-auto __ctor_arg_18068244 = "Target must be provided.";
-auto __ctor_arg_d06166d8 = "target";
-return new ArgumentException(__ctor_arg_18068244, __ctor_arg_d06166d8);
+auto __ctor_arg_000001C4 = "Target must be provided.";
+auto __ctor_arg_000001C5 = "target";
+return new ArgumentException(__ctor_arg_000001C4, __ctor_arg_000001C5);
 })();
     }
     if (String::IsNullOrWhiteSpace(variant))
     {
 throw ([&]() {
-auto __ctor_arg_72a359fd = "Variant must be provided.";
-auto __ctor_arg_5b338352 = "variant";
-return new ArgumentException(__ctor_arg_72a359fd, __ctor_arg_5b338352);
+auto __ctor_arg_000001C6 = "Variant must be provided.";
+auto __ctor_arg_000001C7 = "variant";
+return new ArgumentException(__ctor_arg_000001C6, __ctor_arg_000001C7);
 })();
     }
 for (int32_t i = 0; i < this->binaries->Length; i++) {
@@ -159,9 +132,9 @@ bool ShaderModuleDefinition::TryGetProgram(std::string programName, ::ShaderProg
     if (String::IsNullOrWhiteSpace(programName))
     {
 throw ([&]() {
-auto __ctor_arg_1477ed60 = "Program name must be provided.";
-auto __ctor_arg_29b553c3 = "programName";
-return new ArgumentException(__ctor_arg_1477ed60, __ctor_arg_29b553c3);
+auto __ctor_arg_000001C8 = "Program name must be provided.";
+auto __ctor_arg_000001C9 = "programName";
+return new ArgumentException(__ctor_arg_000001C8, __ctor_arg_000001C9);
 })();
     }
 for (int32_t i = 0; i < this->programs->Length; i++) {

@@ -11,6 +11,20 @@ class RuntimeTexture;
 class RenderTarget : public RuntimeTexture
 {
 public:
+    virtual ~RenderTarget() = default;
+
+    RenderTarget();
+
+    bool CanSampleAsTexture;
+
+    bool get_CanSampleAsTexture();
+    void set_CanSampleAsTexture(bool value);
+
+    bool HasDepthBuffer;
+
+    bool get_HasDepthBuffer();
+    void set_HasDepthBuffer(bool value);
+
     int32_t get_Height();
 
     void set_Height(int32_t value);

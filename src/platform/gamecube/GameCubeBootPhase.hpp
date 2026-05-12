@@ -9,6 +9,8 @@ namespace helengine::gamecube {
         CoreOptions,
         BridgeConstruction,
         CoreInitialization,
+        SceneBootstrap,
+        SceneLoad,
         CoreUpdate,
         CoreDraw,
         Running,

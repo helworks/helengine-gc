@@ -11,6 +11,7 @@ class float4;
 
 #include "IDrawable2D.hpp"
 #include "byte4.hpp"
+#include "RoundedRectCorners.hpp"
 #include "int2.hpp"
 #include "float4.hpp"
 
@@ -28,6 +29,10 @@ public:
     virtual ::byte4 get_Color() = 0;
 
     virtual void set_Color(::byte4 value) = 0;
+
+    virtual ::RoundedRectCorners get_Corners() = 0;
+
+    virtual void set_Corners(::RoundedRectCorners value) = 0;
 
     virtual ::byte4 get_FillColor() = 0;
 

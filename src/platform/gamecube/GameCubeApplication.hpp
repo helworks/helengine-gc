@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <gccore.h>
 
 #include "platform/gamecube/GameCubeBootPhase.hpp"
@@ -42,6 +44,9 @@ namespace helengine::gamecube {
         /// Presents one fallback frame to the active framebuffer.
         void PresentFrame();
 
+        /// Resolves the currently visible diagnostic color for the next presented frame.
+        GXColor ResolvePresentedClearColor();
+
         /// Presents the current failure state forever after a boot-phase failure.
         void PresentFailureLoop();
 
@@ -71,6 +76,15 @@ namespace helengine::gamecube {
 
         /// Tracks whether the generated engine core finished initialization.
         bool EngineInitialized;
+
+        /// Counts the number of frames presented after generated-core initialization succeeds.
+        uint32_t PresentedFrameCount;
+
+        /// Tracks whether the current frame completed the generated update step before presentation.
+        bool UpdateCompletedSincePresent;
+
+        /// Tracks whether the current frame completed the generated draw step before presentation.
+        bool DrawCompletedSincePresent;
 
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         /// Stores the generated engine core instance when the build includes generated sources.

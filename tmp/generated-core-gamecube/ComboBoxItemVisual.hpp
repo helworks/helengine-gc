@@ -23,6 +23,8 @@ class int2;
 class ComboBoxItemVisual
 {
 public:
+    virtual ~ComboBoxItemVisual() = default;
+
     ::RoundedRectComponent* Background;
 
     ::RoundedRectComponent* get_Background();

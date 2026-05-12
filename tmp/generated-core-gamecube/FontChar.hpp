@@ -11,6 +11,8 @@ class float4;
 class FontChar
 {
 public:
+    virtual ~FontChar() = default;
+
     FontChar();
 
     float AdvanceWidth;
@@ -24,6 +26,4 @@ public:
     ::float4 SourceRect;
 
     FontChar(::float4 sourceRect, float offsetY, float advanceWidth, float bearingX, float bearingY);
-
-    FontChar(::float4 r, float offsetY);
 };

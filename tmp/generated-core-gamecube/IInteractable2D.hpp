@@ -9,7 +9,6 @@ class int2;
 
 #include "runtime/native_event.hpp"
 #include "PointerCursorKind.hpp"
-#include "Entity.hpp"
 #include "int2.hpp"
 #include "PointerInteraction.hpp"
 

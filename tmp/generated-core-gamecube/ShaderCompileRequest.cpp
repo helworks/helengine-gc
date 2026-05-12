@@ -2,34 +2,9 @@
 #undef DrawText
 #endif
 #include "ShaderCompileRequest.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
 
 List<::ShaderDefine*>* ShaderCompileRequest::get_Defines()
 {
@@ -85,17 +60,17 @@ throw new ArgumentNullException("source");
     if (String::IsNullOrWhiteSpace(programName))
     {
 throw ([&]() {
-auto __ctor_arg_0138f715 = "Program name must be provided.";
-auto __ctor_arg_8e0e6ccd = "programName";
-return new ArgumentException(__ctor_arg_0138f715, __ctor_arg_8e0e6ccd);
+auto __ctor_arg_00000186 = "Program name must be provided.";
+auto __ctor_arg_00000187 = "programName";
+return new ArgumentException(__ctor_arg_00000186, __ctor_arg_00000187);
 })();
     }
     if (String::IsNullOrWhiteSpace(entryPoint))
     {
 throw ([&]() {
-auto __ctor_arg_18048b2a = "Entry point must be provided.";
-auto __ctor_arg_d71b55fd = "entryPoint";
-return new ArgumentException(__ctor_arg_18048b2a, __ctor_arg_d71b55fd);
+auto __ctor_arg_00000188 = "Entry point must be provided.";
+auto __ctor_arg_00000189 = "entryPoint";
+return new ArgumentException(__ctor_arg_00000188, __ctor_arg_00000189);
 })();
     }
     if (shaderModel == nullptr)
@@ -105,9 +80,9 @@ throw new ArgumentNullException("shaderModel");
     if (String::IsNullOrWhiteSpace(variant))
     {
 throw ([&]() {
-auto __ctor_arg_19df7053 = "Variant name must be provided.";
-auto __ctor_arg_23d0cf43 = "variant";
-return new ArgumentException(__ctor_arg_19df7053, __ctor_arg_23d0cf43);
+auto __ctor_arg_0000018A = "Variant name must be provided.";
+auto __ctor_arg_0000018B = "variant";
+return new ArgumentException(__ctor_arg_0000018A, __ctor_arg_0000018B);
 })();
     }
     if (defines == nullptr)

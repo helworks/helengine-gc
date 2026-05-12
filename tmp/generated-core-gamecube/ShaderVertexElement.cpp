@@ -2,39 +2,8 @@
 #undef DrawText
 #endif
 #include "ShaderVertexElement.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_stack.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/directory.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/security/cryptography/sha256.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
-#include "system/text/string-builder.hpp"
 
 std::string ShaderVertexElement::get_Format()
 {
@@ -56,25 +25,25 @@ ShaderVertexElement::ShaderVertexElement(std::string semantic, int32_t index, st
     if (String::IsNullOrWhiteSpace(semantic))
     {
 throw ([&]() {
-auto __ctor_arg_ec1aecc5 = "Semantic must be provided.";
-auto __ctor_arg_061fc974 = "semantic";
-return new ArgumentException(__ctor_arg_ec1aecc5, __ctor_arg_061fc974);
+auto __ctor_arg_000001F6 = "Semantic must be provided.";
+auto __ctor_arg_000001F7 = "semantic";
+return new ArgumentException(__ctor_arg_000001F6, __ctor_arg_000001F7);
 })();
     }
     if (String::IsNullOrWhiteSpace(format))
     {
 throw ([&]() {
-auto __ctor_arg_f0018ce4 = "Format must be provided.";
-auto __ctor_arg_aba4101c = "format";
-return new ArgumentException(__ctor_arg_f0018ce4, __ctor_arg_aba4101c);
+auto __ctor_arg_000001F8 = "Format must be provided.";
+auto __ctor_arg_000001F9 = "format";
+return new ArgumentException(__ctor_arg_000001F8, __ctor_arg_000001F9);
 })();
     }
     if (index < 0)
     {
 throw ([&]() {
-auto __ctor_arg_bf52cd0f = "index";
-auto __ctor_arg_3f158800 = "Index cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_bf52cd0f, __ctor_arg_3f158800);
+auto __ctor_arg_000001FA = "index";
+auto __ctor_arg_000001FB = "Index cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_000001FA, __ctor_arg_000001FB);
 })();
     }
 this->Semantic = semantic;

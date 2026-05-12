@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11723.231
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "helengine.gamecube.builder", "helengine.gamecube.builder.csproj", "{A9C1D36B-7D4A-4F95-9A6D-8A1AF25F2A01}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "helengine.baseplatform", "..\..\helengine\engine\helengine.baseplatform\helengine.baseplatform.csproj", "{66F9599B-6DDF-27FE-2A0C-ABA5E2C19012}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A9C1D36B-7D4A-4F95-9A6D-8A1AF25F2A01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9C1D36B-7D4A-4F95-9A6D-8A1AF25F2A01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9C1D36B-7D4A-4F95-9A6D-8A1AF25F2A01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9C1D36B-7D4A-4F95-9A6D-8A1AF25F2A01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66F9599B-6DDF-27FE-2A0C-ABA5E2C19012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66F9599B-6DDF-27FE-2A0C-ABA5E2C19012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66F9599B-6DDF-27FE-2A0C-ABA5E2C19012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66F9599B-6DDF-27FE-2A0C-ABA5E2C19012}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7A9E97E0-10CF-4E84-AB2A-4B0A0801D4CE}
+	EndGlobalSection
+EndGlobal

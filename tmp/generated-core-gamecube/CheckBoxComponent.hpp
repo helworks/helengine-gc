@@ -30,6 +30,8 @@ class InteractableComponent;
 class CheckBoxComponent : public Component
 {
 public:
+    virtual ~CheckBoxComponent() = default;
+
     ::Event CheckedChanged;
 
     bool get_IsChecked();

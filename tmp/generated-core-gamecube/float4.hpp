@@ -14,6 +14,8 @@ class float3;
 class float4
 {
 public:
+    virtual ~float4() = default;
+
     float4();
 
     static ::float4 get_Identity();
@@ -35,6 +37,8 @@ public:
     static void CreateFromYawPitchRoll(float yaw, float pitch, float roll, ::float4& result);
 
     static ::float4 Inverse(::float4 value);
+
+    static ::float4 Lerp(::float4 start, ::float4 end, float amount);
 
     void Normalize();
 

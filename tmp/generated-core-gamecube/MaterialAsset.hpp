@@ -17,9 +17,21 @@ class MaterialRenderState;
 class MaterialAsset : public Asset
 {
 public:
+    virtual ~MaterialAsset() = default;
+
+    bool CastsShadows;
+
     Array<::MaterialConstantBufferAsset*>* ConstantBuffers;
 
+    std::string DiffuseTextureAssetId;
+
+    std::string EmissiveTextureAssetId;
+
+    std::string NormalTextureAssetId;
+
     std::string PixelProgram;
+
+    bool ReceivesShadows;
 
     ::MaterialRenderState* RenderState;
 

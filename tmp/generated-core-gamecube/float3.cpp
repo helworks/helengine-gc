@@ -4,42 +4,8 @@
 #include "float3.hpp"
 #include "runtime/native_string.hpp"
 #include "float3.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_equatable.hpp"
-#include "runtime/native_event.hpp"
-#include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_stack.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/binary_primitives.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/directory.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream-reader.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
 #include "system/math.hpp"
 #include "system/number.hpp"
-#include "system/security/cryptography/sha256.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
-#include "system/text/string-builder.hpp"
 
 float3::float3() : X(), Y(), Z()
 {
@@ -101,6 +67,11 @@ hashCode = (hashCode * 397) ^ Number::GetHashCode(this->Z);
 return hashCode;}
 }
 
+::float3 float3::Lerp(::float3 start, ::float3 end, float amount)
+{
+const double normalizedAmount = amount;
+return ::float3(static_cast<float>((start.X + ((end.X - start.X) * normalizedAmount))), static_cast<float>((start.Y + ((end.Y - start.Y) * normalizedAmount))), static_cast<float>((start.Z + ((end.Z - start.Z) * normalizedAmount))));}
+
 float3::float3(float x, float y, float z) : X(), Y(), Z()
 {
 this->X = x;
@@ -132,9 +103,9 @@ std::string float3::ToString()
 {
 return std::to_string(this->X) + std::string(", ") + std::to_string(Y) + std::string(", ") + std::to_string(Z);}
 
-::float3 float3::one;
+::float3 float3::one = ::float3(1.0f, 1.0f, 1.0f);
 
-::float3 float3::zero;
+::float3 float3::zero = ::float3(0.0f, 0.0f, 0.0f);
 
 bool operator!=(::float3 a, ::float3 b)
 {

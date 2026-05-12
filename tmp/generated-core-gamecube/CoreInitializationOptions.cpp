@@ -4,32 +4,12 @@
 #include "CoreInitializationOptions.hpp"
 #include "runtime/native_string.hpp"
 #include "runtime/native_exceptions.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
-#include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
 #include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
+#include "system/number.hpp"
+#include "runtime/native_exceptions.hpp"
+#include "runtime/native_string.hpp"
 
-CoreInitializationOptions::CoreInitializationOptions() : ContentRootPath(AppContext::BaseDirectory), RenderList2DInitialCapacity(64), RenderList3DInitialCapacity(64), RenderOrderLayers3D(4), UpdateListInitialCapacity(64), UpdateOrderLayers(4)
+CoreInitializationOptions::CoreInitializationOptions() : ContentRootPath(AppContext::BaseDirectory), DefaultUpdateDeltaSeconds(1.0 / 60.0), PhysicsFixedStepSeconds(1.0 / 60.0), RenderList2DInitialCapacity(64), RenderList3DInitialCapacity(64), RenderOrderLayers3D(4), SceneCatalog(), ScenePathResolver(), UpdateListInitialCapacity(64), UpdateOrderLayers(4)
 {
 }
 
@@ -41,6 +21,26 @@ return this->ContentRootPath;
 void CoreInitializationOptions::set_ContentRootPath(std::string value)
 {
 this->ContentRootPath = value;
+}
+
+double CoreInitializationOptions::get_DefaultUpdateDeltaSeconds()
+{
+return this->DefaultUpdateDeltaSeconds;
+}
+
+void CoreInitializationOptions::set_DefaultUpdateDeltaSeconds(double value)
+{
+this->DefaultUpdateDeltaSeconds = value;
+}
+
+double CoreInitializationOptions::get_PhysicsFixedStepSeconds()
+{
+return this->PhysicsFixedStepSeconds;
+}
+
+void CoreInitializationOptions::set_PhysicsFixedStepSeconds(double value)
+{
+this->PhysicsFixedStepSeconds = value;
 }
 
 int32_t CoreInitializationOptions::get_RenderList2DInitialCapacity()
@@ -71,6 +71,26 @@ return this->RenderOrderLayers3D;
 void CoreInitializationOptions::set_RenderOrderLayers3D(uint8_t value)
 {
 this->RenderOrderLayers3D = value;
+}
+
+::RuntimeSceneCatalog* CoreInitializationOptions::get_SceneCatalog()
+{
+return this->SceneCatalog;
+}
+
+void CoreInitializationOptions::set_SceneCatalog(::RuntimeSceneCatalog* value)
+{
+this->SceneCatalog = value;
+}
+
+::ISceneIdPathResolver* CoreInitializationOptions::get_ScenePathResolver()
+{
+return this->ScenePathResolver;
+}
+
+void CoreInitializationOptions::set_ScenePathResolver(::ISceneIdPathResolver* value)
+{
+this->ScenePathResolver = value;
 }
 
 int32_t CoreInitializationOptions::get_UpdateListInitialCapacity()
@@ -118,6 +138,14 @@ throw new InvalidOperationException("RenderList2DInitialCapacity cannot be negat
     if (this->RenderList3DInitialCapacity < 0)
     {
 throw new InvalidOperationException("RenderList3DInitialCapacity cannot be negative.");
+    }
+    if (Number::IsNaN(this->DefaultUpdateDeltaSeconds) || Number::IsInfinity(this->DefaultUpdateDeltaSeconds) || this->DefaultUpdateDeltaSeconds <= 0.0)
+    {
+throw new InvalidOperationException("DefaultUpdateDeltaSeconds must be a finite value greater than zero.");
+    }
+    if (Number::IsNaN(this->PhysicsFixedStepSeconds) || Number::IsInfinity(this->PhysicsFixedStepSeconds) || this->PhysicsFixedStepSeconds <= 0.0)
+    {
+throw new InvalidOperationException("PhysicsFixedStepSeconds must be a finite value greater than zero.");
     }
 }
 

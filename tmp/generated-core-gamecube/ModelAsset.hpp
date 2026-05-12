@@ -6,20 +6,30 @@
 
 class Asset;
 class float3;
+class ModelSubmeshAsset;
 class float2;
 
 #include "Asset.hpp"
-#include "runtime/array.hpp"
-#include "runtime/array.hpp"
-#include "runtime/array.hpp"
 #include "float3.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
+#include "runtime/array.hpp"
+#include "ModelSubmeshAsset.hpp"
 #include "runtime/array.hpp"
 #include "float2.hpp"
 
 class ModelAsset : public Asset
 {
 public:
+    virtual ~ModelAsset() = default;
+
     ModelAsset();
+
+    ::float3 BoundsMax;
+
+    ::float3 BoundsMin;
 
     Array<uint16_t>* Indices16;
 
@@ -28,6 +38,10 @@ public:
     Array<::float3>* Normals;
 
     Array<::float3>* Positions;
+
+    Array<uint8_t>* Ps2PackedMeshBytes;
+
+    Array<::ModelSubmeshAsset*>* Submeshes;
 
     Array<::float2>* TexCoords;
 

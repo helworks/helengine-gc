@@ -17,5 +17,7 @@ enum class EditorAssetBinaryValueKind
     ShaderAsset = 3,
     TextAsset = 4,
     MaterialAsset = 5,
-    SceneAsset = 6
+    SceneAsset = 6,
+    Ps2MaterialAsset = 7,
+    AnimationClipAsset = 8
 };

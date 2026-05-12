@@ -9,8 +9,8 @@ class RuntimeModel;
 class Entity;
 
 #include "RuntimeMaterial.hpp"
+#include "runtime/array.hpp"
 #include "RuntimeModel.hpp"
-#include "Entity.hpp"
 
 class IDrawable3D
 {
@@ -18,6 +18,8 @@ public:
     virtual ::RuntimeMaterial* get_Material() = 0;
 
     virtual void set_Material(::RuntimeMaterial* value) = 0;
+
+    virtual Array<::RuntimeMaterial*>* get_Materials() = 0;
 
     virtual ::RuntimeModel* get_Model() = 0;
 

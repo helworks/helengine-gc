@@ -8,13 +8,14 @@ class CameraClearSettings;
 class Entity;
 class IRenderQueue2D;
 class IRenderQueue3D;
+class CameraRenderSettings;
 class RenderTarget;
 class float4;
 
 #include "CameraClearSettings.hpp"
-#include "Entity.hpp"
 #include "IRenderQueue2D.hpp"
 #include "IRenderQueue3D.hpp"
+#include "CameraRenderSettings.hpp"
 #include "RenderTarget.hpp"
 #include "float4.hpp"
 
@@ -29,15 +30,27 @@ public:
 
     virtual void set_ClearSettings(::CameraClearSettings value) = 0;
 
+    virtual float get_FarPlaneDistance() = 0;
+
+    virtual void set_FarPlaneDistance(float value) = 0;
+
     virtual uint16_t get_LayerMask() = 0;
 
     virtual void set_LayerMask(uint16_t value) = 0;
+
+    virtual float get_NearPlaneDistance() = 0;
+
+    virtual void set_NearPlaneDistance(float value) = 0;
 
     virtual ::Entity* get_Parent() = 0;
 
     virtual ::IRenderQueue2D* get_RenderQueue2D() = 0;
 
     virtual ::IRenderQueue3D* get_RenderQueue3D() = 0;
+
+    virtual ::CameraRenderSettings* get_RenderSettings() = 0;
+
+    virtual void set_RenderSettings(::CameraRenderSettings* value) = 0;
 
     virtual ::RenderTarget* get_RenderTarget() = 0;
 

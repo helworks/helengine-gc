@@ -6,8 +6,6 @@
 
 class Entity;
 
-#include "Entity.hpp"
-
 class IDrawable2D
 {
 public:

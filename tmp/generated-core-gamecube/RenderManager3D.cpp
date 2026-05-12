@@ -3,23 +3,10 @@
 #endif
 #include "RenderManager3D.hpp"
 #include "runtime/native_exceptions.hpp"
+#include "RendererBackendCapabilityProfile.hpp"
 #include "int2.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
 #include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/bit_converter.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/text/encoding.hpp"
 
 RenderManager3D::RenderManager3D() : MainWindowSize(), WindowResized(), setOneWindow()
 {
@@ -61,6 +48,10 @@ void RenderManager3D::Dispose()
 void RenderManager3D::Draw()
 {
 }
+
+::RendererBackendCapabilityProfile* RenderManager3D::GetCapabilityProfile()
+{
+return new ::RendererBackendCapabilityProfile(true, false, false, false, 0, 0);}
 
 void RenderManager3D::InvalidateShaderResources(std::string shaderAssetId, ::ShaderAsset* shaderAsset)
 {

@@ -28,6 +28,10 @@ public:
 
     virtual void set_Font(::FontAsset* value) = 0;
 
+    virtual float get_FontScale() = 0;
+
+    virtual void set_FontScale(float value) = 0;
+
     virtual ::int2 get_Size() = 0;
 
     virtual void set_Size(::int2 value) = 0;
@@ -39,4 +43,8 @@ public:
     virtual std::string get_Text() = 0;
 
     virtual void set_Text(std::string value) = 0;
+
+    virtual bool get_WrapText() = 0;
+
+    virtual void set_WrapText(bool value) = 0;
 };

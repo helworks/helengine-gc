@@ -6,17 +6,19 @@
 
 class Component;
 class IRoundedRectDrawable2D;
+class IAnchorSizeProvider;
 class IDrawable2D;
 class Entity;
 class Core;
 class ObjectManager;
 class RenderManager2D;
-class byte4;
 class int2;
+class byte4;
 class float4;
 
 #include "Component.hpp"
 #include "IRoundedRectDrawable2D.hpp"
+#include "IAnchorSizeProvider.hpp"
 #include "IDrawable2D.hpp"
 #include "Component.hpp"
 #include "Entity.hpp"
@@ -24,14 +26,19 @@ class float4;
 #include "Core.hpp"
 #include "ObjectManager.hpp"
 #include "RenderManager2D.hpp"
-#include "byte4.hpp"
 #include "int2.hpp"
+#include "byte4.hpp"
+#include "RoundedRectCorners.hpp"
 #include "float4.hpp"
 #include "Entity.hpp"
 
-class RoundedRectComponent : public Component, public IRoundedRectDrawable2D
+class RoundedRectComponent : public Component, public IRoundedRectDrawable2D, public IAnchorSizeProvider
 {
 public:
+    virtual ~RoundedRectComponent() = default;
+
+    ::int2 get_AnchorSize();
+
     ::byte4 BorderColor;
 
     ::byte4 get_BorderColor();
@@ -46,6 +53,11 @@ public:
 
     ::byte4 get_Color();
     void set_Color(::byte4 value);
+
+    ::RoundedRectCorners Corners;
+
+    ::RoundedRectCorners get_Corners();
+    void set_Corners(::RoundedRectCorners value);
 
     ::byte4 FillColor;
 

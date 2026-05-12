@@ -24,6 +24,10 @@ public:
         return this->find(key) != this->end();
     }
 
+    void Clear() {
+        this->clear();
+    }
+
     bool Remove(const TKey& key) {
         return this->erase(key) > 0;
     }

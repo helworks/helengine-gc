@@ -43,6 +43,42 @@ public:
     }
 
     /// <summary>
+    /// Determines whether the supplied single-precision value is NaN.
+    /// </summary>
+    /// <param name="value">Value to inspect.</param>
+    /// <returns>True when the value is NaN; otherwise false.</returns>
+    static bool IsNaN(float value) {
+        return std::isnan(value);
+    }
+
+    /// <summary>
+    /// Determines whether the supplied double-precision value is NaN.
+    /// </summary>
+    /// <param name="value">Value to inspect.</param>
+    /// <returns>True when the value is NaN; otherwise false.</returns>
+    static bool IsNaN(double value) {
+        return std::isnan(value);
+    }
+
+    /// <summary>
+    /// Determines whether the supplied single-precision value is any infinity.
+    /// </summary>
+    /// <param name="value">Value to inspect.</param>
+    /// <returns>True when the value is infinite; otherwise false.</returns>
+    static bool IsInfinity(float value) {
+        return std::isinf(value);
+    }
+
+    /// <summary>
+    /// Determines whether the supplied double-precision value is any infinity.
+    /// </summary>
+    /// <param name="value">Value to inspect.</param>
+    /// <returns>True when the value is infinite; otherwise false.</returns>
+    static bool IsInfinity(double value) {
+        return std::isinf(value);
+    }
+
+    /// <summary>
     /// Produces a stable integer hash code for a primitive value using the native standard hash surface.
     /// </summary>
     /// <typeparam name="T">Primitive value type to hash.</typeparam>

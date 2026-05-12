@@ -10,39 +10,32 @@
 #include "MaterialAsset.hpp"
 #include "ShaderAsset.hpp"
 #include "RuntimeMaterial.hpp"
-#include "system/io/path.hpp"
-#include "RuntimeContentProcessorIds.hpp"
 #include "Core.hpp"
+#include "RenderManager3D.hpp"
+#include "TextureAsset.hpp"
+#include "RuntimeTexture.hpp"
+#include "RenderManager2D.hpp"
+#include "MaterialPropertyBlock.hpp"
+#include "FontAsset.hpp"
+#include "system/io/path.hpp"
+#include "system/io/file.hpp"
+#include "RuntimeContentProcessorIds.hpp"
+#include "StandardMaterialTextureBindingDefaults.hpp"
 #include "SceneAssetReferenceSourceKind.hpp"
 #include "ShaderTargetNames.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
-#include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
 #include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
+#include "runtime/native_exceptions.hpp"
+#include "runtime/native_string.hpp"
 #include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
+
+::FontAsset* RuntimeSceneAssetReferenceResolver::ResolveFont(::SceneAssetReference* reference)
+{
+    if (reference == nullptr)
+    {
+throw new ArgumentNullException("reference");
+    }
+const std::string fullPath = this->ResolveFileBackedAssetPath(reference);
+return this->AssetContentManager->Load<FontAsset*>(fullPath, RuntimeContentProcessorIds::FontAsset);}
 
 ::RuntimeMaterial* RuntimeSceneAssetReferenceResolver::ResolveMaterial(::SceneAssetReference* reference)
 {
@@ -53,7 +46,9 @@ throw new ArgumentNullException("reference");
 const std::string fullPath = this->ResolveFileBackedAssetPath(reference);
 ::MaterialAsset *materialAsset = this->AssetContentManager->Load<MaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);
 ::ShaderAsset *shaderAsset = this->AssetContentManager->Load<ShaderAsset*>(this->ResolveShaderPackagePath(materialAsset->ShaderAssetId), RuntimeContentProcessorIds::ShaderAsset);
-return Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromRaw(materialAsset, shaderAsset);}
+::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromRaw(materialAsset, shaderAsset);
+this->ApplyMaterialDiffuseTexture(runtimeMaterial, materialAsset, fullPath);
+return runtimeMaterial;}
 
 ::RuntimeModel* RuntimeSceneAssetReferenceResolver::ResolveModel(::SceneAssetReference* reference)
 {
@@ -74,9 +69,9 @@ throw new ArgumentNullException("assetContentManager");
     if (String::IsNullOrWhiteSpace(contentRootPath))
     {
 throw ([&]() {
-auto __ctor_arg_a29c7e78 = "Content root path must be provided.";
-auto __ctor_arg_f1252636 = "contentRootPath";
-return new ArgumentException(__ctor_arg_a29c7e78, __ctor_arg_f1252636);
+auto __ctor_arg_0000012B = "Content root path must be provided.";
+auto __ctor_arg_0000012C = "contentRootPath";
+return new ArgumentException(__ctor_arg_0000012B, __ctor_arg_0000012C);
 })();
     }
 this->ContentRootPath = Path::GetFullPath(contentRootPath);
@@ -84,9 +79,47 @@ this->AssetContentManager = assetContentManager;
 this->ShaderTarget = shaderTarget;
 }
 
-std::string RuntimeSceneAssetReferenceResolver::ShaderDirectoryName = "shaders";
+std::string RuntimeSceneAssetReferenceResolver::FontDirectoryName = "fonts";
 
-std::string RuntimeSceneAssetReferenceResolver::ShaderPackageExtension = ".shader.asset";
+std::string RuntimeSceneAssetReferenceResolver::ImportedTextureDirectoryName = "cooked/imported";
+
+std::string RuntimeSceneAssetReferenceResolver::ShaderDirectoryName = "cooked/shaders";
+
+std::string RuntimeSceneAssetReferenceResolver::ShaderPackageExtension = ".hasset";
+
+void RuntimeSceneAssetReferenceResolver::ApplyMaterialDiffuseTexture(::RuntimeMaterial* runtimeMaterial, ::MaterialAsset* materialAsset, std::string materialPath)
+{
+    if (runtimeMaterial == nullptr)
+    {
+throw new ArgumentNullException("runtimeMaterial");
+    }
+    if (materialAsset == nullptr)
+    {
+throw new ArgumentNullException("materialAsset");
+    }
+    if (String::IsNullOrWhiteSpace(materialPath))
+    {
+throw ([&]() {
+auto __ctor_arg_0000012D = "Material path must be provided.";
+auto __ctor_arg_0000012E = "materialPath";
+return new ArgumentException(__ctor_arg_0000012D, __ctor_arg_0000012E);
+})();
+    }
+    if (String::IsNullOrWhiteSpace(materialAsset->DiffuseTextureAssetId))
+    {
+return;    }
+std::string diffuseTexturePath;
+    if (this->TryResolveSourceTexturePath(materialPath, materialAsset->DiffuseTextureAssetId, diffuseTexturePath))
+    {
+::TextureAsset *sourceTextureAsset = this->AssetContentManager->Load<TextureAsset*>(diffuseTexturePath, RuntimeContentProcessorIds::TextureAsset);
+::RuntimeTexture *sourceRuntimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(sourceTextureAsset);
+runtimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, sourceRuntimeTexture);
+return;    }
+diffuseTexturePath = this->ResolveImportedTexturePackagePath(materialAsset->DiffuseTextureAssetId);
+::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(diffuseTexturePath, RuntimeContentProcessorIds::TextureAsset);
+::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);
+runtimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);
+}
 
 std::string RuntimeSceneAssetReferenceResolver::EnsureTrailingDirectorySeparator(std::string path)
 {
@@ -113,6 +146,14 @@ throw new InvalidOperationException("Packaged scene asset reference path must st
     }
 return fullPath;}
 
+std::string RuntimeSceneAssetReferenceResolver::ResolveImportedTexturePackagePath(std::string assetId)
+{
+    if (String::IsNullOrWhiteSpace(assetId))
+    {
+throw new InvalidOperationException("Packaged material assets must include a diffuse texture asset id before resolving imported textures.");
+    }
+return Path::Combine(this->ContentRootPath, ImportedTextureDirectoryName, assetId);}
+
 std::string RuntimeSceneAssetReferenceResolver::ResolveShaderPackagePath(std::string shaderAssetId)
 {
     if (String::IsNullOrWhiteSpace(shaderAssetId))
@@ -121,4 +162,31 @@ throw new InvalidOperationException("Packaged material assets must include a sha
     }
 const std::string fileName = String::Concat(shaderAssetId, ".", ShaderTargetNames::GetTargetName(this->ShaderTarget), ShaderPackageExtension);
 return Path::Combine(this->ContentRootPath, ShaderDirectoryName, fileName);}
+
+bool RuntimeSceneAssetReferenceResolver::TryResolveSourceTexturePath(std::string materialPath, std::string assetId, std::string& texturePath)
+{
+    if (String::IsNullOrWhiteSpace(materialPath))
+    {
+throw ([&]() {
+auto __ctor_arg_0000012F = "Material path must be provided.";
+auto __ctor_arg_00000130 = "materialPath";
+return new ArgumentException(__ctor_arg_0000012F, __ctor_arg_00000130);
+})();
+    }
+    if (String::IsNullOrWhiteSpace(assetId))
+    {
+texturePath = String::Empty;
+return false;    }
+const std::string materialDirectoryPath = Path::GetDirectoryName(Path::GetFullPath(materialPath));
+    if (String::IsNullOrWhiteSpace(materialDirectoryPath))
+    {
+texturePath = String::Empty;
+return false;    }
+const std::string candidateTexturePath = Path::IsPathRooted(assetId) ? Path::GetFullPath(assetId) : Path::GetFullPath(Path::Combine(materialDirectoryPath, assetId));
+    if (File::Exists(candidateTexturePath))
+    {
+texturePath = candidateTexturePath;
+return true;    }
+texturePath = String::Empty;
+return false;}
 

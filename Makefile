@@ -10,6 +10,7 @@ TARGET_ELF := $(BUILD_DIR)/helengine_gc.elf
 TARGET_DOL := $(BUILD_DIR)/helengine_gc.dol
 SOURCE_DIR := src
 LIBOGC_GAMECUBE_LIB_DIR := $(LIBOGC)/lib/cube
+GENERATED_CONFIG := $(HELENGINE_CORE_CPP_ROOT)/helcpp_config.hpp
 SOURCES := \
 	$(SOURCE_DIR)/main.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeApplication.cpp
@@ -30,18 +31,33 @@ ifeq ($(strip $(HELENGINE_CORE_CPP_ROOT)),)
 CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_GENERATED_CORE=0
 else
 GENERATED_CORE_SOURCE := $(HELENGINE_CORE_CPP_ROOT)/helengine_core_unity.cpp
-ifeq ($(wildcard $(HELENGINE_CORE_CPP_ROOT)/helcpp_config.hpp),)
+ifeq ($(wildcard $(GENERATED_CONFIG)),)
 $(error HELENGINE_CORE_CPP_ROOT does not contain helcpp_config.hpp)
 endif
 ifeq ($(wildcard $(GENERATED_CORE_SOURCE)),)
 $(error HELENGINE_CORE_CPP_ROOT does not contain helengine_core_unity.cpp)
 endif
+ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_COMPILER_GCC 1$$'),0)
+$(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_COMPILER_GCC 1)
+endif
+ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_PLATFORM_GAMECUBE 1$$'),0)
+$(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_PLATFORM_GAMECUBE 1)
+endif
+ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_PLATFORM_IS_LITTLE_ENDIAN 0$$'),0)
+$(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_PLATFORM_IS_LITTLE_ENDIAN 0)
+endif
+ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_PLATFORM_IS_WINDOWS_HOST 0$$'),0)
+$(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_PLATFORM_IS_WINDOWS_HOST 0)
+endif
 GENERATED_BRIDGE_SOURCES := \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeInputManager.cpp \
-	$(SOURCE_DIR)/platform/gamecube/GameCubeKeyboard.cpp \
-	$(SOURCE_DIR)/platform/gamecube/GameCubeMouse.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRenderManager2D.cpp \
-	$(SOURCE_DIR)/platform/gamecube/GameCubeRenderManager3D.cpp
+	$(SOURCE_DIR)/platform/gamecube/GameCubeRenderManager3D.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeCubeTestSceneInstaller.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneBootstrap.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneRenderBridge.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeMeshCache.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeRasterRenderer.cpp
 CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_GENERATED_CORE=1 -I$(HELENGINE_CORE_CPP_ROOT)
 endif
 

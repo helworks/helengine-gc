@@ -2,22 +2,65 @@
 #undef DrawText
 #endif
 #include "RuntimeModel.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/bit_converter.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/text/encoding.hpp"
+#include "runtime/array.hpp"
+#include "RuntimeSubmesh.hpp"
+#include "runtime/array.hpp"
+#include "runtime/native_exceptions.hpp"
+
+::float3 RuntimeModel::get_BoundsMax()
+{
+return this->BoundsMax;
+}
+
+void RuntimeModel::set_BoundsMax(::float3 value)
+{
+this->BoundsMax = value;
+}
+
+::float3 RuntimeModel::get_BoundsMin()
+{
+return this->BoundsMin;
+}
+
+void RuntimeModel::set_BoundsMin(::float3 value)
+{
+this->BoundsMin = value;
+}
+
+Array<::RuntimeSubmesh*>* RuntimeModel::get_Submeshes()
+{
+return this->Submeshes;
+}
+
+void RuntimeModel::set_Submeshes(Array<::RuntimeSubmesh*>* value)
+{
+this->Submeshes = value;
+}
+
+void RuntimeModel::SetBounds(::float3 boundsMin, ::float3 boundsMax)
+{
+this->set_BoundsMin(boundsMin);
+this->set_BoundsMax(boundsMax);
+}
+
+void RuntimeModel::SetSubmeshes(Array<::RuntimeSubmesh*>* submeshes)
+{
+    if (submeshes == nullptr)
+    {
+throw new ArgumentNullException("submeshes");
+    }
+Array<::RuntimeSubmesh*> *copiedSubmeshes = new Array<RuntimeSubmesh*>(submeshes->Length);
+for (int32_t submeshIndex = 0; submeshIndex < submeshes->Length; submeshIndex++) {
+::RuntimeSubmesh *submesh = (*submeshes)[submeshIndex];
+    if (submesh == nullptr)
+    {
+throw new InvalidOperationException("Runtime model submesh collections cannot contain null entries.");
+    }
+(*copiedSubmeshes)[submeshIndex] = submesh;
+}
+this->set_Submeshes(copiedSubmeshes);
+}
 
 std::string RuntimeModel::get_Id()
 {
@@ -27,5 +70,10 @@ return this->RuntimeData::get_Id();
 void RuntimeModel::set_Id(std::string value)
 {
 this->RuntimeData::set_Id(value);
+}
+
+RuntimeModel::RuntimeModel() : BoundsMax(), BoundsMin(), Submeshes()
+{
+this->set_Submeshes(Array<RuntimeSubmesh*>::Empty());
 }
 

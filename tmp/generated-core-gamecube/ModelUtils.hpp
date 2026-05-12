@@ -17,7 +17,15 @@ class float3;
 class ModelUtils
 {
 public:
+    virtual ~ModelUtils() = default;
+
     static ::ModelAsset* GenerateCubeMesh(::float3 position, ::float3 scale);
 
     static ::ModelAsset* GeneratePlaneMesh(::float3 position, ::float3 scale);
+
+    static ::ModelAsset* GenerateSphereMesh(::float3 position, ::float3 scale);
+private:
+    static int32_t SphereLatitudeSegmentCount;
+
+    static int32_t SphereLongitudeSegmentCount;
 };

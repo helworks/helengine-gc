@@ -8,46 +8,14 @@
 #include "Component.hpp"
 #include "Entity.hpp"
 #include "ObjectManager.hpp"
+#include "CameraProjectionUtils.hpp"
 #include "float4.hpp"
 #include "CameraClearSettings.hpp"
+#include "CameraRenderSettings.hpp"
 #include "RenderList2D.hpp"
 #include "RenderList3D.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_equatable.hpp"
 #include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_stack.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/binary_primitives.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/directory.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream-reader.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/security/cryptography/sha256.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
-#include "system/text/string-builder.hpp"
 
 uint8_t CameraComponent::get_CameraDrawOrder()
 {
@@ -79,6 +47,15 @@ void CameraComponent::set_ClearSettings(::CameraClearSettings value)
 this->ClearSettings = value;
 }
 
+float CameraComponent::get_FarPlaneDistance()
+{
+return this->FarPlaneDistanceValue;}
+
+void CameraComponent::set_FarPlaneDistance(float value)
+{
+this->FarPlaneDistanceValue = CameraProjectionUtils::ClampFarPlaneDistance(this->NearPlaneDistanceValue, value);
+}
+
 uint16_t CameraComponent::get_LayerMask()
 {
 return this->layerMask;}
@@ -99,6 +76,16 @@ this->layerMask = value;
     }
 }
 
+float CameraComponent::get_NearPlaneDistance()
+{
+return this->NearPlaneDistanceValue;}
+
+void CameraComponent::set_NearPlaneDistance(float value)
+{
+this->NearPlaneDistanceValue = CameraProjectionUtils::ClampNearPlaneDistance(value, this->FarPlaneDistanceValue);
+this->FarPlaneDistanceValue = CameraProjectionUtils::ClampFarPlaneDistance(this->NearPlaneDistanceValue, this->FarPlaneDistanceValue);
+}
+
 ::IRenderQueue2D* CameraComponent::get_RenderQueue2D()
 {
 return this->renderList2D;}
@@ -106,6 +93,15 @@ return this->renderList2D;}
 ::IRenderQueue3D* CameraComponent::get_RenderQueue3D()
 {
 return this->renderList3D;}
+
+::CameraRenderSettings* CameraComponent::get_RenderSettings()
+{
+return this->RenderSettingsValue;}
+
+void CameraComponent::set_RenderSettings(::CameraRenderSettings* value)
+{
+this->RenderSettingsValue = (value != nullptr ? value : throw new ArgumentNullException("value"));
+}
 
 ::RenderTarget* CameraComponent::get_RenderTarget()
 {
@@ -119,27 +115,33 @@ this->RenderTarget = value;
 
 ::float4 CameraComponent::get_Viewport()
 {
-return this->Viewport;
-}
+return this->viewportValue;}
 
 void CameraComponent::set_Viewport(::float4 value)
 {
-this->Viewport = value;
+    if (this->viewportValue.X != value.X || this->viewportValue.Y != value.Y || this->viewportValue.Z != value.Z || this->viewportValue.W != value.W)
+    {
+this->viewportValue = value;
+this->RaiseViewportChanged();
+    }
 }
 
-CameraComponent::CameraComponent() : ClearSettings(), RenderTarget(), Viewport(), cameraDrawOrder(), layerMask(), renderList2D(), renderList3D()
+CameraComponent::CameraComponent() : ClearSettings(), RenderTarget(), ViewportChanged(), FarPlaneDistanceValue(), NearPlaneDistanceValue(), RenderSettingsValue(), cameraDrawOrder(), layerMask(), renderList2D(), renderList3D(), viewportValue()
 {
 this->set_LayerMask(0b11111111);
-this->set_Viewport(::float4(0, 0, 1, 1));
+this->viewportValue = ::float4(0, 0, 1, 1);
+this->NearPlaneDistanceValue = 0.1f;
+this->FarPlaneDistanceValue = 100.0f;
 this->set_ClearSettings(([&]() {
-auto __ctor_arg_37b34d70 = true;
-auto __ctor_arg_fb3b46ec = ::float4(0.0f, 0.0f, 0.0f, 0.0f);
-auto __ctor_arg_3546587c = true;
-auto __ctor_arg_fc1a16cd = 1.0f;
-auto __ctor_arg_1b2ec795 = false;
-auto __ctor_arg_7d067aed = 0;
-return ::CameraClearSettings(__ctor_arg_37b34d70, __ctor_arg_fb3b46ec, __ctor_arg_3546587c, __ctor_arg_fc1a16cd, __ctor_arg_1b2ec795, __ctor_arg_7d067aed);
+auto __ctor_arg_0000027C = true;
+auto __ctor_arg_0000027D = ::float4(0.0f, 0.0f, 0.0f, 0.0f);
+auto __ctor_arg_0000027E = true;
+auto __ctor_arg_0000027F = 1.0f;
+auto __ctor_arg_00000280 = false;
+auto __ctor_arg_00000281 = 0;
+return ::CameraClearSettings(__ctor_arg_0000027C, __ctor_arg_0000027D, __ctor_arg_0000027E, __ctor_arg_0000027F, __ctor_arg_00000280, __ctor_arg_00000281);
 })());
+this->set_RenderSettings(new ::CameraRenderSettings());
 this->InitializeLists();
 }
 
@@ -184,5 +186,13 @@ throw new InvalidOperationException("Core initialization options must be set bef
 settings->Normalize();
 this->renderList2D = new ::RenderList2D(settings->get_RenderList2DInitialCapacity());
 this->renderList3D = new ::RenderList3D(settings->get_RenderList3DInitialCapacity());
+}
+
+void CameraComponent::RaiseViewportChanged()
+{
+    if (true)
+    {
+this->ViewportChanged.Invoke();
+    }
 }
 

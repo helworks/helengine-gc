@@ -3,35 +3,8 @@
 #endif
 #include "SceneEntityAsset.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
-#include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
 
-SceneEntityAsset::SceneEntityAsset() : Children(Array<SceneEntityAsset*>::Empty()), Components(Array<SceneComponentAssetRecord*>::Empty()), LocalOrientation(), LocalPosition(), LocalScale(), Name()
+SceneEntityAsset::SceneEntityAsset() : Children(Array<SceneEntityAsset*>::Empty()), Components(Array<SceneComponentAssetRecord*>::Empty()), Id(), LocalOrientation(), LocalPosition(), LocalScale(), Name(), PlatformComponentOverrides(Array<SceneEntityPlatformComponentOverrideAsset*>::Empty()), PlatformTransformOverrides(Array<SceneEntityPlatformTransformOverrideAsset*>::Empty())
 {
 }
 
@@ -53,6 +26,16 @@ return this->Components;
 void SceneEntityAsset::set_Components(Array<::SceneComponentAssetRecord*>* value)
 {
 this->Components = value;
+}
+
+std::string SceneEntityAsset::get_Id()
+{
+return this->Id;
+}
+
+void SceneEntityAsset::set_Id(std::string value)
+{
+this->Id = value;
 }
 
 ::float4 SceneEntityAsset::get_LocalOrientation()
@@ -93,5 +76,25 @@ return this->Name;
 void SceneEntityAsset::set_Name(std::string value)
 {
 this->Name = value;
+}
+
+Array<::SceneEntityPlatformComponentOverrideAsset*>* SceneEntityAsset::get_PlatformComponentOverrides()
+{
+return this->PlatformComponentOverrides;
+}
+
+void SceneEntityAsset::set_PlatformComponentOverrides(Array<::SceneEntityPlatformComponentOverrideAsset*>* value)
+{
+this->PlatformComponentOverrides = value;
+}
+
+Array<::SceneEntityPlatformTransformOverrideAsset*>* SceneEntityAsset::get_PlatformTransformOverrides()
+{
+return this->PlatformTransformOverrides;
+}
+
+void SceneEntityAsset::set_PlatformTransformOverrides(Array<::SceneEntityPlatformTransformOverrideAsset*>* value)
+{
+this->PlatformTransformOverrides = value;
 }
 

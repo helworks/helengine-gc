@@ -6,14 +6,13 @@
 
 class Component;
 class IUpdateable;
-class Entity;
 class Core;
 class ObjectManager;
+class Entity;
 
 #include "Component.hpp"
 #include "IUpdateable.hpp"
 #include "Component.hpp"
-#include "Entity.hpp"
 #include "Core.hpp"
 #include "Core.hpp"
 #include "ObjectManager.hpp"
@@ -22,6 +21,8 @@ class ObjectManager;
 class UpdateComponent : public Component, public IUpdateable
 {
 public:
+    virtual ~UpdateComponent() = default;
+
     UpdateComponent();
 
     uint8_t get_UpdateOrder();

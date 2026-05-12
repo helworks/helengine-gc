@@ -4,18 +4,35 @@
 #endif
 #include <cstdint>
 
+class RuntimeSceneCatalog;
+class ISceneIdPathResolver;
+
 #include "runtime/native_string.hpp"
 #include "runtime/native_exceptions.hpp"
+#include "RuntimeSceneCatalog.hpp"
+#include "ISceneIdPathResolver.hpp"
 
 class CoreInitializationOptions
 {
 public:
+    virtual ~CoreInitializationOptions() = default;
+
     CoreInitializationOptions();
 
     std::string ContentRootPath;
 
     std::string get_ContentRootPath();
     void set_ContentRootPath(std::string value);
+
+    double DefaultUpdateDeltaSeconds;
+
+    double get_DefaultUpdateDeltaSeconds();
+    void set_DefaultUpdateDeltaSeconds(double value);
+
+    double PhysicsFixedStepSeconds;
+
+    double get_PhysicsFixedStepSeconds();
+    void set_PhysicsFixedStepSeconds(double value);
 
     int32_t RenderList2DInitialCapacity;
 
@@ -31,6 +48,16 @@ public:
 
     uint8_t get_RenderOrderLayers3D();
     void set_RenderOrderLayers3D(uint8_t value);
+
+    ::RuntimeSceneCatalog* SceneCatalog;
+
+    ::RuntimeSceneCatalog* get_SceneCatalog();
+    void set_SceneCatalog(::RuntimeSceneCatalog* value);
+
+    ::ISceneIdPathResolver* ScenePathResolver;
+
+    ::ISceneIdPathResolver* get_ScenePathResolver();
+    void set_ScenePathResolver(::ISceneIdPathResolver* value);
 
     int32_t UpdateListInitialCapacity;
 

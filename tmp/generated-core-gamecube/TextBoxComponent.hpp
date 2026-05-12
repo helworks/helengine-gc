@@ -9,8 +9,12 @@ class IFocusTarget;
 class RenderOrder2D;
 class Entity;
 class TextBoxUpdateComponent;
-class InputManager;
+class TextBoxEditState;
+class InputSystem;
 class Core;
+class TextBoxShortcutRegistry;
+class ITextClipboardService;
+class FontChar;
 class FontTightMetrics;
 class FontAsset;
 class float3;
@@ -29,12 +33,16 @@ class TextComponent;
 #include "Entity.hpp"
 #include "TextBoxUpdateComponent.hpp"
 #include "TextBoxUpdateComponent.hpp"
-#include "InputManager.hpp"
+#include "TextBoxEditState.hpp"
+#include "InputSystem.hpp"
 #include "Core.hpp"
 #include "Core.hpp"
+#include "TextBoxShortcutRegistry.hpp"
+#include "ITextClipboardService.hpp"
 #include "runtime/native_string.hpp"
 #include "system/math.hpp"
 #include "system/math.hpp"
+#include "FontChar.hpp"
 #include "FontTightMetrics.hpp"
 #include "FontAsset.hpp"
 #include "float3.hpp"
@@ -42,17 +50,20 @@ class TextComponent;
 #include "IFocusGroup.hpp"
 #include "FontAsset.hpp"
 #include "int2.hpp"
+#include "TextBoxEditState.hpp"
 #include "RoundedRectComponent.hpp"
 #include "InteractableComponent.hpp"
 #include "runtime/native_datetime.hpp"
-#include "TextComponent.hpp"
 #include "Entity.hpp"
+#include "TextComponent.hpp"
 #include "Keys.hpp"
 #include "PointerInteraction.hpp"
 
 class TextBoxComponent : public Component, public IFocusTarget
 {
 public:
+    virtual ~TextBoxComponent() = default;
+
     bool get_CanReceiveFocus();
 
     float get_CurrentShakeOffsetX();
@@ -106,7 +117,7 @@ public:
 
     void ComponentRemoved(::Entity* entity);
 
-    bool ContainsScreenPoint(::int2 point);
+    bool ContainsScreenPoint(int32_t x, int32_t y);
 
     void ParentEnabledChange(bool newEnabled);
 
@@ -138,13 +149,13 @@ private:
 
     static ::TextBoxComponent* focusedTextBox;
 
+    ::TextBoxEditState* EditState;
+
     uint8_t backgroundRenderOrder;
 
     ::RoundedRectComponent* backgroundSprite;
 
     float currentShakeOffsetX;
-
-    int32_t cursorPosition;
 
     bool cursorVisible;
 
@@ -158,11 +169,17 @@ private:
 
     bool isInvalid;
 
+    bool isSelectingText;
+
     bool isShakeActive;
 
     DateTime lastCursorBlink;
 
     std::string placeholder;
+
+    ::Entity* selectionEntity;
+
+    ::RoundedRectComponent* selectionSprite;
 
     ::float3 shakeBaseLocalPosition;
 
@@ -170,23 +187,33 @@ private:
 
     ::int2 size;
 
-    std::string text;
-
     ::TextComponent* textComponent;
 
     ::Entity* textEntity;
 
     uint8_t textRenderOrder;
 
-    void HandleKeyPress(::Keys key, bool isShiftPressed);
+    void HandleKeyPress(::Keys key, bool isShiftPressed, bool isControlPressed, bool isAltPressed);
 
     char KeyToChar(::Keys key, bool isShiftPressed);
 
     void OnCursorEvent(::int2 relPos, ::int2 delta, ::PointerInteraction state);
 
+    double ResolveCharacterAdvance(char character);
+
+    int32_t ResolveCursorPositionFromClick(int32_t clickX);
+
+    double ResolveTextWidth(int32_t startIndex, int32_t endIndex);
+
     void SetFocusedState(bool value, bool submitOnBlur);
 
+    bool TryHandleShortcut(::Keys key, bool isShiftPressed, bool isControlPressed, bool isAltPressed, bool& textChanged, bool& layoutChanged);
+
     void UpdateFocusVisual();
+
+    void UpdateSelectionVisual();
+
+    void UpdateSelectionVisual(double textY, double lineHeight);
 
     void UpdateShakeAnimation();
 

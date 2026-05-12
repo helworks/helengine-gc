@@ -2,57 +2,71 @@
 #undef DrawText
 #endif
 #include "AnchorComponent.hpp"
+#include "runtime/native_exceptions.hpp"
+#include "AnchorSpace.hpp"
 #include "int2.hpp"
-#include "Core.hpp"
-#include "RenderManager3D.hpp"
-#include "Component.hpp"
 #include "float3.hpp"
 #include "Entity.hpp"
-#include "AnchorData.hpp"
+#include "float4.hpp"
 #include "runtime/native_nullable.hpp"
+#include "Component.hpp"
+#include "IAnchorBoundsProvider.hpp"
+#include "IAnchorSizeProvider.hpp"
 #include "runtime/native_string.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
+#include "Core.hpp"
+#include "float2.hpp"
 #include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
 #include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_stack.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/directory.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/security/cryptography/sha256.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
-#include "system/text/string-builder.hpp"
 
-AnchorComponent::AnchorComponent() : anchorData()
+AnchorComponent::AnchorComponent() : AnchorDistances(), AnchorFlags(), IsSubscribedToWindowResize(), anchorBoundsProvider()
 {
+}
+
+uint8_t AnchorComponent::BottomAnchorFlag = 8;
+
+uint8_t AnchorComponent::LeftAnchorFlag = 1;
+
+uint8_t AnchorComponent::RightAnchorFlag = 2;
+
+uint8_t AnchorComponent::TopAnchorFlag = 4;
+
+::float4 AnchorComponent::get_AnchorDistances()
+{
+return this->AnchorDistances;
+}
+
+void AnchorComponent::set_AnchorDistances(::float4 value)
+{
+this->AnchorDistances = value;
+}
+
+uint8_t AnchorComponent::get_AnchorFlags()
+{
+return this->AnchorFlags;
+}
+
+void AnchorComponent::set_AnchorFlags(uint8_t value)
+{
+this->AnchorFlags = value;
 }
 
 bool AnchorComponent::get_IsAnchored()
 {
-return this->anchorData != nullptr;
+return this->AnchorFlags != 0;
+}
+
+void AnchorComponent::ComponentAdded(::Entity* entity)
+{
+Component::ComponentAdded(entity);
+    if (this->get_IsAnchored())
+    {
+this->RefreshSubscriptions();
+this->RefreshAnchoring();
+    }
 }
 
 void AnchorComponent::ComponentRemoved(::Entity* entity)
@@ -63,11 +77,10 @@ this->DisableAnchoring();
 
 void AnchorComponent::DisableAnchoring()
 {
-    if (this->anchorData != nullptr)
-    {
-Core::get_Instance()->get_RenderManager3D()->WindowResized -= &AnchorComponent::OnWindowResized;
-this->anchorData = nullptr;
-    }
+this->DetachFromBoundsProvider();
+this->DetachFromWindowResize();
+this->set_AnchorFlags(0);
+this->set_AnchorDistances(::float4(0.0f, 0.0f, 0.0f, 0.0f));
 }
 
 void AnchorComponent::EnableAnchoring(bool left, bool right, bool top, bool bottom)
@@ -76,16 +89,43 @@ void AnchorComponent::EnableAnchoring(bool left, bool right, bool top, bool bott
     {
 this->DisableAnchoring();
 return;    }
-::int2 windowSize = Core::get_Instance()->get_RenderManager3D()->get_MainWindowSize();
-this->anchorData = ([&]() {
-auto __object_0ee4172c = new ::AnchorData();
-__object_0ee4172c->set_LeftDistance(left ? Nullable<float>(Parent->get_Position().X) : Nullable<float>(nullptr));
-__object_0ee4172c->set_RightDistance(right ? Nullable<float>(windowSize.X - Parent->get_Position().X) : Nullable<float>(nullptr));
-__object_0ee4172c->set_TopDistance(top ? Nullable<float>(Parent->get_Position().Y) : Nullable<float>(nullptr));
-__object_0ee4172c->set_BottomDistance(bottom ? Nullable<float>(windowSize.Y - Parent->get_Position().Y) : Nullable<float>(nullptr));
-return __object_0ee4172c;
-})();
-Core::get_Instance()->get_RenderManager3D()->WindowResized += &AnchorComponent::OnWindowResized;
+    if (Parent == nullptr)
+    {
+throw new InvalidOperationException("AnchorComponent must be attached before anchoring can be enabled.");
+    }
+this->RefreshSubscriptions();
+::AnchorSpace *anchorSpace = this->GetAnchorSpace();
+::int2 anchoredSize = this->GetAnchorSize();
+::float3 localPosition = Parent->get_LocalPosition();
+uint8_t anchorFlags = 0;
+::float4 anchorDistances = ::float4(0.0f, 0.0f, 0.0f, 0.0f);
+    if (left)
+    {
+anchorFlags |= LeftAnchorFlag;
+anchorDistances.X = localPosition.X - anchorSpace->get_Origin().X;
+    }
+    if (right)
+    {
+anchorFlags |= RightAnchorFlag;
+anchorDistances.Y = anchorSpace->get_Size().X - (localPosition.X - anchorSpace->get_Origin().X) - anchoredSize.X;
+    }
+    if (top)
+    {
+anchorFlags |= TopAnchorFlag;
+anchorDistances.Z = localPosition.Y - anchorSpace->get_Origin().Y;
+    }
+    if (bottom)
+    {
+anchorFlags |= BottomAnchorFlag;
+anchorDistances.W = anchorSpace->get_Size().Y - (localPosition.Y - anchorSpace->get_Origin().Y) - anchoredSize.Y;
+    }
+this->set_AnchorFlags(anchorFlags);
+this->set_AnchorDistances(anchorDistances);
+    if (Parent != nullptr && Core::get_Instance() != nullptr && Core::get_Instance()->get_RenderManager3D() != nullptr)
+    {
+this->RefreshSubscriptions();
+this->RefreshAnchoring();
+    }
 }
 
 std::string AnchorComponent::GetAnchorInfo()
@@ -95,38 +135,103 @@ std::string AnchorComponent::GetAnchorInfo()
 return "Not anchored";    }
 std::string info = "Anchored to: ";
 List<std::string> *anchors = new List<std::string>();
-    if (this->anchorData->get_LeftDistance().HasValue)
+    if ((this->AnchorFlags & LeftAnchorFlag) != 0)
     {
-anchors->Add(std::string("Left (") + std::to_string(this->anchorData->get_LeftDistance().Value) + std::string("px)"));
+anchors->Add(std::string("Left (") + std::to_string(this->AnchorDistances.X) + std::string("px)"));
     }
-    if (this->anchorData->get_RightDistance().HasValue)
+    if ((this->AnchorFlags & RightAnchorFlag) != 0)
     {
-anchors->Add(std::string("Right (") + std::to_string(this->anchorData->get_RightDistance().Value) + std::string("px)"));
+anchors->Add(std::string("Right (") + std::to_string(this->AnchorDistances.Y) + std::string("px)"));
     }
-    if (this->anchorData->get_TopDistance().HasValue)
+    if ((this->AnchorFlags & TopAnchorFlag) != 0)
     {
-anchors->Add(std::string("Top (") + std::to_string(this->anchorData->get_TopDistance().Value) + std::string("px)"));
+anchors->Add(std::string("Top (") + std::to_string(this->AnchorDistances.Z) + std::string("px)"));
     }
-    if (this->anchorData->get_BottomDistance().HasValue)
+    if ((this->AnchorFlags & BottomAnchorFlag) != 0)
     {
-anchors->Add(std::string("Bottom (") + std::to_string(this->anchorData->get_BottomDistance().Value) + std::string("px)"));
+anchors->Add(std::string("Bottom (") + std::to_string(this->AnchorDistances.W) + std::string("px)"));
     }
 return String::Concat(info, String::JoinArray(", ", anchors->ToArray()));}
 
+void AnchorComponent::ParentEnabledChange(bool newEnabled)
+{
+Component::ParentEnabledChange(newEnabled);
+    if (!this->get_IsAnchored())
+    {
+return;    }
+    if (newEnabled)
+    {
+this->RefreshSubscriptions();
+this->RefreshAnchoring();
+    }
+else {
+this->DetachFromBoundsProvider();
+this->DetachFromWindowResize();
+}
+}
+
+void AnchorComponent::RefreshAnchoring()
+{
+    if (!this->get_IsAnchored() || Parent == nullptr)
+    {
+return;    }
+this->RefreshSubscriptions();
+::AnchorSpace *anchorSpace = this->GetAnchorSpace();
+::int2 anchorSize = this->GetAnchorSize();
+::float3 localPosition = Parent->get_LocalPosition();
+    if ((this->AnchorFlags & LeftAnchorFlag) != 0)
+    {
+localPosition.X = anchorSpace->get_Origin().X + this->AnchorDistances.X;
+    }
+else     if ((this->AnchorFlags & RightAnchorFlag) != 0)
+    {
+localPosition.X = anchorSpace->get_Origin().X + anchorSpace->get_Size().X - this->AnchorDistances.Y - anchorSize.X;
+    }
+    if ((this->AnchorFlags & TopAnchorFlag) != 0)
+    {
+localPosition.Y = anchorSpace->get_Origin().Y + this->AnchorDistances.Z;
+    }
+else     if ((this->AnchorFlags & BottomAnchorFlag) != 0)
+    {
+localPosition.Y = anchorSpace->get_Origin().Y + anchorSpace->get_Size().Y - this->AnchorDistances.W - anchorSize.Y;
+    }
+Parent->set_LocalPosition(localPosition);
+}
+
 void AnchorComponent::SetAnchorDistances(Nullable<float> left, Nullable<float> right, Nullable<float> top, Nullable<float> bottom)
 {
-    if (this->anchorData == nullptr)
-    {
-this->anchorData = new ::AnchorData();
-Core::get_Instance()->get_RenderManager3D()->WindowResized += &AnchorComponent::OnWindowResized;
-    }
-this->anchorData->set_LeftDistance(left);
-this->anchorData->set_RightDistance(right);
-this->anchorData->set_TopDistance(top);
-this->anchorData->set_BottomDistance(bottom);
     if (!left.HasValue && !right.HasValue && !top.HasValue && !bottom.HasValue)
     {
 this->DisableAnchoring();
+return;    }
+uint8_t anchorFlags = 0;
+::float4 anchorDistances = ::float4(0.0f, 0.0f, 0.0f, 0.0f);
+    if (left.HasValue)
+    {
+anchorFlags |= LeftAnchorFlag;
+anchorDistances.X = left.Value;
+    }
+    if (right.HasValue)
+    {
+anchorFlags |= RightAnchorFlag;
+anchorDistances.Y = right.Value;
+    }
+    if (top.HasValue)
+    {
+anchorFlags |= TopAnchorFlag;
+anchorDistances.Z = top.Value;
+    }
+    if (bottom.HasValue)
+    {
+anchorFlags |= BottomAnchorFlag;
+anchorDistances.W = bottom.Value;
+    }
+this->set_AnchorFlags(anchorFlags);
+this->set_AnchorDistances(anchorDistances);
+    if (Parent != nullptr && Core::get_Instance() != nullptr && Core::get_Instance()->get_RenderManager3D() != nullptr)
+    {
+this->RefreshSubscriptions();
+this->RefreshAnchoring();
     }
 }
 
@@ -140,28 +245,133 @@ void AnchorComponent::set_Parent(::Entity* value)
 this->Component::set_Parent(value);
 }
 
-void AnchorComponent::OnWindowResized(intptr_t handle, int32_t newWidth, int32_t newHeight)
+void AnchorComponent::AttachToWindowResize()
 {
-    if (this->anchorData == nullptr || Parent == nullptr)
+    if (this->IsSubscribedToWindowResize)
     {
 return;    }
-::float3 pos = Parent->get_Position();
-    if (this->anchorData->get_LeftDistance().HasValue)
+    if (Core::get_Instance() == nullptr || Core::get_Instance()->get_RenderManager3D() == nullptr)
     {
-pos.X = this->anchorData->get_LeftDistance().Value;
-    }
-else     if (this->anchorData->get_RightDistance().HasValue)
-    {
-pos.X = newWidth - this->anchorData->get_RightDistance().Value;
-    }
-    if (this->anchorData->get_TopDistance().HasValue)
-    {
-pos.Y = this->anchorData->get_TopDistance().Value;
-    }
-else     if (this->anchorData->get_BottomDistance().HasValue)
-    {
-pos.Y = newHeight - this->anchorData->get_BottomDistance().Value;
-    }
-Parent->set_Position(pos);
+return;    }
+Core::get_Instance()->get_RenderManager3D()->WindowResized += &AnchorComponent::HandleWindowResized;
+this->IsSubscribedToWindowResize = true;
 }
+
+void AnchorComponent::DetachFromBoundsProvider()
+{
+    if (this->anchorBoundsProvider != nullptr)
+    {
+this->anchorBoundsProvider->AnchorBoundsChanged -= &AnchorComponent::HandleAnchorBoundsChanged;
+this->anchorBoundsProvider = nullptr;
+    }
+}
+
+void AnchorComponent::DetachFromWindowResize()
+{
+    if (!this->IsSubscribedToWindowResize)
+    {
+return;    }
+Core::get_Instance()->get_RenderManager3D()->WindowResized -= &AnchorComponent::HandleWindowResized;
+this->IsSubscribedToWindowResize = false;
+}
+
+int32_t AnchorComponent::GetAnchorArea(::int2 size)
+{
+    if (size.X < 0 || size.Y < 0)
+    {
+return -1;    }
+return size.X * size.Y;}
+
+::int2 AnchorComponent::GetAnchorSize()
+{
+    if (Parent == nullptr)
+    {
+return ::int2(0, 0);    }
+::IAnchorSizeProvider *bestProvider = nullptr;
+int32_t bestArea = -1;
+    IAnchorSizeProvider* parentProvider = he_cpp_try_cast<IAnchorSizeProvider>(Parent);
+    if (parentProvider != nullptr)
+    {
+bestProvider = parentProvider;
+bestArea = this->GetAnchorArea(parentProvider->get_AnchorSize());
+    }
+for (int32_t i = 0; i < Parent->get_Components()->Count(); i++) {
+    IAnchorSizeProvider* sizeProvider = he_cpp_try_cast<IAnchorSizeProvider>((*Parent->get_Components())[i]);
+    if (sizeProvider != nullptr)
+    {
+const int32_t area = this->GetAnchorArea(sizeProvider->get_AnchorSize());
+    if (area > bestArea)
+    {
+bestProvider = sizeProvider;
+bestArea = area;
+    }
+    }
+}
+    if (bestProvider == nullptr)
+    {
+return ::int2(0, 0);    }
+return bestProvider->get_AnchorSize();}
+
+::AnchorSpace* AnchorComponent::GetAnchorSpace()
+{
+    if (this->anchorBoundsProvider != nullptr)
+    {
+return this->anchorBoundsProvider->get_AnchorSpace();    }
+return ([&]() {
+auto __ctor_arg_00000200 = Core::get_Instance()->get_RenderManager3D()->get_MainWindowSize();
+auto __ctor_arg_00000201 = ::float2(0.0f, 0.0f);
+return new ::AnchorSpace(__ctor_arg_00000200, __ctor_arg_00000201);
+})();}
+
+void AnchorComponent::HandleAnchorBoundsChanged()
+{
+this->RefreshAnchoring();
+}
+
+void AnchorComponent::HandleWindowResized(intptr_t handle, int32_t newWidth, int32_t newHeight)
+{
+this->RefreshAnchoring();
+}
+
+void AnchorComponent::RefreshSubscriptions()
+{
+::IAnchorBoundsProvider *newProvider = this->ResolveAnchorBoundsProvider();
+    if (!(this->anchorBoundsProvider == newProvider))
+    {
+this->DetachFromBoundsProvider();
+this->anchorBoundsProvider = newProvider;
+    if (this->anchorBoundsProvider != nullptr)
+    {
+this->anchorBoundsProvider->AnchorBoundsChanged += &AnchorComponent::HandleAnchorBoundsChanged;
+    }
+    }
+    if (this->anchorBoundsProvider == nullptr)
+    {
+this->AttachToWindowResize();
+    }
+else {
+this->DetachFromWindowResize();
+}
+}
+
+::IAnchorBoundsProvider* AnchorComponent::ResolveAnchorBoundsProvider()
+{
+::Entity *current = Parent;
+while (current != nullptr) {
+    if (current->get_Components() != nullptr)
+    {
+for (int32_t i = current->get_Components()->Count() - 1; i >= 0; i--) {
+    IAnchorBoundsProvider* componentProvider = he_cpp_try_cast<IAnchorBoundsProvider>((*current->get_Components())[i]);
+    if (componentProvider != nullptr)
+    {
+return componentProvider;    }
+}
+    }
+    IAnchorBoundsProvider* provider = he_cpp_try_cast<IAnchorBoundsProvider>(current);
+    if (provider != nullptr)
+    {
+return provider;    }
+current = current->get_Parent();
+}
+return nullptr;}
 

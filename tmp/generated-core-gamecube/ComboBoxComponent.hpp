@@ -8,9 +8,8 @@ class Component;
 class IFocusTarget;
 class Entity;
 class ComboBoxUpdateComponent;
-class InputManager;
+class InputSystem;
 class Core;
-class int2;
 class float3;
 class FontTightMetrics;
 class FontAsset;
@@ -20,6 +19,7 @@ class float4;
 class GeometryUtils;
 class ObjectManager;
 class IFocusGroup;
+class int2;
 class TextComponent;
 class RoundedRectComponent;
 class InteractableComponent;
@@ -34,11 +34,10 @@ class InteractableComponent;
 #include "ComboBoxUpdateComponent.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_string.hpp"
-#include "InputManager.hpp"
+#include "InputSystem.hpp"
 #include "Core.hpp"
 #include "Core.hpp"
-#include "int2.hpp"
-#include "InputManager.hpp"
+#include "InputSystem.hpp"
 #include "float3.hpp"
 #include "system/math.hpp"
 #include "system/math.hpp"
@@ -57,6 +56,7 @@ class InteractableComponent;
 #include "FontAsset.hpp"
 #include "runtime/native_list.hpp"
 #include "runtime/native_event.hpp"
+#include "int2.hpp"
 #include "Entity.hpp"
 #include "TextComponent.hpp"
 #include "RoundedRectComponent.hpp"
@@ -69,6 +69,8 @@ class InteractableComponent;
 class ComboBoxComponent : public Component, public IFocusTarget
 {
 public:
+    virtual ~ComboBoxComponent() = default;
+
     bool get_CanReceiveFocus();
 
     ::IFocusGroup* FocusGroup;
@@ -125,7 +127,7 @@ public:
 
     void ComponentRemoved(::Entity* entity);
 
-    bool ContainsScreenPoint(::int2 point);
+    bool ContainsScreenPoint(int32_t x, int32_t y);
 
     void ParentEnabledChange(bool newEnabled);
 
@@ -136,6 +138,10 @@ public:
     void SetTargetFocused(bool isFocused);
 
     void Update();
+
+    void UseModalPresentation();
+
+    void UsePanelPresentation();
 
     ::Entity* get_Parent();
 
@@ -211,7 +217,7 @@ private:
 
     void HideItemVisuals();
 
-    bool IsPointerInsideCombo(::int2 mousePosition);
+    bool IsPointerInsideCombo(int32_t mouseX, int32_t mouseY);
 
     void ResetItemStates();
 

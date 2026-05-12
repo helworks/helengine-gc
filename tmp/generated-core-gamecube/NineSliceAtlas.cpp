@@ -8,34 +8,8 @@
 #include "TextureAsset.hpp"
 #include "NineSliceAtlas.hpp"
 #include "float4.hpp"
-#include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
-#include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
-#include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
 #include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
+#include "runtime/array.hpp"
 
 Array<::float4>* NineSliceAtlas::get_BorderUV()
 {
@@ -176,11 +150,11 @@ Blit(refBorder, refW, refH, srcBot, rgba, atlasW, atlasH, Dst(5, 1, tileW1, tile
 Blit(refBorder, refW, refH, srcBotRight, rgba, atlasW, atlasH, Dst(5, 2, tileW0, tileH0));
     }
 ::TextureAsset *tex = ([&]() {
-auto __object_952f0360 = new ::TextureAsset();
-__object_952f0360->Colors = rgba;
-__object_952f0360->Width = static_cast<uint16_t>(atlasW);
-__object_952f0360->Height = static_cast<uint16_t>(atlasH);
-return __object_952f0360;
+auto __object_000000FD = new ::TextureAsset();
+__object_000000FD->Colors = rgba;
+__object_000000FD->Width = static_cast<uint16_t>(atlasW);
+__object_000000FD->Height = static_cast<uint16_t>(atlasH);
+return __object_000000FD;
 })();
 ::NineSliceAtlas *atlas = new ::NineSliceAtlas();
 atlas->set_Texture(tex);

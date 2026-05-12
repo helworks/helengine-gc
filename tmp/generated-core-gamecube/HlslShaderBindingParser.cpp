@@ -13,30 +13,10 @@
 #include "ShaderResourceType.hpp"
 #include "ShaderBinding.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
 #include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
 #include "system/text/regular_expressions/regex.hpp"
 
 Array<::ShaderBinding*>* HlslShaderBindingParser::ParseBindings(std::string source, ::ShaderBindingPolicy* bindingPolicy)
@@ -48,9 +28,9 @@ Array<::ShaderBinding*>* HlslShaderBindingParser::ParseBindings(std::string sour
     if (String::IsNullOrWhiteSpace(source))
     {
 throw ([&]() {
-auto __ctor_arg_7b63244d = "Shader source must be provided.";
-auto __ctor_arg_65d59de9 = "source";
-return new ArgumentException(__ctor_arg_7b63244d, __ctor_arg_65d59de9);
+auto __ctor_arg_00000087 = "Shader source must be provided.";
+auto __ctor_arg_00000088 = "source";
+return new ArgumentException(__ctor_arg_00000087, __ctor_arg_00000088);
 })();
     }
     if (bindingPolicy == nullptr)
@@ -142,13 +122,13 @@ const int32_t registerIndex = ParseRequiredInt(match.Groups["slot"].Value, "reso
 const int32_t set = ParseOptionalInt(match.Groups["space"].Value, bindingPolicy->get_DefaultSpace());
 const int32_t slot = bindingPolicy->GetSlot(resourceType, registerIndex);
 bindings->Add(([&]() {
-auto __ctor_arg_20f4d484 = name;
-auto __ctor_arg_15a14004 = resourceType;
-auto __ctor_arg_f8346c98 = set;
-auto __ctor_arg_144bc42d = slot;
-auto __ctor_arg_551f9bd1 = 0;
-auto __ctor_arg_04efb049 = Array<ShaderConstantMember*>::Empty();
-return new ::ShaderBinding(__ctor_arg_20f4d484, __ctor_arg_15a14004, __ctor_arg_f8346c98, __ctor_arg_144bc42d, __ctor_arg_551f9bd1, __ctor_arg_04efb049);
+auto __ctor_arg_00000089 = name;
+auto __ctor_arg_0000008A = resourceType;
+auto __ctor_arg_0000008B = set;
+auto __ctor_arg_0000008C = slot;
+auto __ctor_arg_0000008D = 0;
+auto __ctor_arg_0000008E = Array<ShaderConstantMember*>::Empty();
+return new ::ShaderBinding(__ctor_arg_00000089, __ctor_arg_0000008A, __ctor_arg_0000008B, __ctor_arg_0000008C, __ctor_arg_0000008D, __ctor_arg_0000008E);
 })());
 }
 }
@@ -158,9 +138,9 @@ int32_t HlslShaderBindingParser::AlignToRegister(int32_t offset)
     if (offset < 0)
     {
 throw ([&]() {
-auto __ctor_arg_af5abe89 = "offset";
-auto __ctor_arg_66dc026d = "Offset cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_af5abe89, __ctor_arg_66dc026d);
+auto __ctor_arg_0000008F = "offset";
+auto __ctor_arg_00000090 = "Offset cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_0000008F, __ctor_arg_00000090);
 })();
     }
 const int32_t remainder = offset % RegisterSizeInBytes;
@@ -174,17 +154,17 @@ int32_t HlslShaderBindingParser::ComputeArrayStorageSize(std::string type, int32
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_24d8cebc = "Element type must be provided.";
-auto __ctor_arg_b47b581b = "type";
-return new ArgumentException(__ctor_arg_24d8cebc, __ctor_arg_b47b581b);
+auto __ctor_arg_00000091 = "Element type must be provided.";
+auto __ctor_arg_00000092 = "type";
+return new ArgumentException(__ctor_arg_00000091, __ctor_arg_00000092);
 })();
     }
     if (arrayCount <= 0)
     {
 throw ([&]() {
-auto __ctor_arg_bba60b09 = "arrayCount";
-auto __ctor_arg_97f8414a = "Array count must be greater than zero.";
-return new ArgumentOutOfRangeException(__ctor_arg_bba60b09, __ctor_arg_97f8414a);
+auto __ctor_arg_00000093 = "arrayCount";
+auto __ctor_arg_00000094 = "Array count must be greater than zero.";
+return new ArgumentOutOfRangeException(__ctor_arg_00000093, __ctor_arg_00000094);
 })();
     }
     if (IsMatrixType(type))
@@ -210,9 +190,9 @@ int32_t HlslShaderBindingParser::ComputeMatrixStorageSize(std::string type)
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_e954231f = "Matrix type must be provided.";
-auto __ctor_arg_094fb9d2 = "type";
-return new ArgumentException(__ctor_arg_e954231f, __ctor_arg_094fb9d2);
+auto __ctor_arg_00000095 = "Matrix type must be provided.";
+auto __ctor_arg_00000096 = "type";
+return new ArgumentException(__ctor_arg_00000095, __ctor_arg_00000096);
 })();
     }
     if (String::Equals(type, "matrix", StringComparison::Ordinal))
@@ -231,33 +211,33 @@ int32_t HlslShaderBindingParser::ComputeMemberOffset(int32_t currentOffset, std:
     if (currentOffset < 0)
     {
 throw ([&]() {
-auto __ctor_arg_bbcecd31 = "currentOffset";
-auto __ctor_arg_e835b116 = "Current offset cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_bbcecd31, __ctor_arg_e835b116);
+auto __ctor_arg_00000097 = "currentOffset";
+auto __ctor_arg_00000098 = "Current offset cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_00000097, __ctor_arg_00000098);
 })();
     }
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_a9604fdd = "Member type must be provided.";
-auto __ctor_arg_70f7dcbb = "type";
-return new ArgumentException(__ctor_arg_a9604fdd, __ctor_arg_70f7dcbb);
+auto __ctor_arg_00000099 = "Member type must be provided.";
+auto __ctor_arg_0000009A = "type";
+return new ArgumentException(__ctor_arg_00000099, __ctor_arg_0000009A);
 })();
     }
     if (arrayCount < 0)
     {
 throw ([&]() {
-auto __ctor_arg_c9c890cb = "arrayCount";
-auto __ctor_arg_4b3bc482 = "Array count cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_c9c890cb, __ctor_arg_4b3bc482);
+auto __ctor_arg_0000009B = "arrayCount";
+auto __ctor_arg_0000009C = "Array count cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_0000009B, __ctor_arg_0000009C);
 })();
     }
     if (memberSize < 0)
     {
 throw ([&]() {
-auto __ctor_arg_20948ec8 = "memberSize";
-auto __ctor_arg_9d25c648 = "Member size cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_20948ec8, __ctor_arg_9d25c648);
+auto __ctor_arg_0000009D = "memberSize";
+auto __ctor_arg_0000009E = "Member size cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_0000009D, __ctor_arg_0000009E);
 })();
     }
     if (RequiresRegisterAlignment(type, arrayCount))
@@ -274,17 +254,17 @@ int32_t HlslShaderBindingParser::ComputeMemberStorageSize(std::string type, int3
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_5571cd73 = "Member type must be provided.";
-auto __ctor_arg_a40ee601 = "type";
-return new ArgumentException(__ctor_arg_5571cd73, __ctor_arg_a40ee601);
+auto __ctor_arg_0000009F = "Member type must be provided.";
+auto __ctor_arg_000000A0 = "type";
+return new ArgumentException(__ctor_arg_0000009F, __ctor_arg_000000A0);
 })();
     }
     if (arrayCount < 0)
     {
 throw ([&]() {
-auto __ctor_arg_698d8c21 = "arrayCount";
-auto __ctor_arg_f83b4c12 = "Array count cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_698d8c21, __ctor_arg_f83b4c12);
+auto __ctor_arg_000000A1 = "arrayCount";
+auto __ctor_arg_000000A2 = "Array count cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_000000A1, __ctor_arg_000000A2);
 })();
     }
     if (arrayCount > 0)
@@ -300,9 +280,9 @@ int32_t HlslShaderBindingParser::ComputeScalarOrVectorStorageSize(std::string ty
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_11c3ca6a = "Member type must be provided.";
-auto __ctor_arg_8a28fe07 = "type";
-return new ArgumentException(__ctor_arg_11c3ca6a, __ctor_arg_8a28fe07);
+auto __ctor_arg_000000A3 = "Member type must be provided.";
+auto __ctor_arg_000000A4 = "type";
+return new ArgumentException(__ctor_arg_000000A3, __ctor_arg_000000A4);
 })();
     }
 const std::string normalizedType = String::Trim(type);
@@ -320,9 +300,9 @@ std::string HlslShaderBindingParser::ExtractBaseType(std::string type)
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_584c29e7 = "Type must be provided.";
-auto __ctor_arg_547bee2a = "type";
-return new ArgumentException(__ctor_arg_584c29e7, __ctor_arg_547bee2a);
+auto __ctor_arg_000000A5 = "Type must be provided.";
+auto __ctor_arg_000000A6 = "type";
+return new ArgumentException(__ctor_arg_000000A5, __ctor_arg_000000A6);
 })();
     }
 int32_t numericIndex = static_cast<int32_t>(type.size());
@@ -340,9 +320,9 @@ bool HlslShaderBindingParser::IsMatrixType(std::string type)
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_fcdba0f8 = "Type must be provided.";
-auto __ctor_arg_f992f443 = "type";
-return new ArgumentException(__ctor_arg_fcdba0f8, __ctor_arg_f992f443);
+auto __ctor_arg_000000A7 = "Type must be provided.";
+auto __ctor_arg_000000A8 = "type";
+return new ArgumentException(__ctor_arg_000000A7, __ctor_arg_000000A8);
 })();
     }
     if (String::Equals(type, "matrix", StringComparison::Ordinal))
@@ -387,17 +367,17 @@ int32_t HlslShaderBindingParser::ParseRequiredInt(std::string text, std::string 
     if (String::IsNullOrWhiteSpace(text))
     {
 throw ([&]() {
-auto __ctor_arg_e7383678 = "Integer text must be provided.";
-auto __ctor_arg_97f93ec4 = "text";
-return new ArgumentException(__ctor_arg_e7383678, __ctor_arg_97f93ec4);
+auto __ctor_arg_000000A9 = "Integer text must be provided.";
+auto __ctor_arg_000000AA = "text";
+return new ArgumentException(__ctor_arg_000000A9, __ctor_arg_000000AA);
 })();
     }
     if (String::IsNullOrWhiteSpace(label))
     {
 throw ([&]() {
-auto __ctor_arg_ba21e23a = "Label must be provided.";
-auto __ctor_arg_8a73b978 = "label";
-return new ArgumentException(__ctor_arg_ba21e23a, __ctor_arg_8a73b978);
+auto __ctor_arg_000000AB = "Label must be provided.";
+auto __ctor_arg_000000AC = "label";
+return new ArgumentException(__ctor_arg_000000AB, __ctor_arg_000000AC);
 })();
     }
 int32_t value;
@@ -412,17 +392,17 @@ bool HlslShaderBindingParser::RequiresRegisterAlignment(std::string type, int32_
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_f7adde29 = "Member type must be provided.";
-auto __ctor_arg_e40c60d4 = "type";
-return new ArgumentException(__ctor_arg_f7adde29, __ctor_arg_e40c60d4);
+auto __ctor_arg_000000AD = "Member type must be provided.";
+auto __ctor_arg_000000AE = "type";
+return new ArgumentException(__ctor_arg_000000AD, __ctor_arg_000000AE);
 })();
     }
     if (arrayCount < 0)
     {
 throw ([&]() {
-auto __ctor_arg_392fce9c = "arrayCount";
-auto __ctor_arg_54d164d0 = "Array count cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_392fce9c, __ctor_arg_54d164d0);
+auto __ctor_arg_000000AF = "arrayCount";
+auto __ctor_arg_000000B0 = "Array count cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_000000AF, __ctor_arg_000000B0);
 })();
     }
     if (arrayCount > 0)
@@ -435,17 +415,17 @@ return IsMatrixType(type);}
     if (String::IsNullOrWhiteSpace(typeText))
     {
 throw ([&]() {
-auto __ctor_arg_c0ed260e = "Resource type text must be provided.";
-auto __ctor_arg_200b8904 = "typeText";
-return new ArgumentException(__ctor_arg_c0ed260e, __ctor_arg_200b8904);
+auto __ctor_arg_000000B1 = "Resource type text must be provided.";
+auto __ctor_arg_000000B2 = "typeText";
+return new ArgumentException(__ctor_arg_000000B1, __ctor_arg_000000B2);
 })();
     }
     if (String::IsNullOrWhiteSpace(registerClass))
     {
 throw ([&]() {
-auto __ctor_arg_ce470d20 = "Register class must be provided.";
-auto __ctor_arg_2c1f24b5 = "registerClass";
-return new ArgumentException(__ctor_arg_ce470d20, __ctor_arg_2c1f24b5);
+auto __ctor_arg_000000B3 = "Register class must be provided.";
+auto __ctor_arg_000000B4 = "registerClass";
+return new ArgumentException(__ctor_arg_000000B3, __ctor_arg_000000B4);
 })();
     }
 const std::string normalizedType = String::Trim(typeText);
@@ -475,9 +455,9 @@ int32_t HlslShaderBindingParser::ResolveScalarTypeSize(std::string type)
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_ece26c33 = "Scalar type must be provided.";
-auto __ctor_arg_4977592f = "type";
-return new ArgumentException(__ctor_arg_ece26c33, __ctor_arg_4977592f);
+auto __ctor_arg_000000B5 = "Scalar type must be provided.";
+auto __ctor_arg_000000B6 = "type";
+return new ArgumentException(__ctor_arg_000000B5, __ctor_arg_000000B6);
 })();
     }
 const std::string baseType = ExtractBaseType(type);
@@ -506,9 +486,9 @@ bool HlslShaderBindingParser::TryParseVectorComponentCount(std::string type, int
     if (String::IsNullOrWhiteSpace(type))
     {
 throw ([&]() {
-auto __ctor_arg_722caf1a = "Type must be provided.";
-auto __ctor_arg_aae80197 = "type";
-return new ArgumentException(__ctor_arg_722caf1a, __ctor_arg_aae80197);
+auto __ctor_arg_000000B7 = "Type must be provided.";
+auto __ctor_arg_000000B8 = "type";
+return new ArgumentException(__ctor_arg_000000B7, __ctor_arg_000000B8);
 })();
     }
 Match match = MatrixTypePattern.Match(type);

@@ -13,36 +13,14 @@
 #include "system/string_comparer.hpp"
 #include "ShaderDefine.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
 #include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
 #include "runtime/native_stack.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/io/string-reader.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
 #include "system/text/string-builder.hpp"
+#include "system/string_comparer.hpp"
+#include "system/io/string-reader.hpp"
 
 std::string ShaderConditionalPreprocessor::Preprocess(std::string source, List<::ShaderDefine*>* defines)
 {
@@ -129,9 +107,9 @@ void ShaderConditionalPreprocessor::ApplyElseIfDirective(std::string expression,
     if (String::IsNullOrWhiteSpace(expression))
     {
 throw ([&]() {
-auto __ctor_arg_30ea8676 = "Conditional expression must be provided.";
-auto __ctor_arg_23b13aac = "expression";
-return new ArgumentException(__ctor_arg_30ea8676, __ctor_arg_23b13aac);
+auto __ctor_arg_00000194 = "Conditional expression must be provided.";
+auto __ctor_arg_00000195 = "expression";
+return new ArgumentException(__ctor_arg_00000194, __ctor_arg_00000195);
 })();
     }
 ::ShaderConditionalFrame *frame = GetCurrentFrame(frames);
@@ -196,9 +174,9 @@ bool ShaderConditionalPreprocessor::EvaluateExpression(std::string expression, D
     if (String::IsNullOrWhiteSpace(expression))
     {
 throw ([&]() {
-auto __ctor_arg_c58dc8d3 = "Conditional expression must be provided.";
-auto __ctor_arg_4cf23f4e = "expression";
-return new ArgumentException(__ctor_arg_c58dc8d3, __ctor_arg_4cf23f4e);
+auto __ctor_arg_00000196 = "Conditional expression must be provided.";
+auto __ctor_arg_00000197 = "expression";
+return new ArgumentException(__ctor_arg_00000196, __ctor_arg_00000197);
 })();
     }
     if (defineLookup == nullptr)
@@ -239,17 +217,17 @@ std::string ShaderConditionalPreprocessor::GetDirectiveArgument(std::string trim
     if (String::IsNullOrWhiteSpace(trimmedLine))
     {
 throw ([&]() {
-auto __ctor_arg_6114c4d3 = "Directive line must be provided.";
-auto __ctor_arg_76b17ca9 = "trimmedLine";
-return new ArgumentException(__ctor_arg_6114c4d3, __ctor_arg_76b17ca9);
+auto __ctor_arg_00000198 = "Directive line must be provided.";
+auto __ctor_arg_00000199 = "trimmedLine";
+return new ArgumentException(__ctor_arg_00000198, __ctor_arg_00000199);
 })();
     }
     if (String::IsNullOrWhiteSpace(directive))
     {
 throw ([&]() {
-auto __ctor_arg_26b17cef = "Directive keyword must be provided.";
-auto __ctor_arg_09da2b3e = "directive";
-return new ArgumentException(__ctor_arg_26b17cef, __ctor_arg_09da2b3e);
+auto __ctor_arg_0000019A = "Directive keyword must be provided.";
+auto __ctor_arg_0000019B = "directive";
+return new ArgumentException(__ctor_arg_0000019A, __ctor_arg_0000019B);
 })();
     }
 const std::string argument = String::Trim(String::Substring(trimmedLine, static_cast<int32_t>(directive.size())));
@@ -275,9 +253,9 @@ bool ShaderConditionalPreprocessor::IsDefineEnabled(std::string identifier, Dict
     if (String::IsNullOrWhiteSpace(identifier))
     {
 throw ([&]() {
-auto __ctor_arg_3aedabf7 = "Define identifier must be provided.";
-auto __ctor_arg_6f075d9d = "identifier";
-return new ArgumentException(__ctor_arg_3aedabf7, __ctor_arg_6f075d9d);
+auto __ctor_arg_0000019C = "Define identifier must be provided.";
+auto __ctor_arg_0000019D = "identifier";
+return new ArgumentException(__ctor_arg_0000019C, __ctor_arg_0000019D);
 })();
     }
     if (defineLookup == nullptr)
@@ -349,10 +327,10 @@ throw new ArgumentNullException("frames");
 const std::string identifier = GetDirectiveArgument(trimmedLine, "#ifdef");
 const bool branchIncluded = IsCurrentBranchIncluded(frames) && IsDefineEnabled(identifier, defineLookup);
 frames->Push(([&]() {
-auto __ctor_arg_8f3f18c5 = IsCurrentBranchIncluded(frames);
-auto __ctor_arg_e0edee88 = branchIncluded;
-auto __ctor_arg_9101be36 = branchIncluded;
-return new ::ShaderConditionalFrame(__ctor_arg_8f3f18c5, __ctor_arg_e0edee88, __ctor_arg_9101be36);
+auto __ctor_arg_0000019E = IsCurrentBranchIncluded(frames);
+auto __ctor_arg_0000019F = branchIncluded;
+auto __ctor_arg_000001A0 = branchIncluded;
+return new ::ShaderConditionalFrame(__ctor_arg_0000019E, __ctor_arg_0000019F, __ctor_arg_000001A0);
 })());
 return true;    }
 else     if (String::StartsWith(trimmedLine, "#ifndef", StringComparison::Ordinal))
@@ -360,10 +338,10 @@ else     if (String::StartsWith(trimmedLine, "#ifndef", StringComparison::Ordina
 const std::string identifier = GetDirectiveArgument(trimmedLine, "#ifndef");
 const bool branchIncluded = IsCurrentBranchIncluded(frames) && !IsDefineEnabled(identifier, defineLookup);
 frames->Push(([&]() {
-auto __ctor_arg_fa0ff6bb = IsCurrentBranchIncluded(frames);
-auto __ctor_arg_c7be2bfb = branchIncluded;
-auto __ctor_arg_1924b191 = branchIncluded;
-return new ::ShaderConditionalFrame(__ctor_arg_fa0ff6bb, __ctor_arg_c7be2bfb, __ctor_arg_1924b191);
+auto __ctor_arg_000001A1 = IsCurrentBranchIncluded(frames);
+auto __ctor_arg_000001A2 = branchIncluded;
+auto __ctor_arg_000001A3 = branchIncluded;
+return new ::ShaderConditionalFrame(__ctor_arg_000001A1, __ctor_arg_000001A2, __ctor_arg_000001A3);
 })());
 return true;    }
 else     if (String::StartsWith(trimmedLine, "#if", StringComparison::Ordinal))
@@ -371,10 +349,10 @@ else     if (String::StartsWith(trimmedLine, "#if", StringComparison::Ordinal))
 const std::string expression = GetDirectiveArgument(trimmedLine, "#if");
 const bool branchIncluded = IsCurrentBranchIncluded(frames) && EvaluateExpression(expression, defineLookup);
 frames->Push(([&]() {
-auto __ctor_arg_8803132b = IsCurrentBranchIncluded(frames);
-auto __ctor_arg_725cfe96 = branchIncluded;
-auto __ctor_arg_9634b7bd = branchIncluded;
-return new ::ShaderConditionalFrame(__ctor_arg_8803132b, __ctor_arg_725cfe96, __ctor_arg_9634b7bd);
+auto __ctor_arg_000001A4 = IsCurrentBranchIncluded(frames);
+auto __ctor_arg_000001A5 = branchIncluded;
+auto __ctor_arg_000001A6 = branchIncluded;
+return new ::ShaderConditionalFrame(__ctor_arg_000001A4, __ctor_arg_000001A5, __ctor_arg_000001A6);
 })());
 return true;    }
 else     if (String::StartsWith(trimmedLine, "#elif", StringComparison::Ordinal))

@@ -6,20 +6,22 @@
 
 class Component;
 class IFocusTarget;
+class IAnchorSizeProvider;
 class RenderOrder2D;
 class Entity;
 class float3;
 class byte4;
 class FontTightMetrics;
 class FontAsset;
-class IFocusGroup;
 class int2;
+class IFocusGroup;
 class InteractableComponent;
 class RoundedRectComponent;
 class TextComponent;
 
 #include "Component.hpp"
 #include "IFocusTarget.hpp"
+#include "IAnchorSizeProvider.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "Component.hpp"
 #include "RenderOrder2D.hpp"
@@ -32,11 +34,12 @@ class TextComponent;
 #include "system/math.hpp"
 #include "system/math.hpp"
 #include "byte4.hpp"
-#include "IFocusGroup.hpp"
-#include "runtime/native_event.hpp"
 #include "int2.hpp"
-#include "PointerCursorKind.hpp"
+#include "RoundedRectCorners.hpp"
+#include "IFocusGroup.hpp"
 #include "FontAsset.hpp"
+#include "runtime/native_event.hpp"
+#include "PointerCursorKind.hpp"
 #include "InteractableComponent.hpp"
 #include "system/action.hpp"
 #include "RoundedRectComponent.hpp"
@@ -46,15 +49,28 @@ class TextComponent;
 #include "Keys.hpp"
 #include "PointerInteraction.hpp"
 
-class ButtonComponent : public Component, public IFocusTarget
+class ButtonComponent : public Component, public IFocusTarget, public IAnchorSizeProvider
 {
 public:
+    virtual ~ButtonComponent() = default;
+
+    ::int2 get_AnchorSize();
+
     bool get_CanReceiveFocus();
+
+    ::RoundedRectCorners Corners;
+
+    ::RoundedRectCorners get_Corners();
+    void set_Corners(::RoundedRectCorners value);
 
     ::IFocusGroup* FocusGroup;
 
     ::IFocusGroup* get_FocusGroup();
     void set_FocusGroup(::IFocusGroup* value);
+
+    ::FontAsset* get_Font();
+
+    void set_Font(::FontAsset* value);
 
     ::Event Hovered;
 
@@ -85,9 +101,11 @@ public:
 
     void ComponentRemoved(::Entity* entity);
 
-    bool ContainsScreenPoint(::int2 point);
+    bool ContainsScreenPoint(int32_t x, int32_t y);
 
     void ParentEnabledChange(bool newEnabled);
+
+    void SetCornerRadius(float cornerRadius);
 
     void SetHoverCursor(::PointerCursorKind cursor);
 
@@ -99,9 +117,13 @@ public:
 
     void SetTextColor(::byte4 color);
 
+    void SetVisualPalette(::byte4 idleFillColor, ::byte4 hoverFillColor, ::byte4 pressedFillColor, ::byte4 focusedFillColor, ::byte4 idleBorderColor, ::byte4 focusedBorderColor);
+
     void UseHoverOnlyBackground();
 
     void UseSquareCorners();
+
+    void UseTopCorners();
 
     ::Entity* get_Parent();
 
@@ -115,15 +137,25 @@ private:
 
     float CornerRadius;
 
+    ::byte4 FocusedBorderColor;
+
+    ::byte4 FocusedFillColor;
+
     bool HasRenderOrderOverrides;
 
     ::PointerCursorKind HoverCursorKind;
 
+    ::byte4 HoverFillColor;
+
+    ::byte4 IdleBorderColor;
+
+    ::byte4 IdleFillColor;
+
+    ::byte4 PressedFillColor;
+
     uint8_t TextRenderOrder;
 
     bool UsesHoverOnlyBackground;
-
-    bool UsesSquareCorners;
 
     float borderThickness;
 
@@ -158,4 +190,6 @@ private:
     void RaiseHovered();
 
     void UpdateButtonColor();
+
+    void UpdateCornerRadius();
 };

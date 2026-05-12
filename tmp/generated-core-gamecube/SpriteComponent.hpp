@@ -6,18 +6,20 @@
 
 class Component;
 class ISpriteDrawable2D;
+class IAnchorSizeProvider;
 class IDrawable2D;
 class Entity;
 class Core;
 class ObjectManager;
 class RenderManager2D;
-class byte4;
 class int2;
+class byte4;
 class float4;
 class RuntimeTexture;
 
 #include "Component.hpp"
 #include "ISpriteDrawable2D.hpp"
+#include "IAnchorSizeProvider.hpp"
 #include "IDrawable2D.hpp"
 #include "Component.hpp"
 #include "Entity.hpp"
@@ -25,15 +27,19 @@ class RuntimeTexture;
 #include "Core.hpp"
 #include "ObjectManager.hpp"
 #include "RenderManager2D.hpp"
-#include "byte4.hpp"
 #include "int2.hpp"
+#include "byte4.hpp"
 #include "float4.hpp"
 #include "RuntimeTexture.hpp"
 #include "Entity.hpp"
 
-class SpriteComponent : public Component, public ISpriteDrawable2D
+class SpriteComponent : public Component, public ISpriteDrawable2D, public IAnchorSizeProvider
 {
 public:
+    virtual ~SpriteComponent() = default;
+
+    ::int2 get_AnchorSize();
+
     ::byte4 Color;
 
     ::byte4 get_Color();

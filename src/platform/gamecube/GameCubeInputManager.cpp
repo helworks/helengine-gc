@@ -1,23 +1,29 @@
 #include "platform/gamecube/GameCubeInputManager.hpp"
 
-#include "platform/gamecube/GameCubeKeyboard.hpp"
-#include "platform/gamecube/GameCubeMouse.hpp"
-
 namespace helengine::gamecube {
-    /// Creates the generated input bridge with owned bootstrap keyboard and mouse backends.
+    /// Creates the GameCube input backend with background input disabled.
     GameCubeInputManager::GameCubeInputManager()
-        : InputManager()
-        , NativeKeyboard(new GameCubeKeyboard())
-        , NativeMouse(new GameCubeMouse()) {
-        Keyboard = NativeKeyboard;
-        Mouse = NativeMouse;
+        : ReceiveInputInBackgroundValue(false) {
     }
 
-    /// Releases the owned bootstrap keyboard and mouse backends.
+    /// Releases the GameCube input backend.
     GameCubeInputManager::~GameCubeInputManager() {
-        Keyboard = nullptr;
-        Mouse = nullptr;
-        delete NativeMouse;
-        delete NativeKeyboard;
+    }
+
+    /// Returns whether the backend should continue reporting input while unfocused.
+    bool GameCubeInputManager::get_ReceiveInputInBackground() {
+        return ReceiveInputInBackgroundValue;
+    }
+
+    /// Updates whether the backend should continue reporting input while unfocused.
+    void GameCubeInputManager::set_ReceiveInputInBackground(bool value) {
+        ReceiveInputInBackgroundValue = value;
+    }
+
+    /// Captures one bootstrap input frame with default keyboard, mouse, and pointer state.
+    InputFrameState GameCubeInputManager::CaptureFrame() {
+        InputFrameState frame;
+        frame.set_GamepadCount(0);
+        return frame;
     }
 }

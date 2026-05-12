@@ -10,12 +10,19 @@
 class SceneComponentAssetRecord
 {
 public:
+    virtual ~SceneComponentAssetRecord() = default;
+
     SceneComponentAssetRecord();
 
     int32_t ComponentIndex;
 
     int32_t get_ComponentIndex();
     void set_ComponentIndex(int32_t value);
+
+    std::string ComponentKey;
+
+    std::string get_ComponentKey();
+    void set_ComponentKey(std::string value);
 
     std::string ComponentTypeId;
 

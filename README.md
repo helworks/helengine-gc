@@ -12,7 +12,8 @@ The current builder slice exposes GameCube platform metadata and stages payloads
 
 - Docker-only build using devkitPro GameCube tooling
 - Native `.dol` output for direct loading in Dolphin
-- First boot check with a solid green screen
+- Generated-core boot with authored `cube_test` scene loading
+- First GameCube GX 3D path for the rotating cube scene
 
 ## Build
 
@@ -43,9 +44,42 @@ rtk docker run --rm -v "$PWD":/workspace -w /workspace -e HELENGINE_CORE_CPP_ROO
 
 The build emits `build/helengine_gc.dol`.
 
-## Boot check
+## Cube Test Content
 
-Load `build/helengine_gc.dol` in Dolphin. The expected result for this milestone is a solid green frame with no immediate crash or reset loop.
+Stage the minimal authored `city` content bundle required by the first GameCube 3D renderer milestone:
+
+```bash
+rtk bash tools/stage_city_cube_test_content.sh
+```
+
+This creates:
+
+- `tmp/city-cube-test-content/cooked/scenes/rendering/cube_test.hasset`
+- `tmp/city-cube-test-content/cooked/engine/models/cube.hasset`
+- `tmp/city-cube-test-content/cooked/engine/materials/standard.hasset`
+- `tmp/city-cube-test-content/cooked/shaders/ForwardStandardShader.dx11.hasset`
+
+## Rotating Cube Verification
+
+Build the GameCube player with the generated core enabled:
+
+```bash
+rtk docker run --rm -v "$PWD":/workspace -w /workspace -e HELENGINE_CORE_CPP_ROOT=/workspace/tmp/generated-core-gamecube helengine-gc make clean all
+```
+
+Launch Dolphin from the repo root so the staged content root resolves correctly:
+
+```bash
+rtk cmd.exe /c "cd /d C:\dev\helworks\helengine-gc && start \"\" \"C:\dev\helworks\emus\dolphin-2603a-x64\Dolphin-x64\Dolphin.exe\" \"C:\dev\helworks\helengine-gc\build\helengine_gc.dol\""
+```
+
+Expected result:
+
+- the authored `cube_test` scene loads through the generated runtime path
+- the camera framing comes from the scene asset
+- the cube mesh comes from the authored runtime model reference
+- the cube is visibly rendered through the GX 3D path
+- the cube rotates continuously through the generated update loop
 
 ## Dolphin verification
 
@@ -53,6 +87,6 @@ Load `build/helengine_gc.dol` in Dolphin.
 
 Expected result for this milestone:
 
-- the application reaches the steady-state green phase
-- `Core::Initialize(...)` completes
-- the process does not immediately crash during `Update()` or `Draw()`
+- the authored `cube_test` scene loads through the generated runtime path
+- `Core::Initialize(...)`, `Update()`, and `Draw()` continue running
+- the cube is visibly rendered and rotating through the GameCube GX path

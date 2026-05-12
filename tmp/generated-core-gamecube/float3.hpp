@@ -13,6 +13,8 @@ class float2;
 class float3 : public IEquatable<::float3>
 {
 public:
+    virtual ~float3() = default;
+
     float3();
 
     static ::float3 get_One();
@@ -38,6 +40,8 @@ public:
     bool Equals(::float3 other);
 
     int32_t GetHashCode();
+
+    static ::float3 Lerp(::float3 start, ::float3 end, float amount);
 
     float3(float x, float y, float z);
 

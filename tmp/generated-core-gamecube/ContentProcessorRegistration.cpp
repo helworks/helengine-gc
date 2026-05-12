@@ -5,28 +5,9 @@
 #include "runtime/array.hpp"
 #include "runtime/native_string.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
-#include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
 #include "runtime/native_type.hpp"
-#include "system/bit_converter.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
 
 Array<std::string>* ContentProcessorRegistration::get_Extensions()
 {
@@ -53,9 +34,9 @@ ContentProcessorRegistration::ContentProcessorRegistration(std::string processor
     if (String::IsNullOrWhiteSpace(processorId))
     {
 throw ([&]() {
-auto __ctor_arg_4f54f902 = "Processor id must be provided.";
-auto __ctor_arg_545fc779 = "processorId";
-return new ArgumentException(__ctor_arg_4f54f902, __ctor_arg_545fc779);
+auto __ctor_arg_00000036 = "Processor id must be provided.";
+auto __ctor_arg_00000037 = "processorId";
+return new ArgumentException(__ctor_arg_00000036, __ctor_arg_00000037);
 })();
     }
     if (processor == nullptr)
@@ -86,9 +67,9 @@ const std::string extension = (*sourceExtensions)[extensionIndex];
     if (String::IsNullOrWhiteSpace(extension))
     {
 throw ([&]() {
-auto __ctor_arg_33607f82 = "Extension values must be non-empty.";
-auto __ctor_arg_f681837a = "sourceExtensions";
-return new ArgumentException(__ctor_arg_33607f82, __ctor_arg_f681837a);
+auto __ctor_arg_00000038 = "Extension values must be non-empty.";
+auto __ctor_arg_00000039 = "sourceExtensions";
+return new ArgumentException(__ctor_arg_00000038, __ctor_arg_00000039);
 })();
     }
 (*normalized)[extensionIndex] = this->NormalizeExtension(extension);

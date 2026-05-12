@@ -1,25 +1,29 @@
 #pragma once
 
-#include "InputManager.hpp"
+#include "IInputBackend.hpp"
+#include "InputFrameState.hpp"
 
 namespace helengine::gamecube {
-    class GameCubeKeyboard;
-    class GameCubeMouse;
-
-    /// Wires the generated input manager to the minimal GameCube keyboard and mouse bootstrap backends.
-    class GameCubeInputManager : public InputManager {
+    /// Implements the generated input backend contract for the bootstrap GameCube host.
+    class GameCubeInputManager : public IInputBackend {
     public:
-        /// Creates the generated input bridge with owned bootstrap keyboard and mouse backends.
+        /// Creates the GameCube input backend with background input disabled.
         GameCubeInputManager();
 
-        /// Releases the owned bootstrap keyboard and mouse backends.
+        /// Releases the GameCube input backend.
         ~GameCubeInputManager();
 
-    private:
-        /// Stores the owned keyboard backend.
-        GameCubeKeyboard* NativeKeyboard;
+        /// Returns whether the backend should continue reporting input while unfocused.
+        bool get_ReceiveInputInBackground() override;
 
-        /// Stores the owned mouse backend.
-        GameCubeMouse* NativeMouse;
+        /// Updates whether the backend should continue reporting input while unfocused.
+        void set_ReceiveInputInBackground(bool value) override;
+
+        /// Captures one bootstrap input frame with default keyboard, mouse, and pointer state.
+        InputFrameState CaptureFrame() override;
+
+    private:
+        /// Tracks whether the backend should continue reporting input while unfocused.
+        bool ReceiveInputInBackgroundValue;
     };
 }

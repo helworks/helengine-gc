@@ -5,11 +5,9 @@
 #include <cstdint>
 
 class IFocusGroup;
-class int2;
 
 #include "IFocusGroup.hpp"
 #include "Keys.hpp"
-#include "int2.hpp"
 
 class IFocusTarget
 {
@@ -26,7 +24,7 @@ public:
 
     virtual bool CanActivateWithKey(::Keys key) = 0;
 
-    virtual bool ContainsScreenPoint(::int2 point) = 0;
+    virtual bool ContainsScreenPoint(int32_t x, int32_t y) = 0;
 
     virtual void SetTargetFocused(bool isFocused) = 0;
 };

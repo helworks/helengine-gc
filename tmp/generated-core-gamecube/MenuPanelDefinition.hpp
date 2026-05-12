@@ -1,0 +1,39 @@
+#pragma once
+#ifdef DrawText
+#undef DrawText
+#endif
+#include <cstdint>
+
+class MenuItemDefinition;
+
+#include "runtime/native_string.hpp"
+#include "runtime/array.hpp"
+#include "MenuItemDefinition.hpp"
+
+class MenuPanelDefinition
+{
+public:
+    virtual ~MenuPanelDefinition() = default;
+
+    std::string Description;
+
+    std::string get_Description();
+
+    std::string Heading;
+
+    std::string get_Heading();
+
+    Array<::MenuItemDefinition*>* Items;
+
+    Array<::MenuItemDefinition*>* get_Items();
+
+    std::string PanelId;
+
+    std::string get_PanelId();
+
+    int32_t VisibleItemCount;
+
+    int32_t get_VisibleItemCount();
+
+    MenuPanelDefinition(std::string panelId, std::string heading, std::string description, int32_t visibleItemCount, Array<::MenuItemDefinition*>* items);
+};

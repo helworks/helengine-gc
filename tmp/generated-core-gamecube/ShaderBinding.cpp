@@ -3,33 +3,9 @@
 #endif
 #include "ShaderBinding.hpp"
 #include "runtime/array.hpp"
-#include "runtime/finally.hpp"
-#include "runtime/native_cast.hpp"
-#include "runtime/native_datetime.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_disposable.hpp"
-#include "runtime/native_enum.hpp"
-#include "runtime/native_event.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "runtime/native_list.hpp"
-#include "runtime/native_nullable.hpp"
-#include "runtime/native_span.hpp"
 #include "runtime/native_string.hpp"
-#include "runtime/native_tuple.hpp"
-#include "runtime/native_type.hpp"
-#include "system/app_context.hpp"
-#include "system/bit_converter.hpp"
-#include "system/diagnostics/debug.hpp"
-#include "system/io/file-stream.hpp"
-#include "system/io/file.hpp"
-#include "system/io/memory-stream.hpp"
-#include "system/io/path.hpp"
-#include "system/io/stream.hpp"
-#include "system/math.hpp"
-#include "system/number.hpp"
-#include "system/string_comparer.hpp"
-#include "system/text/encoding.hpp"
-#include "system/text/regular_expressions/regex.hpp"
 
 List<::ShaderConstantMember*>* ShaderBinding::get_Members()
 {
@@ -65,33 +41,33 @@ ShaderBinding::ShaderBinding(std::string name, ::ShaderResourceType type, int32_
     if (String::IsNullOrWhiteSpace(name))
     {
 throw ([&]() {
-auto __ctor_arg_e7555d3a = "Binding name must be provided.";
-auto __ctor_arg_3db72f4d = "name";
-return new ArgumentException(__ctor_arg_e7555d3a, __ctor_arg_3db72f4d);
+auto __ctor_arg_00000161 = "Binding name must be provided.";
+auto __ctor_arg_00000162 = "name";
+return new ArgumentException(__ctor_arg_00000161, __ctor_arg_00000162);
 })();
     }
     if (set < 0)
     {
 throw ([&]() {
-auto __ctor_arg_3bbe983a = "set";
-auto __ctor_arg_1cb5ce70 = "Set cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_3bbe983a, __ctor_arg_1cb5ce70);
+auto __ctor_arg_00000163 = "set";
+auto __ctor_arg_00000164 = "Set cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_00000163, __ctor_arg_00000164);
 })();
     }
     if (slot < 0)
     {
 throw ([&]() {
-auto __ctor_arg_b595234a = "slot";
-auto __ctor_arg_4e890d6f = "Slot cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_b595234a, __ctor_arg_4e890d6f);
+auto __ctor_arg_00000165 = "slot";
+auto __ctor_arg_00000166 = "Slot cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_00000165, __ctor_arg_00000166);
 })();
     }
     if (size < 0)
     {
 throw ([&]() {
-auto __ctor_arg_af599f8e = "size";
-auto __ctor_arg_f1d0c538 = "Size cannot be negative.";
-return new ArgumentOutOfRangeException(__ctor_arg_af599f8e, __ctor_arg_f1d0c538);
+auto __ctor_arg_00000167 = "size";
+auto __ctor_arg_00000168 = "Size cannot be negative.";
+return new ArgumentOutOfRangeException(__ctor_arg_00000167, __ctor_arg_00000168);
 })();
     }
     if (members == nullptr)

@@ -7,7 +7,11 @@ enum class HEFeature {
     Sprites,
     Text2D,
     Shaders,
-    DebugOverlay
+    DebugOverlay,
+    HostFileSystem,
+    ReflectionLikeRuntime,
+    RuntimeJson,
+    TextProcessing
 };
 
 enum class HEFeatureDecisionOrigin {
