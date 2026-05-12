@@ -5,7 +5,7 @@
 #include <cstring>
 #include <malloc.h>
 
-#if __has_include("Core.hpp")
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
 #include "Core.hpp"
 #include "CoreInitializationOptions.hpp"
 #include "platform/gamecube/GameCubeInputManager.hpp"
@@ -24,8 +24,9 @@ namespace helengine::gamecube {
         , FrameBuffer(nullptr)
         , FifoBuffer(nullptr)
         , ClearColor { 0x00, 0xFF, 0x00, 0xFF }
+        , BootPhase(GameCubeBootPhase::NativeVideo)
         , EngineInitialized(false)
-#if __has_include("Core.hpp")
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         , EngineCore(nullptr)
         , EngineRenderManager3D(nullptr)
         , EngineRenderManager2D(nullptr)
@@ -36,7 +37,7 @@ namespace helengine::gamecube {
 
     /// Releases generated-core bridge objects after the application loop finishes.
     GameCubeApplication::~GameCubeApplication() {
-#if __has_include("Core.hpp")
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         delete EngineCore;
         delete EngineInputManager;
         delete EngineRenderManager2D;
@@ -46,18 +47,38 @@ namespace helengine::gamecube {
 
     /// Initializes the native host and enters the steady-state frame loop.
     int GameCubeApplication::Run() {
+        SetBootPhase(GameCubeBootPhase::NativeVideo, GXColor { 0x20, 0x20, 0x20, 0xFF });
         if (!InitializeVideo()) {
+            FailBootPhase(GameCubeBootPhase::NativeVideo, GXColor { 0x80, 0x00, 0x80, 0xFF });
+            PresentFailureLoop();
             return 1;
         }
 
+        SetBootPhase(GameCubeBootPhase::NativeGraphics, GXColor { 0x40, 0x40, 0x40, 0xFF });
         if (!InitializeGraphics()) {
+            FailBootPhase(GameCubeBootPhase::NativeGraphics, GXColor { 0x80, 0x00, 0x80, 0xFF });
+            PresentFailureLoop();
             return 1;
         }
 
-        InitializeEngineCore();
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
+        if (!InitializeEngineCore()) {
+            PresentFailureLoop();
+            return 1;
+        }
+#endif
 
         while (true) {
-            UpdateEngineCore();
+            if (!UpdateEngineCore()) {
+                PresentFailureLoop();
+                return 1;
+            }
+
+            if (!DrawEngineCore()) {
+                PresentFailureLoop();
+                return 1;
+            }
+
             PresentFrame();
         }
 
@@ -124,14 +145,19 @@ namespace helengine::gamecube {
     }
 
     /// Initializes the generated engine core when generated sources are present in the build.
-    void GameCubeApplication::InitializeEngineCore() {
-#if __has_include("Core.hpp")
+    bool GameCubeApplication::InitializeEngineCore() {
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         try {
-            SetClearColor(GXColor { 0xFF, 0xFF, 0x00, 0xFF });
+            SetBootPhase(GameCubeBootPhase::CoreConstruction, GXColor { 0xFF, 0xFF, 0x00, 0xFF });
             EngineCore = new Core();
 
-            SetClearColor(GXColor { 0xFF, 0x80, 0x00, 0xFF });
+            SetBootPhase(GameCubeBootPhase::CoreOptions, GXColor { 0xFF, 0x80, 0x00, 0xFF });
             CoreInitializationOptions* options = EngineCore->get_InitializationOptions();
+            if (options == nullptr) {
+                FailBootPhase(GameCubeBootPhase::CoreOptions, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
+                return false;
+            }
+
             options->ContentRootPath = ".";
             options->UpdateOrderLayers = 4;
             options->RenderOrderLayers3D = 4;
@@ -139,41 +165,75 @@ namespace helengine::gamecube {
             options->RenderList2DInitialCapacity = 64;
             options->RenderList3DInitialCapacity = 64;
 
-            SetClearColor(GXColor { 0x00, 0xFF, 0xFF, 0xFF });
+            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x00, 0xFF, 0xFF, 0xFF });
             EngineRenderManager3D = new GameCubeRenderManager3D();
             EngineRenderManager2D = new GameCubeRenderManager2D();
             EngineInputManager = new GameCubeInputManager();
             EngineInputManager->SetKeyboardActive(true);
 
-            SetClearColor(GXColor { 0x00, 0x00, 0xFF, 0xFF });
+            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0x00, 0x00, 0xFF, 0xFF });
             EngineRenderManager3D->AddWindow(0, RenderMode->fbWidth, RenderMode->efbHeight);
             EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, options);
             EngineInitialized = true;
-            SetClearColor(GXColor { 0x00, 0xFF, 0x00, 0xFF });
+            SetBootPhase(GameCubeBootPhase::Running, GXColor { 0x00, 0xFF, 0x00, 0xFF });
+            return true;
         }
         catch (...) {
             EngineInitialized = false;
-            SetClearColor(GXColor { 0xFF, 0x00, 0xFF, 0xFF });
+            FailBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
+            return false;
         }
 #endif
+
+        return true;
     }
 
     /// Advances one engine frame when the generated core was initialized successfully.
-    void GameCubeApplication::UpdateEngineCore() {
-#if __has_include("Core.hpp")
+    bool GameCubeApplication::UpdateEngineCore() {
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         if (!EngineInitialized || EngineCore == nullptr) {
-            return;
+            FailBootPhase(GameCubeBootPhase::CoreUpdate, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            return false;
         }
 
         try {
+            SetBootPhase(GameCubeBootPhase::CoreUpdate, GXColor { 0x00, 0xA0, 0x00, 0xFF });
             EngineCore->Update();
-            EngineCore->Draw();
+            SetBootPhase(GameCubeBootPhase::Running, GXColor { 0x00, 0xFF, 0x00, 0xFF });
+            return true;
         }
         catch (...) {
             EngineInitialized = false;
-            SetClearColor(GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            FailBootPhase(GameCubeBootPhase::CoreUpdate, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            return false;
         }
 #endif
+
+        return true;
+    }
+
+    /// Draws one engine frame when the generated core was initialized successfully.
+    bool GameCubeApplication::DrawEngineCore() {
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
+        if (!EngineInitialized || EngineCore == nullptr) {
+            FailBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            return false;
+        }
+
+        try {
+            SetBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0x00, 0x60, 0x00, 0xFF });
+            EngineCore->Draw();
+            SetBootPhase(GameCubeBootPhase::Running, GXColor { 0x00, 0xFF, 0x00, 0xFF });
+            return true;
+        }
+        catch (...) {
+            EngineInitialized = false;
+            FailBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            return false;
+        }
+#endif
+
+        return true;
     }
 
     /// Presents one fallback frame to the active framebuffer.
@@ -187,8 +247,27 @@ namespace helengine::gamecube {
         VIDEO_WaitVSync();
     }
 
+    /// Presents the current failure state forever after a boot-phase failure.
+    void GameCubeApplication::PresentFailureLoop() {
+        while (true) {
+            PresentFrame();
+        }
+    }
+
     /// Updates the currently presented clear color used for boot-state diagnostics.
     void GameCubeApplication::SetClearColor(GXColor color) {
         ClearColor = color;
+    }
+
+    /// Sets the current boot phase and visible clear color.
+    void GameCubeApplication::SetBootPhase(GameCubeBootPhase phase, GXColor color) {
+        BootPhase = phase;
+        SetClearColor(color);
+    }
+
+    /// Marks the current boot phase as failed and updates the visible clear color.
+    void GameCubeApplication::FailBootPhase(GameCubeBootPhase phase, GXColor color) {
+        BootPhase = phase;
+        SetClearColor(color);
     }
 }

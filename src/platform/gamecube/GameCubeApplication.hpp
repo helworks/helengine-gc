@@ -2,6 +2,8 @@
 
 #include <gccore.h>
 
+#include "platform/gamecube/GameCubeBootPhase.hpp"
+
 class Core;
 
 namespace helengine::gamecube {
@@ -29,16 +31,28 @@ namespace helengine::gamecube {
         bool InitializeGraphics();
 
         /// Initializes the generated engine core when generated sources are present in the build.
-        void InitializeEngineCore();
+        bool InitializeEngineCore();
 
         /// Advances one engine frame when the generated core was initialized successfully.
-        void UpdateEngineCore();
+        bool UpdateEngineCore();
+
+        /// Draws one engine frame when the generated core was initialized successfully.
+        bool DrawEngineCore();
 
         /// Presents one fallback frame to the active framebuffer.
         void PresentFrame();
 
+        /// Presents the current failure state forever after a boot-phase failure.
+        void PresentFailureLoop();
+
         /// Updates the currently presented clear color used for boot-state diagnostics.
         void SetClearColor(GXColor color);
+
+        /// Sets the current boot phase and visible clear color.
+        void SetBootPhase(GameCubeBootPhase phase, GXColor color);
+
+        /// Marks the current boot phase as failed and updates the visible clear color.
+        void FailBootPhase(GameCubeBootPhase phase, GXColor color);
 
         /// Stores the preferred video mode selected for the current console or emulator.
         GXRModeObj* RenderMode;
@@ -52,10 +66,13 @@ namespace helengine::gamecube {
         /// Stores the current fallback clear color for crash-phase diagnostics.
         GXColor ClearColor;
 
+        /// Stores the current host boot phase.
+        GameCubeBootPhase BootPhase;
+
         /// Tracks whether the generated engine core finished initialization.
         bool EngineInitialized;
 
-#if __has_include("Core.hpp")
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         /// Stores the generated engine core instance when the build includes generated sources.
         Core* EngineCore;
 
