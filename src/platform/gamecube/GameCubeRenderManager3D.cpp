@@ -90,8 +90,7 @@ namespace helengine::gamecube {
                 firstEntityPosition.Z,
                 firstSubmission->get_SubmeshIndex());
         }
-        RasterRenderer->DrawFrame(framePlan);
-        HasRenderedSceneValue = true;
+        HasRenderedSceneValue = RasterRenderer->DrawFrame(framePlan);
         delete framePlan;
     }
 

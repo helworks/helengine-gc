@@ -5,7 +5,7 @@
 class RuntimeSceneCatalog;
 
 namespace helengine::gamecube {
-    /// Declares the authored startup scene and staged content root used by the first GameCube 3D renderer milestone.
+    /// Declares the authored startup scene and content-root helpers used by direct-DOL and packaged GameCube boot flows.
     class GameCubeSceneBootstrap {
     public:
         /// Relative repo path that must contain the staged cooked content bundle before Dolphin verification.
@@ -25,6 +25,18 @@ namespace helengine::gamecube {
 
         /// Creates the single-scene runtime catalog used by the first GameCube renderer milestone.
         static RuntimeSceneCatalog* CreateSceneCatalog();
+
+        /// Returns the packaged GameCube content root used by disc-backed startup.
+        static std::string GetPackagedContentRootPath();
+
+        /// Initializes the packaged GameCube disc interface before any packaged content file access occurs.
+        static bool InitializePackagedDisc();
+
+        /// Creates the packaged runtime scene catalog emitted by the GameCube builder.
+        static RuntimeSceneCatalog* CreatePackagedSceneCatalog();
+
+        /// Returns the packaged startup scene id emitted by the GameCube builder.
+        static std::string GetPackagedStartupSceneId();
     private:
         /// Returns whether all required staged files exist under the candidate content root.
         static bool HasRequiredFiles(std::string rootPath);

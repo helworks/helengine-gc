@@ -83,6 +83,136 @@ public static class GameCubeBuildWorkspace {
     }
 
     /// <summary>
+    /// Executes one packaged GameCube build request by staging cooked artifacts, emitting the packaged runtime manifest, invoking the native packaged build, writing the extracted disc layout, and invoking image packaging.
+    /// </summary>
+    /// <param name="request">Resolved packaged build request to process.</param>
+    /// <param name="progressReporter">Progress reporter that receives streaming updates.</param>
+    /// <param name="diagnosticReporter">Diagnostic reporter that receives streaming diagnostics.</param>
+    /// <param name="cancellationToken">Cancellation token that can stop the build cooperatively.</param>
+    /// <param name="nativeBuildExecutor">Native packaged-build executor used to produce the DOL.</param>
+    /// <param name="imagePackager">Optional image packager override used to turn the extracted disc layout into a final image artifact.</param>
+    /// <returns>The final packaged-build report.</returns>
+    public static Task<PlatformBuildReport> BuildPackagedAsync(
+        PlatformBuildRequest request,
+        IPlatformBuildProgressReporter progressReporter,
+        IPlatformBuildDiagnosticReporter diagnosticReporter,
+        CancellationToken cancellationToken,
+        IGameCubeNativeBuildExecutor nativeBuildExecutor,
+        IGameCubeImagePackager imagePackager = null,
+        GameCubeDiscSystemAreaOptions discSystemAreaOptions = null) {
+        if (request == null) {
+            throw new ArgumentNullException(nameof(request));
+        } else if (progressReporter == null) {
+            throw new ArgumentNullException(nameof(progressReporter));
+        } else if (diagnosticReporter == null) {
+            throw new ArgumentNullException(nameof(diagnosticReporter));
+        } else if (nativeBuildExecutor == null) {
+            throw new ArgumentNullException(nameof(nativeBuildExecutor));
+        }
+
+        GameCubeBuilderPaths paths = GameCubeBuilderPaths.Create(request);
+        Directory.CreateDirectory(request.OutputRoot);
+        Directory.CreateDirectory(request.WorkingRoot);
+        Directory.CreateDirectory(paths.GeneratedCoreRootPath);
+
+        List<PlatformBuildDiagnostic> diagnostics = [];
+        List<PlatformBuildItemOutcome> sceneOutcomes = BuildSuccessfulSceneOutcomes(request.Manifest.Scenes);
+        List<PlatformBuildItemOutcome> looseAssetOutcomes = BuildSuccessfulLooseAssetOutcomes(request.Manifest.LooseAssets);
+
+        ResetDirectory(paths.StagingRootPath);
+        Directory.CreateDirectory(paths.StagingRootPath);
+        StageCookedArtifacts(request, paths.StagingRootPath, progressReporter, diagnosticReporter, diagnostics, cancellationToken);
+
+        if (diagnostics.Count > 0) {
+            return Task.FromResult(new PlatformBuildReport(false, [.. diagnostics], [.. sceneOutcomes], [.. looseAssetOutcomes]));
+        }
+
+        new GameCubeRuntimeSceneManifestWriter().Write(paths.GeneratedCoreRootPath, request.Manifest);
+        progressReporter.Report(new PlatformBuildProgressUpdate("Generate Runtime Manifest", "runtime-scene-manifest", 1, 4, "Generated GameCube packaged runtime scene manifest."));
+
+        nativeBuildExecutor.Build(paths, cancellationToken);
+        progressReporter.Report(new PlatformBuildProgressUpdate("Build Native Executable", "helengine_gc.dol", 2, 4, "Built packaged-mode GameCube native executable."));
+
+        GameCubeDiscSystemAreaOptions effectiveDiscSystemAreaOptions = discSystemAreaOptions ?? CreateConfiguredDiscSystemAreaOptions(request.Manifest, paths);
+        GameCubeDiscLayoutResult discLayout = new GameCubeDiscLayoutWriter().Write(paths.StagingRootPath, paths.NativeExecutablePath, paths.DiscRootPath, effectiveDiscSystemAreaOptions);
+        progressReporter.Report(new PlatformBuildProgressUpdate("Write Disc Layout", "disc-root", 3, 4, "Wrote extracted GameCube disc layout."));
+
+        IGameCubeImagePackager effectiveImagePackager = imagePackager ?? CreateConfiguredImagePackager(paths);
+        effectiveImagePackager.Package(discLayout, paths.DiscImagePath, cancellationToken);
+        progressReporter.Report(new PlatformBuildProgressUpdate("Package Disc Image", "game.gcm", 4, 4, "Packaged GameCube disc image artifact."));
+
+        return Task.FromResult(new PlatformBuildReport(true, [.. diagnostics], [.. sceneOutcomes], [.. looseAssetOutcomes]));
+    }
+
+    /// <summary>
+    /// Creates the configured GameCube image packager for the staged retail-style raw disc-image path.
+    /// </summary>
+    /// <param name="paths">Packaged-build paths that expose the native packaged-disc artifacts.</param>
+    /// <returns>Configured GameCube image packager.</returns>
+    static IGameCubeImagePackager CreateConfiguredImagePackager(GameCubeBuilderPaths paths) {
+        if (paths == null) {
+            throw new ArgumentNullException(nameof(paths));
+        }
+
+        string witExecutablePath = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_WIT_PATH");
+        if (!string.IsNullOrWhiteSpace(witExecutablePath)) {
+            return new GameCubeWiimmsIsoToolsImagePackager(
+                new GameCubeWiimmsIsoToolsOptions(witExecutablePath),
+                new GameCubeProcessRunner());
+        }
+
+        return new GameCubeRawImagePackager();
+    }
+
+    /// <summary>
+    /// Creates the configured extracted-disc system-area options from explicit environment configuration and manifest metadata.
+    /// </summary>
+    /// <param name="manifest">Manifest supplying project metadata for the disc header.</param>
+    /// <returns>Configured extracted-disc system-area options.</returns>
+    static GameCubeDiscSystemAreaOptions CreateConfiguredDiscSystemAreaOptions(PlatformBuildManifest manifest, GameCubeBuilderPaths paths) {
+        if (manifest == null) {
+            throw new ArgumentNullException(nameof(manifest));
+        } else if (paths == null) {
+            throw new ArgumentNullException(nameof(paths));
+        }
+
+        string apploaderPath = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_APPLOADER_PATH");
+        if (string.IsNullOrWhiteSpace(apploaderPath)) {
+            throw new InvalidOperationException("GameCube packaged-disc builds require HELENGINE_GAMECUBE_APPLOADER_PATH to point at a real GameCube apploader.img.");
+        }
+
+        return new GameCubeDiscSystemAreaOptions(
+            apploaderPath,
+            CreateDiscId(manifest.ProjectId),
+            manifest.ProjectId);
+    }
+
+    /// <summary>
+    /// Creates one stable GameCube-shaped ID6 value from the authored project id.
+    /// </summary>
+    /// <param name="projectId">Authored project identifier.</param>
+    /// <returns>Stable GameCube-shaped ID6 value.</returns>
+    static string CreateDiscId(string projectId) {
+        if (string.IsNullOrWhiteSpace(projectId)) {
+            throw new ArgumentException("Project id is required.", nameof(projectId));
+        }
+
+        string normalizedProjectId = new string(projectId
+            .ToUpperInvariant()
+            .Where(char.IsAsciiLetterOrDigit)
+            .Take(2)
+            .ToArray());
+
+        if (normalizedProjectId.Length == 0) {
+            normalizedProjectId = "HX";
+        } else if (normalizedProjectId.Length < 2) {
+            normalizedProjectId = normalizedProjectId.PadRight(2, 'X');
+        }
+
+        return "G" + normalizedProjectId + "EHE";
+    }
+
+    /// <summary>
     /// Copies all staged scene payloads into the output root.
     /// </summary>
     /// <param name="request">The resolved build request.</param>
@@ -300,6 +430,100 @@ public static class GameCubeBuildWorkspace {
         };
 
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest, JsonOptions));
+    }
+
+    /// <summary>
+    /// Stages all cooked artifacts referenced by the packaged build manifest into the supplied staging root.
+    /// </summary>
+    /// <param name="request">Resolved packaged build request.</param>
+    /// <param name="stagingRootPath">Working staging root that receives cooked artifacts.</param>
+    /// <param name="progressReporter">Progress reporter that receives staging updates.</param>
+    /// <param name="diagnosticReporter">Diagnostic reporter that receives staging failures.</param>
+    /// <param name="diagnostics">Diagnostic list collecting staging failures.</param>
+    /// <param name="cancellationToken">Cancellation token used to stop cooperative work.</param>
+    static void StageCookedArtifacts(
+        PlatformBuildRequest request,
+        string stagingRootPath,
+        IPlatformBuildProgressReporter progressReporter,
+        IPlatformBuildDiagnosticReporter diagnosticReporter,
+        List<PlatformBuildDiagnostic> diagnostics,
+        CancellationToken cancellationToken) {
+        PlatformBuildArtifact[] cookedArtifacts = request.Manifest.CookedArtifacts ?? [];
+        for (int artifactIndex = 0; artifactIndex < cookedArtifacts.Length; artifactIndex++) {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            PlatformBuildArtifact artifact = cookedArtifacts[artifactIndex];
+            string sourcePath = ResolveSourcePath(artifact.RelativePath);
+            if (!File.Exists(sourcePath)) {
+                AddDiagnostic(
+                    diagnostics,
+                    diagnosticReporter,
+                    PlatformBuildDiagnosticSeverity.Error,
+                    "GCPACK001",
+                    $"Cooked artifact '{artifact.RelativePath}' was not found in the staged package root.",
+                    string.Empty,
+                    artifact.LogicalArtifactId,
+                    artifact.RelativePath);
+                continue;
+            }
+
+            string destinationPath = Path.Combine(stagingRootPath, NormalizeRelativePath(artifact.RelativePath));
+            string destinationDirectoryPath = Path.GetDirectoryName(destinationPath) ?? throw new InvalidOperationException($"Destination directory could not be resolved for '{destinationPath}'.");
+            Directory.CreateDirectory(destinationDirectoryPath);
+            File.Copy(sourcePath, destinationPath, true);
+            progressReporter.Report(new PlatformBuildProgressUpdate(
+                "Stage Cooked Artifacts",
+                artifact.LogicalArtifactId,
+                artifactIndex + 1,
+                cookedArtifacts.Length,
+                $"Staged cooked artifact '{artifact.RelativePath}'."));
+        }
+    }
+
+    /// <summary>
+    /// Builds successful scene outcomes for the packaged-build report.
+    /// </summary>
+    /// <param name="scenes">Scenes included in the packaged build request.</param>
+    /// <returns>Successful scene outcomes for the packaged build request.</returns>
+    static List<PlatformBuildItemOutcome> BuildSuccessfulSceneOutcomes(PlatformBuildScene[] scenes) {
+        List<PlatformBuildItemOutcome> outcomes = [];
+        if (scenes == null) {
+            return outcomes;
+        }
+
+        for (int index = 0; index < scenes.Length; index++) {
+            outcomes.Add(new PlatformBuildItemOutcome(scenes[index].SceneId, PlatformBuildItemOutcomeKind.Succeeded));
+        }
+
+        return outcomes;
+    }
+
+    /// <summary>
+    /// Builds successful loose-asset outcomes for the packaged-build report.
+    /// </summary>
+    /// <param name="looseAssets">Loose assets included in the packaged build request.</param>
+    /// <returns>Successful loose-asset outcomes for the packaged build request.</returns>
+    static List<PlatformBuildItemOutcome> BuildSuccessfulLooseAssetOutcomes(PlatformBuildAsset[] looseAssets) {
+        List<PlatformBuildItemOutcome> outcomes = [];
+        if (looseAssets == null) {
+            return outcomes;
+        }
+
+        for (int index = 0; index < looseAssets.Length; index++) {
+            outcomes.Add(new PlatformBuildItemOutcome(looseAssets[index].AssetId, PlatformBuildItemOutcomeKind.Succeeded));
+        }
+
+        return outcomes;
+    }
+
+    /// <summary>
+    /// Removes one directory tree when it already exists so the packaged staging root can be rebuilt deterministically.
+    /// </summary>
+    /// <param name="path">Directory path to remove before rebuilding it.</param>
+    static void ResetDirectory(string path) {
+        if (Directory.Exists(path)) {
+            Directory.Delete(path, recursive: true);
+        }
     }
 
     /// <summary>

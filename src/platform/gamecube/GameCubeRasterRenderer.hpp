@@ -22,8 +22,8 @@ namespace helengine::gamecube {
         /// Creates the raster renderer with a shared runtime-model cache.
         explicit GameCubeRasterRenderer(GameCubeMeshCache* meshCache);
 
-        /// Draws one extracted camera frame through GX.
-        void DrawFrame(GameCubeFramePlan* framePlan);
+        /// Draws one extracted camera frame through GX and reports whether this frame claimed scene presentation ownership.
+        bool DrawFrame(GameCubeFramePlan* framePlan);
     private:
         /// Shared runtime-model cache used by the draw path.
         GameCubeMeshCache* MeshCache;
@@ -48,6 +48,9 @@ namespace helengine::gamecube {
 
         /// Builds one native GX projection matrix from the active runtime camera and viewport.
         void BuildProjectionMatrix(GameCubeFramePlan* framePlan, Mtx44& projectionMatrix);
+
+        /// Draws a fullscreen diagnostic quad that writes a visible clear color directly into the current EFB.
+        void DrawProbeFullscreenClear(GameCubeFramePlan* framePlan);
 
         /// Draws one authored runtime submesh through immediate GX triangle submission.
         void DrawSubmesh(GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh);

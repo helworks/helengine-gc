@@ -3,6 +3,7 @@ using helengine.baseplatform.Definitions;
 using helengine.baseplatform.Descriptors;
 using helengine.baseplatform.Reporting;
 using helengine.baseplatform.Requests;
+using helengine.baseplatform.Results;
 
 namespace helengine.gamecube.builder;
 
@@ -11,9 +12,45 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public sealed class GameCubePlatformAssetBuilder : IPlatformAssetBuilder {
     /// <summary>
+    /// Runtime specialization id that selects the packaged-disc GameCube build flow.
+    /// </summary>
+    const string PackagedDiscRuntimeSpecializationId = "gamecube-disc-layout";
+
+    /// <summary>
+    /// Native build executor used when the request selects the packaged-disc flow.
+    /// </summary>
+    readonly IGameCubeNativeBuildExecutor NativeBuildExecutor;
+
+    /// <summary>
+    /// Optional image packager override used by packaged-disc tests and custom tooling flows.
+    /// </summary>
+    readonly IGameCubeImagePackager ImagePackager;
+
+    /// <summary>
+    /// Optional disc system-area override used by packaged-disc tests and custom tooling flows.
+    /// </summary>
+    readonly GameCubeDiscSystemAreaOptions DiscSystemAreaOptions;
+
+    /// <summary>
     /// Initializes one GameCube builder instance with the current platform metadata.
     /// </summary>
-    public GameCubePlatformAssetBuilder() {
+    public GameCubePlatformAssetBuilder()
+        : this(new GameCubeDockerNativeBuildExecutor(), null, null) {
+    }
+
+    /// <summary>
+    /// Initializes one GameCube builder instance with explicit packaged-build collaborators.
+    /// </summary>
+    /// <param name="nativeBuildExecutor">Native build executor used when the packaged-disc flow is selected.</param>
+    /// <param name="imagePackager">Optional image packager override used when the packaged-disc flow is selected.</param>
+    /// <param name="discSystemAreaOptions">Optional system-area override used when the packaged-disc flow is selected.</param>
+    public GameCubePlatformAssetBuilder(
+        IGameCubeNativeBuildExecutor nativeBuildExecutor,
+        IGameCubeImagePackager imagePackager,
+        GameCubeDiscSystemAreaOptions discSystemAreaOptions) {
+        NativeBuildExecutor = nativeBuildExecutor ?? throw new ArgumentNullException(nameof(nativeBuildExecutor));
+        ImagePackager = imagePackager;
+        DiscSystemAreaOptions = discSystemAreaOptions;
         Descriptor = new PlatformBuilderDescriptor(
             "helengine.gamecube.builder",
             "1.0.0",
@@ -36,6 +73,19 @@ public sealed class GameCubePlatformAssetBuilder : IPlatformAssetBuilder {
     public PlatformDefinition Definition { get; }
 
     /// <summary>
+    /// Translates one GameCube material schema request into the current minimal cooked payload contract.
+    /// </summary>
+    /// <param name="request">Material translation request for the GameCube builder.</param>
+    /// <returns>Minimal cooked material payload plus referenced shader dependencies.</returns>
+    public PlatformMaterialCookResult CookMaterial(PlatformMaterialCookRequest request) {
+        if (request == null) {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        return new PlatformMaterialCookResult([], []);
+    }
+
+    /// <summary>
     /// Executes one GameCube build request through the staged payload workspace.
     /// </summary>
     /// <param name="request">The resolved build request.</param>
@@ -48,6 +98,24 @@ public sealed class GameCubePlatformAssetBuilder : IPlatformAssetBuilder {
         IPlatformBuildProgressReporter progressReporter,
         IPlatformBuildDiagnosticReporter diagnosticReporter,
         CancellationToken cancellationToken) {
+        if (request == null) {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        if (string.Equals(
+            request.Manifest.ContainerWritePlan.RuntimeSpecializationId,
+            PackagedDiscRuntimeSpecializationId,
+            StringComparison.Ordinal)) {
+            return GameCubeBuildWorkspace.BuildPackagedAsync(
+                request,
+                progressReporter,
+                diagnosticReporter,
+                cancellationToken,
+                NativeBuildExecutor,
+                ImagePackager,
+                DiscSystemAreaOptions);
+        }
+
         return GameCubeBuildWorkspace.BuildAsync(request, progressReporter, diagnosticReporter, cancellationToken);
     }
 }

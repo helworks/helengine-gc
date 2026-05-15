@@ -24,8 +24,8 @@ namespace helengine::gamecube {
         }
     }
 
-    /// Draws one extracted camera frame through GX.
-    void GameCubeRasterRenderer::DrawFrame(GameCubeFramePlan* framePlan) {
+    /// Draws one extracted camera frame through GX and reports whether this frame claimed scene presentation ownership.
+    bool GameCubeRasterRenderer::DrawFrame(GameCubeFramePlan* framePlan) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
         }
@@ -37,7 +37,6 @@ namespace helengine::gamecube {
             static_cast<u32>(framePlan->Viewport.Y),
             static_cast<u32>(framePlan->Viewport.Z),
             static_cast<u32>(framePlan->Viewport.W));
-        GX_SetCopyClear(ResolveClearColor(framePlan->Camera->get_ClearSettings()), ResolveClearDepth(framePlan->Camera->get_ClearSettings()));
 
         Mtx44 projection;
         BuildProjectionMatrix(framePlan, projection);
@@ -46,6 +45,8 @@ namespace helengine::gamecube {
         Mtx viewMatrix;
         BuildViewMatrix(framePlan->Camera, viewMatrix);
         RasterizedFrameCount++;
+        DrawProbeFullscreenClear(framePlan);
+        return true;
 
         for (int32_t submissionIndex = 0; submissionIndex < framePlan->DrawableSubmissions->get_Count(); submissionIndex++) {
             RenderFrameDrawableSubmission* submission = (*framePlan->DrawableSubmissions)[submissionIndex];
@@ -78,6 +79,8 @@ namespace helengine::gamecube {
             GX_SetCurrentMtx(GX_PNMTX0);
             DrawSubmesh(runtimeModel, runtimeSubmesh);
         }
+
+        return true;
     }
 
     /// Configures the GX state used by the first unlit triangle path.
@@ -92,7 +95,7 @@ namespace helengine::gamecube {
         GX_SetNumTexGens(0);
         GX_SetNumTevStages(1);
         GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
-        GX_SetCullMode(GX_CULL_NONE);
+        GX_SetCullMode(GX_CULL_FRONT);
         GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
         GX_SetColorUpdate(GX_TRUE);
         GX_SetAlphaUpdate(GX_FALSE);
@@ -101,7 +104,7 @@ namespace helengine::gamecube {
     /// Converts the authored runtime clear settings into the presented GX clear color.
     GXColor GameCubeRasterRenderer::ResolveClearColor(CameraClearSettings clearSettings) {
         if (!clearSettings.get_ClearColorEnabled()) {
-            return GXColor { 0x00, 0x00, 0x00, 0xFF };
+            return GXColor { 0x64, 0x95, 0xED, 0xFF };
         }
 
         float4 color = clearSettings.get_ClearColor();
@@ -173,6 +176,33 @@ namespace helengine::gamecube {
             aspectRatio,
             framePlan->Camera->get_NearPlaneDistance(),
             framePlan->Camera->get_FarPlaneDistance());
+    }
+
+    /// Draws a fullscreen diagnostic quad that writes a visible clear color directly into the current EFB.
+    void GameCubeRasterRenderer::DrawProbeFullscreenClear(GameCubeFramePlan* framePlan) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        }
+
+        Mtx44 projection;
+        guOrtho(projection, 0.0f, framePlan->Viewport.W, 0.0f, framePlan->Viewport.Z, -1.0f, 1.0f);
+        GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC);
+
+        Mtx modelView;
+        guMtxIdentity(modelView);
+        GX_LoadPosMtxImm(modelView, GX_PNMTX0);
+        GX_SetCurrentMtx(GX_PNMTX0);
+        GX_SetCullMode(GX_CULL_NONE);
+        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+        GX_Position3f32(0.0f, 0.0f, 0.0f);
+        GX_Color4u8(0x64, 0x95, 0xED, 0xFF);
+        GX_Position3f32(framePlan->Viewport.Z, 0.0f, 0.0f);
+        GX_Color4u8(0x64, 0x95, 0xED, 0xFF);
+        GX_Position3f32(0.0f, framePlan->Viewport.W, 0.0f);
+        GX_Color4u8(0x64, 0x95, 0xED, 0xFF);
+        GX_Position3f32(framePlan->Viewport.Z, framePlan->Viewport.W, 0.0f);
+        GX_Color4u8(0x64, 0x95, 0xED, 0xFF);
+        GX_End();
     }
 
     /// Draws one authored runtime submesh through immediate GX triangle submission.

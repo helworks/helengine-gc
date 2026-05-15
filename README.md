@@ -24,6 +24,35 @@ docker run --rm -v "$PWD":/workspace -w /workspace helengine-gc make
 
 The build emits `build/helengine_gc.dol`.
 
+## Packaged Disc Build
+
+Packaged GameCube image builds now stage a retail-style extracted-disc root and write the final raw `game.gcm` directly from that staged layout.
+
+The normal packaged-disc flow still builds these native artifacts inside the Docker toolchain:
+
+- `build/packaged-disc/apploader.img`
+- `build/packaged-disc/gbi.hdr`
+
+Required external input:
+
+- `HELENGINE_GAMECUBE_APPLOADER_PATH`
+  Required path to a real GameCube `apploader.img` that the launcher or tool installer provides.
+
+The packaged-disc builder no longer falls back to the repo-built packaged native `apploader.img`, because that artifact is not a real retail-style GameCube disc apploader and causes Dolphin boot failures in packaged images.
+The builder also no longer defaults to the cubeboot ISO path for final packaging, because that path emits an El Torito ISO that Dolphin does not boot as a real GameCube disc image.
+
+The builder stages an inspectable extracted-disc root at `disc/`:
+
+- `disc/setup.txt`
+- `disc/sys/boot.bin`
+- `disc/sys/bi2.bin`
+- `disc/sys/apploader.img`
+- `disc/sys/main.dol`
+- `disc/sys/fst.bin`
+- `disc/files/...`
+
+That extracted-disc root is the authoritative packaged-disc source that the builder copies directly into the final raw GameCube image artifact.
+
 ## Generated core seam
 
 The native build consumes generated engine output from `HELENGINE_CORE_CPP_ROOT` when a generated core deployment root is provided.

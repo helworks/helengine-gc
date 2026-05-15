@@ -47,9 +47,6 @@ namespace helengine::gamecube {
         /// Resolves the currently visible diagnostic color for the next presented frame.
         GXColor ResolvePresentedClearColor();
 
-        /// Presents the current failure state forever after a boot-phase failure.
-        void PresentFailureLoop();
-
         /// Updates the currently presented clear color used for boot-state diagnostics.
         void SetClearColor(GXColor color);
 
@@ -59,14 +56,23 @@ namespace helengine::gamecube {
         /// Marks the current boot phase as failed and updates the visible clear color.
         void FailBootPhase(GameCubeBootPhase phase, GXColor color);
 
+        /// Returns whether the current build was configured to stop after enough verified rendered frames.
+        bool HasSatisfiedVerificationExitCondition();
+
+        /// Returns whether the current build should convert runtime success and failure into deterministic process exits.
+        bool IsVerificationBuild();
+
+        /// Returns the process exit code that represents the current boot phase during verification runs.
+        int GetVerificationExitCode();
+
         /// Stores the preferred video mode selected for the current console or emulator.
         GXRModeObj* RenderMode;
 
-        /// Stores the allocated external framebuffer used for display output.
-        void* FrameBuffer;
+        /// Stores the two allocated external framebuffers used for display output.
+        void* FrameBuffers[2];
 
-        /// Stores the GX command FIFO allocation used by the host bootstrap.
-        void* FifoBuffer;
+        /// Stores the index of the next external framebuffer that will receive the copied display image.
+        uint32_t FrameBufferIndex;
 
         /// Stores the current fallback clear color for crash-phase diagnostics.
         GXColor ClearColor;
@@ -80,11 +86,26 @@ namespace helengine::gamecube {
         /// Counts the number of frames presented after generated-core initialization succeeds.
         uint32_t PresentedFrameCount;
 
+        /// Counts the number of generated-core frames that completed both update and draw.
+        uint32_t VerifiedFrameCount;
+
         /// Tracks whether the current frame completed the generated update step before presentation.
         bool UpdateCompletedSincePresent;
 
         /// Tracks whether the current frame completed the generated draw step before presentation.
         bool DrawCompletedSincePresent;
+
+        /// Tracks whether the first generated update boundary report has already been emitted.
+        bool FirstUpdateBeginReported;
+
+        /// Tracks whether the first generated update completion report has already been emitted.
+        bool FirstUpdateCompletedReported;
+
+        /// Tracks whether the first generated draw boundary report has already been emitted.
+        bool FirstDrawBeginReported;
+
+        /// Tracks whether the first generated draw completion report has already been emitted.
+        bool FirstDrawCompletedReported;
 
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         /// Stores the generated engine core instance when the build includes generated sources.

@@ -21,7 +21,11 @@ public static class Program {
         }
 
         if (args.Length > 0 && string.Equals(args[0], "--smoke-test", StringComparison.OrdinalIgnoreCase)) {
-            Console.WriteLine("gamecube.builder smoke test entrypoint");
+            string apploaderPath = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_APPLOADER_PATH");
+            Console.WriteLine(
+                "gamecube.builder smoke test entrypoint "
+                + "(packager: direct-raw-gcm, "
+                + $"apploader: {(string.IsNullOrWhiteSpace(apploaderPath) ? "missing" : "configured")})");
             return 0;
         }
 
