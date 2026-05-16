@@ -87,6 +87,7 @@ namespace helengine::gamecube {
         runtimeModel->SetBounds(data->BoundsMin, data->BoundsMax);
         runtimeModel->SetSubmeshes(ModelSubmeshResolver::BuildRuntimeSubmeshes(data));
         runtimeModel->Positions = data->Positions;
+        runtimeModel->Normals = data->Normals;
         runtimeModel->Indices16 = indexData->get_Indices16();
         runtimeModel->Indices32 = indexData->get_Indices32();
         runtimeModel->Uses32BitIndices = indexData->get_Uses32BitIndices();

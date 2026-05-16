@@ -2,6 +2,7 @@
 
 #include "CameraComponent.hpp"
 #include "RenderFrameDrawableSubmission.hpp"
+#include "RenderFrameLightSubmission.hpp"
 #include "float4.hpp"
 #include "float4x4.hpp"
 #include "runtime/native_list.hpp"
@@ -14,12 +15,14 @@ namespace helengine::gamecube {
         GameCubeFramePlan(
             CameraComponent* camera,
             List<RenderFrameDrawableSubmission*>* drawableSubmissions,
+            List<RenderFrameLightSubmission*>* lightSubmissions,
             float4 viewport,
             float4x4 view,
             float4x4 projection,
             float4x4 viewProjection)
             : Camera(camera)
             , DrawableSubmissions(drawableSubmissions)
+            , LightSubmissions(lightSubmissions)
             , Viewport(viewport)
             , View(view)
             , Projection(projection)
@@ -31,6 +34,9 @@ namespace helengine::gamecube {
 
         /// Opaque drawable submissions extracted from the generated runtime graph.
         List<RenderFrameDrawableSubmission*>* DrawableSubmissions;
+
+        /// Light submissions extracted from the generated runtime graph for this frame.
+        List<RenderFrameLightSubmission*>* LightSubmissions;
 
         /// Pixel-space viewport resolved from the authored runtime viewport.
         float4 Viewport;

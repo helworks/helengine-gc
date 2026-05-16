@@ -12,6 +12,7 @@ namespace helengine::gamecube {
         GameCubeRuntimeModel()
             : RuntimeModel()
             , Positions(nullptr)
+            , Normals(nullptr)
             , Indices16(nullptr)
             , Indices32(nullptr)
             , Uses32BitIndices(false) {
@@ -19,6 +20,9 @@ namespace helengine::gamecube {
 
         /// Authored model positions used by the first unlit triangle path.
         Array<float3>* Positions;
+
+        /// Authored model normals used by the first lit GameCube path.
+        Array<float3>* Normals;
 
         /// Authored 16-bit indices when the source mesh uses them.
         Array<uint16_t>* Indices16;

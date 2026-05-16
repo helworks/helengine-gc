@@ -1,9 +1,11 @@
 #include "platform/gamecube/GameCubeSceneRenderBridge.hpp"
 
+#include "AmbientLightComponent.hpp"
 #include "CameraComponent.hpp"
 #include "CameraProjectionUtils.hpp"
 #include "CameraViewportResolver.hpp"
 #include "Core.hpp"
+#include "DirectionalLightComponent.hpp"
 #include "Entity.hpp"
 #include "ICamera.hpp"
 #include "IDrawable3D.hpp"
@@ -38,6 +40,16 @@ namespace helengine::gamecube {
         List<CameraComponent*>* cameras = new List<CameraComponent*>(1);
         cameras->Add(camera);
         List<LightComponent*>* lights = new List<LightComponent*>();
+        ObjectManager* objectManager = Core::get_Instance()->get_ObjectManager();
+        List<AmbientLightComponent*>* ambientLights = objectManager->get_AmbientLights();
+        for (int32_t lightIndex = 0; lightIndex < ambientLights->get_Count(); lightIndex++) {
+            lights->Add((*ambientLights)[lightIndex]);
+        }
+
+        List<DirectionalLightComponent*>* directionalLights = objectManager->get_DirectionalLights();
+        for (int32_t lightIndex = 0; lightIndex < directionalLights->get_Count(); lightIndex++) {
+            lights->Add((*directionalLights)[lightIndex]);
+        }
 
         RenderFrameExtractionService extractor;
         RenderFrameExtractionResult* extraction = extractor.Extract(cameras, drawables, lights, capabilities);
@@ -55,7 +67,14 @@ namespace helengine::gamecube {
         float4x4 projection = CameraProjectionUtils::CreatePerspectiveProjection(camera, static_cast<float>(3.14159265358979323846 / 4.0), viewport.Z / viewport.W);
         float4x4 viewProjection;
         float4x4::Multiply(view, projection, viewProjection);
-        return new GameCubeFramePlan(camera, frame->get_DrawableSubmissions(), viewport, view, projection, viewProjection);
+        return new GameCubeFramePlan(
+            camera,
+            frame->get_DrawableSubmissions(),
+            frame->get_LightSubmissions(),
+            viewport,
+            view,
+            projection,
+            viewProjection);
     }
 
     /// Resolves the first enabled runtime camera the GameCube backend is willing to render.

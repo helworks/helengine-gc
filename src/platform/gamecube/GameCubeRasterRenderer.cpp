@@ -1,12 +1,20 @@
 #include "platform/gamecube/GameCubeRasterRenderer.hpp"
 
+#include <algorithm>
+
 #include <ogc/system.h>
 
 #include "CameraClearSettings.hpp"
 #include "CameraComponent.hpp"
 #include "Entity.hpp"
 #include "IDrawable3D.hpp"
+#include "LightComponent.hpp"
+#include "LightType.hpp"
+#include "MaterialRenderState.hpp"
 #include "RenderFrameDrawableSubmission.hpp"
+#include "RenderFrameLightSubmission.hpp"
+#include "RuntimeMaterial.hpp"
+#include "RuntimeMaterialLightingModel.hpp"
 #include "RuntimeSubmesh.hpp"
 #include "float3.hpp"
 #include "float4.hpp"
@@ -60,7 +68,7 @@ namespace helengine::gamecube {
             RuntimeSubmesh* runtimeSubmesh = (*runtimeModel->get_Submeshes())[submission->get_SubmeshIndex()];
             Entity* entity = submission->get_Drawable()->get_Parent();
 
-            DrawSubmesh(framePlan, runtimeModel, runtimeSubmesh, entity);
+            DrawSubmesh(framePlan, submission, runtimeModel, runtimeSubmesh, entity);
         }
 
         return true;
@@ -79,7 +87,7 @@ namespace helengine::gamecube {
         GX_SetNumTevStages(1);
         GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
         GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
-        GX_SetCullMode(GX_CULL_NONE);
+        GX_SetCullMode(GX_CULL_FRONT);
         GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
         GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
         GX_SetZCompLoc(GX_TRUE);
@@ -148,6 +156,105 @@ namespace helengine::gamecube {
         destination[3][3] = source.M44;
     }
 
+    /// Resolves whether one submission should use the lit branch for the current checkpoint.
+    bool GameCubeRasterRenderer::UsesLitBranch(RenderFrameDrawableSubmission* submission) {
+        if (submission == nullptr) {
+            throw new ArgumentNullException("submission");
+        }
+
+        RuntimeMaterial* material = submission->get_Material();
+        if (material == nullptr) {
+            throw new InvalidOperationException("GameCube drawable submission requires a runtime material.");
+        }
+
+        if (material->get_LightingModel() == RuntimeMaterialLightingModel::Unlit) {
+            return false;
+        }
+
+        return material->get_LightingModel() == RuntimeMaterialLightingModel::MetalRoughPbr;
+    }
+
+    /// Maps the shared material cull-mode contract onto GX, which interprets front and back winding in reverse.
+    u8 GameCubeRasterRenderer::ResolveGxCullMode(MaterialCullMode cullMode) {
+        switch (cullMode) {
+            case MaterialCullMode::None:
+                return GX_CULL_NONE;
+
+            case MaterialCullMode::Back:
+                return GX_CULL_FRONT;
+
+            case MaterialCullMode::Front:
+                return GX_CULL_BACK;
+        }
+
+        throw new InvalidOperationException("Unsupported material cull mode for GameCube GX submission.");
+    }
+
+    /// Accumulates ambient plus directional light into a white diffuse lighting result.
+    float3 GameCubeRasterRenderer::AccumulateAmbientAndDirectionalLight(GameCubeFramePlan* framePlan, Entity* entity, float3 normal) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        } else if (entity == nullptr) {
+            throw new ArgumentNullException("entity");
+        }
+
+        float4 entityOrientation = entity->get_Orientation();
+        entityOrientation.Normalize();
+        float3 worldNormal = float4::RotateVector(normal, entityOrientation);
+        float3 normalizedNormal = float3::Normalize(worldNormal);
+        float3 accumulated(0.0f, 0.0f, 0.0f);
+
+        for (int32_t lightIndex = 0; lightIndex < framePlan->LightSubmissions->get_Count(); lightIndex++) {
+            RenderFrameLightSubmission* submission = (*framePlan->LightSubmissions)[lightIndex];
+            LightComponent* light = submission->get_Light();
+            if (light == nullptr) {
+                continue;
+            }
+
+            float4 lightColor = light->get_Color();
+            float3 rgb = float3(lightColor.X, lightColor.Y, lightColor.Z) * light->get_Intensity();
+            if (submission->get_LightType() == LightType::Ambient) {
+                accumulated = accumulated + rgb;
+                continue;
+            } else if (submission->get_LightType() != LightType::Directional) {
+                continue;
+            }
+
+            Entity* lightEntity = light->get_Parent();
+            if (lightEntity == nullptr) {
+                continue;
+            }
+
+            float4 lightOrientation = lightEntity->get_Orientation();
+            lightOrientation.Normalize();
+            float3 lightDirection = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), lightOrientation) * -1.0f;
+            lightDirection = float3::Normalize(lightDirection);
+            float diffuse = std::max(0.0f, float3::Dot(normalizedNormal, lightDirection));
+            accumulated = accumulated + (rgb * diffuse);
+        }
+
+        return accumulated;
+    }
+
+    /// Evaluates one final GX vertex color for the first lit branch.
+    GXColor GameCubeRasterRenderer::EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, float3 normal) {
+        const float3 lighting = AccumulateAmbientAndDirectionalLight(framePlan, entity, normal);
+        return ConvertLightingColorToGx(float3(
+            std::min(1.0f, lighting.X),
+            std::min(1.0f, lighting.Y),
+            std::min(1.0f, lighting.Z)));
+    }
+
+    /// Converts a normalized RGB lighting value into a GX color with full alpha.
+    GXColor GameCubeRasterRenderer::ConvertLightingColorToGx(float3 color) {
+        return GXColor {
+            static_cast<u8>(std::clamp(color.X, 0.0f, 1.0f) * 255.0f),
+            static_cast<u8>(std::clamp(color.Y, 0.0f, 1.0f) * 255.0f),
+            static_cast<u8>(std::clamp(color.Z, 0.0f, 1.0f) * 255.0f),
+            0xFF
+        };
+    }
+
     /// Builds one authored world matrix through the generated platform-adapted float4x4 runtime.
     void GameCubeRasterRenderer::BuildWorldMatrix(Entity* entity, float4x4& worldMatrix) {
         if (entity == nullptr) {
@@ -187,9 +294,11 @@ namespace helengine::gamecube {
     }
 
     /// Draws one authored runtime submesh through immediate GX triangle submission and the active entity transform.
-    void GameCubeRasterRenderer::DrawSubmesh(GameCubeFramePlan* framePlan, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity) {
+    void GameCubeRasterRenderer::DrawSubmesh(GameCubeFramePlan* framePlan, RenderFrameDrawableSubmission* submission, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
+        } else if (submission == nullptr) {
+            throw new ArgumentNullException("submission");
         } else if (runtimeModel == nullptr) {
             throw new ArgumentNullException("runtimeModel");
         } else if (runtimeSubmesh == nullptr) {
@@ -206,6 +315,14 @@ namespace helengine::gamecube {
         GX_LoadPosMtxImm(nativeModelViewMatrix, GX_PNMTX0);
         GX_SetCurrentMtx(GX_PNMTX0);
 
+        RuntimeMaterial* material = submission->get_Material();
+        if (material == nullptr) {
+            throw new InvalidOperationException("GameCube drawable submission requires a runtime material.");
+        }
+
+        GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
+
+        const bool useLitBranch = UsesLitBranch(submission);
         GX_Begin(GX_TRIANGLES, GX_VTXFMT0, runtimeSubmesh->get_IndexCount());
         for (int32_t indexOffset = 0; indexOffset < runtimeSubmesh->get_IndexCount(); indexOffset++) {
             const uint32_t positionIndex = runtimeModel->Uses32BitIndices
@@ -213,7 +330,17 @@ namespace helengine::gamecube {
                 : (*runtimeModel->Indices16)[runtimeSubmesh->get_IndexStart() + indexOffset];
             const float3 localPosition = (*runtimeModel->Positions)[positionIndex];
             GX_Position3f32(localPosition.X, localPosition.Y, localPosition.Z);
-            GX_Color4u8(OpaqueMeshColorRed, OpaqueMeshColorGreen, OpaqueMeshColorBlue, OpaqueMeshColorAlpha);
+
+            if (useLitBranch) {
+                if (runtimeModel->Normals == nullptr) {
+                    throw new InvalidOperationException("GameCube lit rendering requires authored mesh normals.");
+                }
+
+                GXColor litColor = EvaluateLitVertexColor(framePlan, entity, (*runtimeModel->Normals)[positionIndex]);
+                GX_Color4u8(litColor.r, litColor.g, litColor.b, litColor.a);
+            } else {
+                GX_Color4u8(OpaqueMeshColorRed, OpaqueMeshColorGreen, OpaqueMeshColorBlue, OpaqueMeshColorAlpha);
+            }
         }
         GX_End();
     }
