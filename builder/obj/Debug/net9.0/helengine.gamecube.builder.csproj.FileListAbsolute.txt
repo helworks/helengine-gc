@@ -1,6 +1,0 @@
-C:\dev\helworks\helengine-gc\builder\obj\Debug\net9.0\helengine.gamecube.builder.csproj.AssemblyReference.cache
-C:\dev\helworks\helengine-gc\builder\obj\Debug\net9.0\helengine.gamecube.builder.GeneratedMSBuildEditorConfig.editorconfig
-C:\dev\helworks\helengine-gc\builder\obj\Debug\net9.0\helengine.gamecube.builder.AssemblyInfoInputs.cache
-C:\dev\helworks\helengine-gc\builder\obj\Debug\net9.0\helengine.gamecube.builder.AssemblyInfo.cs
-C:\dev\helworks\helengine-gc\builder\obj\Debug\net9.0\helengine.gamecube.builder.csproj.CoreCompileInputs.cache
-C:\dev\helworks\helengine-gc\builder\obj\Debug\net9.0\helengine.gamecube.builder.sourcelink.json
