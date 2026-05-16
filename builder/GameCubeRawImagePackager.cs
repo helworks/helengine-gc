@@ -8,6 +8,11 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public sealed class GameCubeRawImagePackager : IGameCubeImagePackager {
     /// <summary>
+    /// Size of one GameCube DVD sector.
+    /// </summary>
+    const long DiscSectorSize = 0x800;
+
+    /// <summary>
     /// Packages one staged GameCube extracted-disc layout into the final raw disc image path.
     /// </summary>
     /// <param name="layout">Extracted-disc layout that should be packaged.</param>
@@ -215,12 +220,12 @@ public sealed class GameCubeRawImagePackager : IGameCubeImagePackager {
     }
 
     /// <summary>
-    /// Aligns one raw image length to the next 32-byte boundary used by GameCube payload placement.
+    /// Aligns one raw image length to the next GameCube DVD sector boundary so the final sector remains readable.
     /// </summary>
     /// <param name="value">Raw image length or offset to align.</param>
     /// <returns>Aligned value.</returns>
     static long Align32(long value) {
-        return (value + 31L) & ~31L;
+        return (value + DiscSectorSize - 1L) & ~(DiscSectorSize - 1L);
     }
 
     /// <summary>

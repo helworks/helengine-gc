@@ -50,10 +50,6 @@ namespace helengine::gamecube {
                 return false;
             }
 
-            if (__io_gcdvd.startup != nullptr) {
-                __io_gcdvd.startup();
-            }
-
             const std::size_t alignedSectorBufferLength = Align32(DiscSectorSize);
             uint8_t* sectorBuffer = static_cast<uint8_t*>(memalign(32, alignedSectorBufferLength));
             if (sectorBuffer == nullptr) {
@@ -123,8 +119,31 @@ namespace helengine::gamecube {
             free(buffer);
             throw std::runtime_error("GameCube DVD sector read failed for a packaged content file.");
         }
+        if (path != nullptr
+            && (std::strcmp(path, "dvd:/cooked/engine/models/cube.hasset") == 0
+                || std::strcmp(path, "dvd:/cooked/engine/materials/standard.hasset") == 0)) {
+            const unsigned int valueKindLowByte = fileSize > 11U ? static_cast<unsigned int>(buffer[11]) : 0U;
+            SYS_Report(
+                "[GC] Packaged asset stream head path=%s bytes=%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X valueKindLow=%u\n",
+                path,
+                fileSize > 0U ? static_cast<unsigned int>(buffer[0]) : 0U,
+                fileSize > 1U ? static_cast<unsigned int>(buffer[1]) : 0U,
+                fileSize > 2U ? static_cast<unsigned int>(buffer[2]) : 0U,
+                fileSize > 3U ? static_cast<unsigned int>(buffer[3]) : 0U,
+                fileSize > 4U ? static_cast<unsigned int>(buffer[4]) : 0U,
+                fileSize > 5U ? static_cast<unsigned int>(buffer[5]) : 0U,
+                fileSize > 6U ? static_cast<unsigned int>(buffer[6]) : 0U,
+                fileSize > 7U ? static_cast<unsigned int>(buffer[7]) : 0U,
+                fileSize > 8U ? static_cast<unsigned int>(buffer[8]) : 0U,
+                fileSize > 9U ? static_cast<unsigned int>(buffer[9]) : 0U,
+                fileSize > 10U ? static_cast<unsigned int>(buffer[10]) : 0U,
+                fileSize > 11U ? static_cast<unsigned int>(buffer[11]) : 0U,
+                valueKindLowByte);
+        }
 
-        return new FileStream(buffer, fileSize);
+        FileStream* stream = new FileStream(buffer, fileSize);
+        free(buffer);
+        return stream;
     }
 
     /// Ensures the packaged disc FST has been loaded into memory before path resolution occurs.

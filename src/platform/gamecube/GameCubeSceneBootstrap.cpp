@@ -53,7 +53,7 @@ namespace helengine::gamecube {
 
     /// Returns the packaged GameCube content root used by disc-backed startup.
     std::string GameCubeSceneBootstrap::GetPackagedContentRootPath() {
-        return "dvd:/files";
+        return "dvd:/";
     }
 
     /// Initializes the packaged GameCube DVD interface before the runtime attempts any packaged file access.

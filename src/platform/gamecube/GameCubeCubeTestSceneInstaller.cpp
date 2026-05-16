@@ -22,7 +22,7 @@ namespace helengine::gamecube {
         constexpr float CameraFarPlaneDistance = 64.0f;
         constexpr float DirectionalLightYawRadians = -0.65f;
         constexpr float DirectionalLightPitchRadians = -0.85f;
-        constexpr float CubeAngularSpeedRadians = 3.14159274f / 2.0f;
+        constexpr float CubeAngularSpeedRadians = 0.0f;
         constexpr float CubeHalfExtent = 0.5f;
     }
 

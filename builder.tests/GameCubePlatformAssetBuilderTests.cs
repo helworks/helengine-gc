@@ -1,9 +1,13 @@
+using helengine;
+using helengine.baseplatform.Definitions;
 using helengine.baseplatform.Manifest;
 using helengine.baseplatform.Profiles;
 using helengine.baseplatform.Reporting;
 using helengine.baseplatform.Requests;
+using helengine.baseplatform.Results;
 using helengine.baseplatform.Targets;
 using helengine.gamecube.builder.tests.Builders;
+using helengine.files;
 
 namespace helengine.gamecube.builder.tests;
 
@@ -24,6 +28,44 @@ public sealed class GameCubePlatformAssetBuilderTests {
         Assert.Equal("gamecube", builder.Definition.PlatformId);
         Assert.Contains(builder.Definition.BuildProfiles, profile => profile.ProfileId == "gamecube-default");
         Assert.Contains(builder.Definition.GraphicsProfiles, profile => profile.ProfileId == "gx");
+        Assert.Equal(RuntimeMaterialResolutionMode.CookedPlatformOwned, builder.Definition.RuntimeGenerationContract.MaterialResolutionMode);
+        Assert.Contains(builder.Definition.MaterialSchemas, schema => schema.SchemaId == GameCubeMaterialSchemaIds.StandardTexturedSchemaId);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube builder cooks platform-owned material payloads without shader references.
+    /// </summary>
+    [Fact]
+    public void CookMaterial_WhenUsingGameCubeStandardSchema_ReturnsPlatformMaterialAssetWithoutShaderReferences() {
+        GameCubePlatformAssetBuilder builder = new();
+
+        PlatformMaterialCookResult result = builder.CookMaterial(new PlatformMaterialCookRequest(
+            "Materials/rendering/test/Cube00",
+            "Materials/rendering/test/Cube00.helmat",
+            "gamecube",
+            "gamecube-default",
+            "gx",
+            GameCubeMaterialSchemaIds.StandardTexturedSchemaId,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+                [GameCubeMaterialSchemaIds.TextureRelativePathFieldId] = "cooked/engine/textures/test.hasset",
+                [GameCubeMaterialSchemaIds.DoubleSidedFieldId] = "true",
+                [GameCubeMaterialSchemaIds.VertexColorModeFieldId] = "multiply",
+                [GameCubeMaterialSchemaIds.BaseColorFieldId] = "#FF8040FF",
+                [GameCubeMaterialSchemaIds.LightingModeFieldId] = "lit"
+            }));
+
+        Assert.Empty(result.ReferencedShaderAssetIds);
+
+        PlatformMaterialAsset cookedAsset = Assert.IsType<PlatformMaterialAsset>(AssetSerializer.DeserializeFromBytes(result.CookedMaterialBytes));
+        Assert.Equal("gx", cookedAsset.RendererFamilyId);
+        Assert.Equal("cooked/engine/textures/test.hasset", cookedAsset.TextureRelativePath);
+        Assert.True(cookedAsset.DoubleSided);
+        Assert.True(cookedAsset.UseVertexColor);
+        Assert.True(cookedAsset.Lit);
+        Assert.Equal((byte)255, cookedAsset.BaseColorR);
+        Assert.Equal((byte)128, cookedAsset.BaseColorG);
+        Assert.Equal((byte)64, cookedAsset.BaseColorB);
+        Assert.Equal((byte)255, cookedAsset.BaseColorA);
     }
 
     /// <summary>

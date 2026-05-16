@@ -1,4 +1,5 @@
 using helengine.baseplatform.Definitions;
+using helengine.baseplatform.Profiles;
 
 namespace helengine.gamecube.builder;
 
@@ -91,6 +92,49 @@ public static class GameCubePlatformDefinitionFactory {
                     ["font.asset", "ttf", "otf"])
             ],
             [
+                new PlatformMaterialSchemaDefinition(
+                    GameCubeMaterialSchemaIds.StandardTexturedSchemaId,
+                    "GameCube Standard Textured",
+                    ["gx"],
+                    [
+                        new PlatformMaterialFieldDefinition(
+                            GameCubeMaterialSchemaIds.TextureRelativePathFieldId,
+                            "Texture",
+                            PlatformMaterialFieldKind.Text,
+                            string.Empty,
+                            false,
+                            []),
+                        new PlatformMaterialFieldDefinition(
+                            GameCubeMaterialSchemaIds.DoubleSidedFieldId,
+                            "Double Sided",
+                            PlatformMaterialFieldKind.Boolean,
+                            "false",
+                            true,
+                            []),
+                        new PlatformMaterialFieldDefinition(
+                            GameCubeMaterialSchemaIds.VertexColorModeFieldId,
+                            "Vertex Color",
+                            PlatformMaterialFieldKind.Choice,
+                            "multiply",
+                            true,
+                            ["multiply", "ignore"]),
+                        new PlatformMaterialFieldDefinition(
+                            GameCubeMaterialSchemaIds.BaseColorFieldId,
+                            "Base Color",
+                            PlatformMaterialFieldKind.Color,
+                            "#FFFFFFFF",
+                            true,
+                            []),
+                        new PlatformMaterialFieldDefinition(
+                            GameCubeMaterialSchemaIds.LightingModeFieldId,
+                            "Lighting",
+                            PlatformMaterialFieldKind.Choice,
+                            "lit",
+                            true,
+                            ["lit", "unlit"])
+                    ])
+            ],
+            [
                 new PlatformComponentSupportRule(
                     "helengine.meshcomponent",
                     PlatformComponentSupportKind.Transform,
@@ -106,6 +150,21 @@ public static class GameCubePlatformDefinitionFactory {
                     PlatformComponentSupportKind.PassThrough,
                     "FPS overlay payload is canonical across platforms.",
                     string.Empty)
-            ]);
+            ],
+            [
+                new PlatformCodegenProfileDefinition(
+                    "default",
+                    "Default",
+                    "GameCube C# to C++ codegen profile",
+                    PlatformCodegenLanguage.Cpp,
+                    PlatformSerializationEndianness.BigEndian,
+                    [])
+            ],
+            Array.Empty<PlatformStorageProfileDefinition>(),
+            Array.Empty<PlatformMediaProfileDefinition>(),
+            new RuntimeGenerationContract(
+                RuntimeMaterialResolutionMode.CookedPlatformOwned,
+                true,
+                PackagedPathPolicy.ContentRelativeOnly));
     }
 }

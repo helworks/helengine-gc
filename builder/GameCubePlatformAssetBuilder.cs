@@ -22,6 +22,11 @@ public sealed class GameCubePlatformAssetBuilder : IPlatformAssetBuilder {
     readonly IGameCubeNativeBuildExecutor NativeBuildExecutor;
 
     /// <summary>
+    /// Material cooker that translates authored GameCube material schemas into platform-owned cooked payloads.
+    /// </summary>
+    readonly GameCubeMaterialCooker MaterialCooker;
+
+    /// <summary>
     /// Optional image packager override used by packaged-disc tests and custom tooling flows.
     /// </summary>
     readonly IGameCubeImagePackager ImagePackager;
@@ -49,6 +54,7 @@ public sealed class GameCubePlatformAssetBuilder : IPlatformAssetBuilder {
         IGameCubeImagePackager imagePackager,
         GameCubeDiscSystemAreaOptions discSystemAreaOptions) {
         NativeBuildExecutor = nativeBuildExecutor ?? throw new ArgumentNullException(nameof(nativeBuildExecutor));
+        MaterialCooker = new GameCubeMaterialCooker();
         ImagePackager = imagePackager;
         DiscSystemAreaOptions = discSystemAreaOptions;
         Descriptor = new PlatformBuilderDescriptor(
@@ -82,7 +88,7 @@ public sealed class GameCubePlatformAssetBuilder : IPlatformAssetBuilder {
             throw new ArgumentNullException(nameof(request));
         }
 
-        return new PlatformMaterialCookResult([], []);
+        return MaterialCooker.Cook(request);
     }
 
     /// <summary>

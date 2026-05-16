@@ -5,20 +5,28 @@
 #include "CameraClearSettings.hpp"
 #include "CameraComponent.hpp"
 #include "Entity.hpp"
+#include "IDrawable3D.hpp"
 #include "RenderFrameDrawableSubmission.hpp"
 #include "RuntimeSubmesh.hpp"
 #include "float3.hpp"
 #include "float4.hpp"
+#include "float4x4.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeMeshCache.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
 #include "runtime/native_exceptions.hpp"
 
+namespace {
+    constexpr u8 OpaqueMeshColorRed = 255;
+    constexpr u8 OpaqueMeshColorGreen = 255;
+    constexpr u8 OpaqueMeshColorBlue = 0;
+    constexpr u8 OpaqueMeshColorAlpha = 255;
+}
+
 namespace helengine::gamecube {
     /// Creates the raster renderer with a shared runtime-model cache.
     GameCubeRasterRenderer::GameCubeRasterRenderer(GameCubeMeshCache* meshCache)
-        : MeshCache(meshCache)
-        , RasterizedFrameCount(0U) {
+        : MeshCache(meshCache) {
         if (MeshCache == nullptr) {
             throw new ArgumentNullException("meshCache");
         }
@@ -31,59 +39,34 @@ namespace helengine::gamecube {
         }
 
         ConfigurePipeline();
+        CameraClearSettings clearSettings = framePlan->Camera->get_ClearSettings();
+        GX_SetCopyClear(ResolveClearColor(clearSettings), ResolveClearDepth(clearSettings));
         GX_SetViewport(framePlan->Viewport.X, framePlan->Viewport.Y, framePlan->Viewport.Z, framePlan->Viewport.W, 0.0f, 1.0f);
         GX_SetScissor(
             static_cast<u32>(framePlan->Viewport.X),
             static_cast<u32>(framePlan->Viewport.Y),
             static_cast<u32>(framePlan->Viewport.Z),
             static_cast<u32>(framePlan->Viewport.W));
+        GX_InvVtxCache();
+        GX_InvalidateTexAll();
 
-        Mtx44 projection;
-        BuildProjectionMatrix(framePlan, projection);
-        GX_LoadProjectionMtx(projection, GX_PERSPECTIVE);
-
-        Mtx viewMatrix;
-        BuildViewMatrix(framePlan->Camera, viewMatrix);
-        RasterizedFrameCount++;
-        DrawProbeFullscreenClear(framePlan);
-        return true;
+        Mtx44 projectionMatrix;
+        CopyProjectionMatrixToGx(framePlan->Projection, projectionMatrix);
+        GX_LoadProjectionMtx(projectionMatrix, GX_PERSPECTIVE);
 
         for (int32_t submissionIndex = 0; submissionIndex < framePlan->DrawableSubmissions->get_Count(); submissionIndex++) {
             RenderFrameDrawableSubmission* submission = (*framePlan->DrawableSubmissions)[submissionIndex];
             GameCubeRuntimeModel* runtimeModel = MeshCache->Resolve(submission->get_Drawable()->get_Model());
             RuntimeSubmesh* runtimeSubmesh = (*runtimeModel->get_Submeshes())[submission->get_SubmeshIndex()];
-            if ((RasterizedFrameCount <= 5U || (RasterizedFrameCount % 60U) == 0U) && submissionIndex == 0) {
-                const int32_t firstIndex = runtimeSubmesh->get_IndexStart();
-                const uint32_t firstPositionIndex = runtimeModel->Uses32BitIndices
-                    ? (*runtimeModel->Indices32)[firstIndex]
-                    : (*runtimeModel->Indices16)[firstIndex];
-                const float3 firstPosition = (*runtimeModel->Positions)[firstPositionIndex];
-                const float3 entityPosition = submission->get_Drawable()->get_Parent()->get_Position();
-                SYS_Report(
-                    "[GC] Frame %u raster. indexCount=%d firstVertex=(%.3f, %.3f, %.3f) entity=(%.3f, %.3f, %.3f)\n",
-                    RasterizedFrameCount,
-                    runtimeSubmesh->get_IndexCount(),
-                    firstPosition.X,
-                    firstPosition.Y,
-                    firstPosition.Z,
-                    entityPosition.X,
-                    entityPosition.Y,
-                    entityPosition.Z);
-            }
-            Mtx worldMatrix;
-            BuildWorldMatrix(submission->get_Drawable()->get_Parent(), worldMatrix);
+            Entity* entity = submission->get_Drawable()->get_Parent();
 
-            Mtx modelView;
-            guMtxConcat(viewMatrix, worldMatrix, modelView);
-            GX_LoadPosMtxImm(modelView, GX_PNMTX0);
-            GX_SetCurrentMtx(GX_PNMTX0);
-            DrawSubmesh(runtimeModel, runtimeSubmesh);
+            DrawSubmesh(framePlan, runtimeModel, runtimeSubmesh, entity);
         }
 
         return true;
     }
 
-    /// Configures the GX state used by the first unlit triangle path.
+    /// Configures the GX state used by the first opaque mesh path.
     void GameCubeRasterRenderer::ConfigurePipeline() {
         GX_ClearVtxDesc();
         GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
@@ -94,9 +77,13 @@ namespace helengine::gamecube {
         GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_VTX, GX_SRC_VTX, GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE);
         GX_SetNumTexGens(0);
         GX_SetNumTevStages(1);
+        GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
         GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
-        GX_SetCullMode(GX_CULL_FRONT);
-        GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
+        GX_SetCullMode(GX_CULL_NONE);
+        GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
+        GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
+        GX_SetZCompLoc(GX_TRUE);
+        GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
         GX_SetColorUpdate(GX_TRUE);
         GX_SetAlphaUpdate(GX_FALSE);
     }
@@ -125,105 +112,108 @@ namespace helengine::gamecube {
         return static_cast<uint32_t>(clearSettings.get_ClearDepth() * 16777215.0f);
     }
 
-    /// Builds one native GX view matrix from the active runtime camera.
-    void GameCubeRasterRenderer::BuildViewMatrix(CameraComponent* camera, Mtx& viewMatrix) {
-        if (camera == nullptr) {
-            throw new ArgumentNullException("camera");
-        } else if (camera->get_Parent() == nullptr) {
-            throw new InvalidOperationException("GameCube GX view construction requires a camera parent entity.");
-        }
-
-        const float3 cameraPosition = camera->get_Parent()->get_Position();
-        const float4 cameraOrientation = camera->get_Parent()->get_Orientation();
-        const float3 cameraForward = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), cameraOrientation);
-        const float3 cameraUp = float4::RotateVector(float3(0.0f, 1.0f, 0.0f), cameraOrientation);
-        const float3 cameraTarget = cameraPosition + cameraForward;
-        guVector nativeCameraPosition { cameraPosition.X, cameraPosition.Y, cameraPosition.Z };
-        guVector nativeCameraUp { cameraUp.X, cameraUp.Y, cameraUp.Z };
-        guVector nativeCameraTarget { cameraTarget.X, cameraTarget.Y, cameraTarget.Z };
-        guLookAt(viewMatrix, &nativeCameraPosition, &nativeCameraUp, &nativeCameraTarget);
+    /// Copies one generated affine matrix directly into a GX position matrix without runtime reinterpretation.
+    void GameCubeRasterRenderer::CopyAffineMatrixToGx(const float4x4& source, Mtx& destination) {
+        destination[0][0] = source.M11;
+        destination[0][1] = source.M12;
+        destination[0][2] = source.M13;
+        destination[0][3] = source.M14;
+        destination[1][0] = source.M21;
+        destination[1][1] = source.M22;
+        destination[1][2] = source.M23;
+        destination[1][3] = source.M24;
+        destination[2][0] = source.M31;
+        destination[2][1] = source.M32;
+        destination[2][2] = source.M33;
+        destination[2][3] = source.M34;
     }
 
-    /// Builds one native GX world matrix from the authored entity transform.
-    void GameCubeRasterRenderer::BuildWorldMatrix(Entity* entity, Mtx& worldMatrix) {
+    /// Copies one generated projection matrix directly into a GX projection matrix without runtime reinterpretation.
+    void GameCubeRasterRenderer::CopyProjectionMatrixToGx(const float4x4& source, Mtx44& destination) {
+        destination[0][0] = source.M11;
+        destination[0][1] = source.M12;
+        destination[0][2] = source.M13;
+        destination[0][3] = source.M14;
+        destination[1][0] = source.M21;
+        destination[1][1] = source.M22;
+        destination[1][2] = source.M23;
+        destination[1][3] = source.M24;
+        destination[2][0] = source.M31;
+        destination[2][1] = source.M32;
+        destination[2][2] = source.M33;
+        destination[2][3] = source.M34;
+        destination[3][0] = source.M41;
+        destination[3][1] = source.M42;
+        destination[3][2] = source.M43;
+        destination[3][3] = source.M44;
+    }
+
+    /// Builds one authored world matrix through the generated platform-adapted float4x4 runtime.
+    void GameCubeRasterRenderer::BuildWorldMatrix(Entity* entity, float4x4& worldMatrix) {
         if (entity == nullptr) {
             throw new ArgumentNullException("entity");
         }
 
-        const float4 orientation = entity->get_Orientation();
-        guQuaternion nativeOrientation { orientation.X, orientation.Y, orientation.Z, orientation.W };
-        c_guMtxQuat(worldMatrix, &nativeOrientation);
+        float3 entityScale = entity->get_Scale();
+        float4 entityOrientation = entity->get_Orientation();
+        float3 entityPosition = entity->get_Position();
+        entityOrientation.Normalize();
 
-        const float3 worldScale = entity->get_Scale();
-        guMtxScaleApply(worldMatrix, worldMatrix, worldScale.X, worldScale.Y, worldScale.Z);
+        float4x4 scaleMatrix;
+        float4x4::CreateScale(entityScale.X, entityScale.Y, entityScale.Z, scaleMatrix);
 
-        const float3 worldPosition = entity->get_Position();
-        guMtxTransApply(worldMatrix, worldMatrix, worldPosition.X, worldPosition.Y, worldPosition.Z);
+        float4x4 rotationMatrix;
+        float4x4::CreateFromQuaternion(entityOrientation, rotationMatrix);
+
+        float4x4 translationMatrix;
+        float4x4::CreateTranslation(entityPosition, translationMatrix);
+
+        float4x4 scaledRotationMatrix;
+        float4x4::Multiply(scaleMatrix, rotationMatrix, scaledRotationMatrix);
+        float4x4::Multiply(scaledRotationMatrix, translationMatrix, worldMatrix);
     }
 
-    /// Builds one native GX projection matrix from the active runtime camera and viewport.
-    void GameCubeRasterRenderer::BuildProjectionMatrix(GameCubeFramePlan* framePlan, Mtx44& projectionMatrix) {
+    /// Builds one authored model-view matrix through the generated platform-adapted float4x4 runtime.
+    void GameCubeRasterRenderer::BuildModelViewMatrix(GameCubeFramePlan* framePlan, Entity* entity, float4x4& modelViewMatrix) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
-        } else if (framePlan->Camera == nullptr) {
-            throw new ArgumentNullException("framePlan->Camera");
+        } else if (entity == nullptr) {
+            throw new ArgumentNullException("entity");
         }
 
-        const float aspectRatio = framePlan->Viewport.Z / framePlan->Viewport.W;
-        guPerspective(
-            projectionMatrix,
-            45.0f,
-            aspectRatio,
-            framePlan->Camera->get_NearPlaneDistance(),
-            framePlan->Camera->get_FarPlaneDistance());
+        float4x4 worldMatrix;
+        BuildWorldMatrix(entity, worldMatrix);
+        float4x4::Multiply(worldMatrix, framePlan->View, modelViewMatrix);
     }
 
-    /// Draws a fullscreen diagnostic quad that writes a visible clear color directly into the current EFB.
-    void GameCubeRasterRenderer::DrawProbeFullscreenClear(GameCubeFramePlan* framePlan) {
+    /// Draws one authored runtime submesh through immediate GX triangle submission and the active entity transform.
+    void GameCubeRasterRenderer::DrawSubmesh(GameCubeFramePlan* framePlan, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
-        }
-
-        Mtx44 projection;
-        guOrtho(projection, 0.0f, framePlan->Viewport.W, 0.0f, framePlan->Viewport.Z, -1.0f, 1.0f);
-        GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC);
-
-        Mtx modelView;
-        guMtxIdentity(modelView);
-        GX_LoadPosMtxImm(modelView, GX_PNMTX0);
-        GX_SetCurrentMtx(GX_PNMTX0);
-        GX_SetCullMode(GX_CULL_NONE);
-        GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
-        GX_Position3f32(0.0f, 0.0f, 0.0f);
-        GX_Color4u8(0x64, 0x95, 0xED, 0xFF);
-        GX_Position3f32(framePlan->Viewport.Z, 0.0f, 0.0f);
-        GX_Color4u8(0x64, 0x95, 0xED, 0xFF);
-        GX_Position3f32(0.0f, framePlan->Viewport.W, 0.0f);
-        GX_Color4u8(0x64, 0x95, 0xED, 0xFF);
-        GX_Position3f32(framePlan->Viewport.Z, framePlan->Viewport.W, 0.0f);
-        GX_Color4u8(0x64, 0x95, 0xED, 0xFF);
-        GX_End();
-    }
-
-    /// Draws one authored runtime submesh through immediate GX triangle submission.
-    void GameCubeRasterRenderer::DrawSubmesh(GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh) {
-        if (runtimeModel == nullptr) {
+        } else if (runtimeModel == nullptr) {
             throw new ArgumentNullException("runtimeModel");
         } else if (runtimeSubmesh == nullptr) {
             throw new ArgumentNullException("runtimeSubmesh");
+        } else if (entity == nullptr) {
+            throw new ArgumentNullException("entity");
         }
 
-        const int32_t firstIndex = runtimeSubmesh->get_IndexStart();
-        const int32_t indexCount = runtimeSubmesh->get_IndexCount();
-        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, indexCount);
-        for (int32_t localIndex = 0; localIndex < indexCount; localIndex++) {
-            const int32_t sourceIndex = firstIndex + localIndex;
+        float4x4 modelViewMatrix;
+        BuildModelViewMatrix(framePlan, entity, modelViewMatrix);
+
+        Mtx nativeModelViewMatrix;
+        CopyAffineMatrixToGx(modelViewMatrix, nativeModelViewMatrix);
+        GX_LoadPosMtxImm(nativeModelViewMatrix, GX_PNMTX0);
+        GX_SetCurrentMtx(GX_PNMTX0);
+
+        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, runtimeSubmesh->get_IndexCount());
+        for (int32_t indexOffset = 0; indexOffset < runtimeSubmesh->get_IndexCount(); indexOffset++) {
             const uint32_t positionIndex = runtimeModel->Uses32BitIndices
-                ? (*runtimeModel->Indices32)[sourceIndex]
-                : (*runtimeModel->Indices16)[sourceIndex];
-            const float3 position = (*runtimeModel->Positions)[positionIndex];
-            GX_Position3f32(position.X, position.Y, position.Z);
-            GX_Color4u8(255, 255, 255, 255);
+                ? (*runtimeModel->Indices32)[runtimeSubmesh->get_IndexStart() + indexOffset]
+                : (*runtimeModel->Indices16)[runtimeSubmesh->get_IndexStart() + indexOffset];
+            const float3 localPosition = (*runtimeModel->Positions)[positionIndex];
+            GX_Position3f32(localPosition.X, localPosition.Y, localPosition.Z);
+            GX_Color4u8(OpaqueMeshColorRed, OpaqueMeshColorGreen, OpaqueMeshColorBlue, OpaqueMeshColorAlpha);
         }
         GX_End();
     }

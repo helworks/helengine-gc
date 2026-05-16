@@ -3,14 +3,20 @@
 #include <ogc/system.h>
 
 #include "Entity.hpp"
+#include "IDrawable3D.hpp"
+#include "MaterialAsset.hpp"
+#include "MaterialCullMode.hpp"
+#include "MaterialRenderState.hpp"
+#include "PlatformMaterialAsset.hpp"
 #include "RendererBackendCapabilityProfile.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeMeshCache.hpp"
 #include "platform/gamecube/GameCubeRasterRenderer.hpp"
-#include "ModelAsset.hpp"
 #include "ModelAssetIndexData.hpp"
+#include "ModelAsset.hpp"
 #include "ModelSubmeshResolver.hpp"
 #include "RuntimeMaterial.hpp"
+#include "RuntimeMaterialLightingModel.hpp"
 #include "ShaderAsset.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
 #include "platform/gamecube/GameCubeSceneRenderBridge.hpp"
@@ -48,6 +54,24 @@ namespace helengine::gamecube {
         runtimeMaterial->set_Id(materialAsset->get_Id());
         runtimeMaterial->set_CastsShadows(materialAsset->CastsShadows);
         runtimeMaterial->set_ReceivesShadows(materialAsset->ReceivesShadows);
+        return runtimeMaterial;
+    }
+
+    /// Builds the minimal runtime material required for the first cooked-material GameCube draw path.
+    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset) {
+        if (materialAsset == nullptr) {
+            throw new ArgumentNullException("materialAsset");
+        }
+
+        RuntimeMaterial* runtimeMaterial = new RuntimeMaterial();
+        runtimeMaterial->set_Id(materialAsset->get_Id());
+        runtimeMaterial->set_LightingModel(materialAsset->Lit
+            ? RuntimeMaterialLightingModel::MetalRoughPbr
+            : RuntimeMaterialLightingModel::Unlit);
+        if (materialAsset->DoubleSided) {
+            runtimeMaterial->get_RenderState()->set_CullMode(MaterialCullMode::None);
+        }
+
         return runtimeMaterial;
     }
 

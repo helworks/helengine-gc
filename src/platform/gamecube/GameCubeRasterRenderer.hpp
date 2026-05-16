@@ -5,11 +5,9 @@
 #include <gccore.h>
 
 class CameraClearSettings;
-class CameraComponent;
 class Entity;
 class RuntimeSubmesh;
-class float3;
-class float4;
+class float4x4;
 
 namespace helengine::gamecube {
     class GameCubeFramePlan;
@@ -28,10 +26,7 @@ namespace helengine::gamecube {
         /// Shared runtime-model cache used by the draw path.
         GameCubeMeshCache* MeshCache;
 
-        /// Counts rasterized frames for throttled diagnostics.
-        uint32_t RasterizedFrameCount;
-
-        /// Configures the GX state used by the first unlit triangle path.
+        /// Configures the GX state used by the first opaque mesh path.
         void ConfigurePipeline();
 
         /// Converts the authored runtime clear settings into the presented GX clear color.
@@ -40,19 +35,19 @@ namespace helengine::gamecube {
         /// Converts the authored runtime clear depth into GX packed depth.
         uint32_t ResolveClearDepth(CameraClearSettings clearSettings);
 
-        /// Builds one native GX view matrix from the active runtime camera.
-        void BuildViewMatrix(CameraComponent* camera, Mtx& viewMatrix);
+        /// Copies one generated affine matrix directly into a GX position matrix without runtime reinterpretation.
+        void CopyAffineMatrixToGx(const float4x4& source, Mtx& destination);
 
-        /// Builds one native GX world matrix from the authored entity transform.
-        void BuildWorldMatrix(Entity* entity, Mtx& worldMatrix);
+        /// Copies one generated projection matrix directly into a GX projection matrix without runtime reinterpretation.
+        void CopyProjectionMatrixToGx(const float4x4& source, Mtx44& destination);
 
-        /// Builds one native GX projection matrix from the active runtime camera and viewport.
-        void BuildProjectionMatrix(GameCubeFramePlan* framePlan, Mtx44& projectionMatrix);
+        /// Builds one authored world matrix through the generated platform-adapted float4x4 runtime.
+        void BuildWorldMatrix(Entity* entity, float4x4& worldMatrix);
 
-        /// Draws a fullscreen diagnostic quad that writes a visible clear color directly into the current EFB.
-        void DrawProbeFullscreenClear(GameCubeFramePlan* framePlan);
+        /// Builds one authored model-view matrix through the generated platform-adapted float4x4 runtime.
+        void BuildModelViewMatrix(GameCubeFramePlan* framePlan, Entity* entity, float4x4& modelViewMatrix);
 
-        /// Draws one authored runtime submesh through immediate GX triangle submission.
-        void DrawSubmesh(GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh);
+        /// Draws one authored runtime submesh through immediate GX triangle submission and the active entity transform.
+        void DrawSubmesh(GameCubeFramePlan* framePlan, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity);
     };
 }

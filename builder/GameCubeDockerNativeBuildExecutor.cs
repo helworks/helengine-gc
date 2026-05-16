@@ -7,6 +7,11 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExecutor {
     /// <summary>
+    /// Normalizes regenerated GameCube core sources that still need packaged-runtime compatibility rewrites before compilation.
+    /// </summary>
+    readonly GameCubeGeneratedCoreCompatibilityNormalizer GeneratedCoreCompatibilityNormalizer = new();
+
+    /// <summary>
     /// Builds the packaged-mode native DOL and stages it into the builder workspace.
     /// </summary>
     /// <param name="paths">Workspace paths that define the packaged build inputs and outputs.</param>
@@ -15,6 +20,8 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
         if (paths == null) {
             throw new ArgumentNullException(nameof(paths));
         }
+
+        GeneratedCoreCompatibilityNormalizer.Normalize(paths.GeneratedCoreRootPath);
 
         ProcessStartInfo startInfo = new() {
             FileName = "rtk",

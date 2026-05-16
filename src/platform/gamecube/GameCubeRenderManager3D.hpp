@@ -5,6 +5,7 @@
 #include "RenderManager3D.hpp"
 
 class MaterialAsset;
+class PlatformMaterialAsset;
 class RuntimeMaterial;
 class RuntimeModel;
 class ShaderAsset;
@@ -26,6 +27,9 @@ namespace helengine::gamecube {
 
         /// Builds the minimal runtime material required for the first unlit GameCube draw path.
         RuntimeMaterial* BuildMaterialFromRaw(MaterialAsset* materialAsset, ShaderAsset* shaderAsset) override;
+
+        /// Builds the minimal runtime material required for the first cooked-material GameCube draw path.
+        RuntimeMaterial* BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset) override;
 
         /// Builds a GameCube runtime model that keeps authored submesh and geometry arrays alive.
         RuntimeModel* BuildModelFromRaw(ModelAsset* data) override;

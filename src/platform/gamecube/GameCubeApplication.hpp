@@ -1,12 +1,15 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include <gccore.h>
 
 #include "platform/gamecube/GameCubeBootPhase.hpp"
 
 class Core;
+class PlatformInfo;
 
 namespace helengine::gamecube {
     class GameCubeInputManager;
@@ -31,6 +34,39 @@ namespace helengine::gamecube {
 
         /// Initializes GX for the host clear-and-present loop.
         bool InitializeGraphics();
+
+        /// Initializes packaged-disc access without starting the generated engine core.
+        bool InitializePackagedDisc();
+
+        /// Initializes the minimal-sample triangle state used to validate the host loop with a known-good GX sample.
+        bool InitializeMinimalSample();
+
+        /// Draws one known-good libogc sample triangle through the application-owned host loop.
+        void DrawMinimalSample();
+
+        /// Reads one byte range from the mounted GameCube disc using aligned sector transfers.
+        bool ReadDiscRange(void* destination, std::size_t offset, std::size_t length);
+
+        /// Validates the mounted GameCube retail disc header and packaged FST header fields.
+        bool ValidatePackagedDiscLayout();
+
+        /// Reads the packaged FST body and verifies it contains the expected startup-scene asset entry.
+        bool ValidatePackagedDiscFileSystemTable();
+
+        /// Reads one packaged scene asset from disc after resolving its file entry from the FST.
+        bool ValidatePackagedSceneAssetRead();
+
+        /// Reads the UTF-8 name stored for one FST entry.
+        std::string ReadPackagedFstEntryName(const std::vector<uint8_t>& fstBytes, std::size_t entryIndex);
+
+        /// Recursively resolves one packaged file path to its disc offset and byte length from the FST bytes.
+        bool TryResolvePackagedFstFile(
+            const std::vector<uint8_t>& fstBytes,
+            std::size_t directoryEntryIndex,
+            const std::string& directoryPath,
+            const std::string& expectedPath,
+            std::size_t& discOffset,
+            std::size_t& fileSize);
 
         /// Initializes the generated engine core when generated sources are present in the build.
         bool InitializeEngineCore();
@@ -107,6 +143,24 @@ namespace helengine::gamecube {
         /// Tracks whether the first generated draw completion report has already been emitted.
         bool FirstDrawCompletedReported;
 
+        /// Tracks whether the automated probe detected a shared triangle disappearance during verification.
+        bool VerificationProbeFailed;
+
+        /// Tracks whether the center probe pixel was ever observed as visible during verification sampling.
+        bool VerificationCenterVisibleOnce;
+
+        /// Tracks whether the marker probe pixel was ever observed as visible during verification sampling.
+        bool VerificationMarkerVisibleOnce;
+
+        /// Counts consecutive verification samples where both probe pixels were absent after first visibility.
+        uint32_t VerificationMissingSampleCount;
+
+        /// Stores the position array used by the packaged minimal-sample control triangle.
+        s16 MinimalSampleVertices[9];
+
+        /// Stores the color array used by the packaged minimal-sample control triangle.
+        u8 MinimalSampleColors[12];
+
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         /// Stores the generated engine core instance when the build includes generated sources.
         Core* EngineCore;
@@ -119,6 +173,9 @@ namespace helengine::gamecube {
 
         /// Stores the generated input manager bridge.
         GameCubeInputManager* EngineInputManager;
+
+        /// Stores the platform descriptor passed into the generated core initialization contract.
+        PlatformInfo* EnginePlatformInfo;
 #endif
     };
 }
