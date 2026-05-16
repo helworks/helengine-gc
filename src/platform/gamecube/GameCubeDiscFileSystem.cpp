@@ -1,5 +1,7 @@
 #include "platform/gamecube/GameCubeDiscFileSystem.hpp"
 
+#include <cctype>
+
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -220,7 +222,7 @@ namespace helengine::gamecube {
             if (isDirectory) {
                 const uint32_t parentDirectoryIndex = ReadBigEndianU32(FstBytes.data() + entryOffset + 4);
                 if (parentDirectoryIndex == directoryEntryIndex) {
-                    IndexDirectory(entryIndex, entryPath);
+                    IndexDirectory(entryIndex, NormalizePath(entryPath.c_str()));
                     entryIndex = ReadBigEndianU32(FstBytes.data() + entryOffset + 8) - 1U;
                 }
 
@@ -228,7 +230,7 @@ namespace helengine::gamecube {
             }
 
             FileEntries.push_back(GameCubeDiscFileEntry {
-                entryPath,
+                NormalizePath(entryPath.c_str()),
                 ReadBigEndianU32(FstBytes.data() + entryOffset + 4),
                 ReadBigEndianU32(FstBytes.data() + entryOffset + 8)
             });
@@ -250,6 +252,13 @@ namespace helengine::gamecube {
     std::string GameCubeDiscFileSystem::NormalizePath(const char* path) {
         std::string normalizedPath = path != nullptr ? path : "";
         std::replace(normalizedPath.begin(), normalizedPath.end(), '\\', '/');
+        std::transform(
+            normalizedPath.begin(),
+            normalizedPath.end(),
+            normalizedPath.begin(),
+            [](unsigned char character) {
+                return static_cast<char>(std::tolower(character));
+            });
         while (normalizedPath.size() > 5U && normalizedPath.back() == '/') {
             normalizedPath.pop_back();
         }

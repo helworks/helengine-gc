@@ -139,9 +139,25 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("ReadDiscRange(buffer, discOffset, fileSize)", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const uint32_t fstOffset = ReadBigEndianU32(discHeader + 0x424);", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const uint32_t fstSize = ReadBigEndianU32(discHeader + 0x428);", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("const char expectedAssetName[] = \"textured_cube_grid.hasset\";", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("const std::string expectedPath = \"dvd:/cooked/scenes/rendering/textured_cube_grid.hasset\";", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("foundTexturedCubeGrid", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("const char expectedAssetName[] = \"DemoDiscMainMenu.hasset\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("const std::string expectedPath = \"dvd:/cooked/scenes/DemoDiscMainMenu.hasset\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("foundDemoDiscMainMenu", applicationSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the menu bring-up path has an explicit city-content staging helper for the authored menu scene and required fonts.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_HasExplicitMenuStagingScript() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string stagingScriptPath = Path.Combine(repositoryRootPath, "tools", "stage_city_demo_disc_main_menu_content.sh");
+
+        Assert.True(File.Exists(stagingScriptPath));
+
+        string stagingScriptSource = File.ReadAllText(stagingScriptPath);
+        Assert.Contains("DemoDiscMainMenu.hasset", stagingScriptSource, StringComparison.Ordinal);
+        Assert.Contains("DemoDiscBody.hefont", stagingScriptSource, StringComparison.Ordinal);
+        Assert.Contains("default.hefont", stagingScriptSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -300,5 +316,68 @@ public sealed class GameCubePackagedRuntimeSourceTests {
 
         Assert.Contains("EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("EngineCore->get_SceneManager()->LoadScene(packagedStartupSceneId, SceneLoadMode::Single);", applicationSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube 2D render bridge records per-frame draw requests instead of remaining a no-op stub.
+    /// </summary>
+    [Fact]
+    public void GameCubeRenderManager2D_WhenBuiltForMenu_CapturesPerFrameDrawRequests() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string headerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.hpp"));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
+
+        Assert.Contains("struct GameCubeSpriteDrawCommand", headerSource, StringComparison.Ordinal);
+        Assert.Contains("struct GameCubeTextDrawCommand", headerSource, StringComparison.Ordinal);
+        Assert.Contains("struct GameCubeRoundedRectDrawCommand", headerSource, StringComparison.Ordinal);
+        Assert.Contains("void BeginFrame();", headerSource, StringComparison.Ordinal);
+        Assert.Contains("bool HasCapturedDrawables() const;", headerSource, StringComparison.Ordinal);
+        Assert.Contains("const std::vector<GameCubeSpriteDrawCommand>& GetSpriteQueue() const;", headerSource, StringComparison.Ordinal);
+        Assert.Contains("const std::vector<GameCubeTextDrawCommand>& GetTextQueue() const;", headerSource, StringComparison.Ordinal);
+        Assert.Contains("const std::vector<GameCubeRoundedRectDrawCommand>& GetRoundedRectQueue() const;", headerSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("(void)sprite;", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("(void)text;", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("(void)shape;", source, StringComparison.Ordinal);
+        Assert.Contains("SpriteQueue.clear();", source, StringComparison.Ordinal);
+        Assert.Contains("TextQueue.clear();", source, StringComparison.Ordinal);
+        Assert.Contains("RoundedRectQueue.clear();", source, StringComparison.Ordinal);
+        Assert.Contains("SpriteQueue.push_back(GameCubeSpriteDrawCommand { sprite });", source, StringComparison.Ordinal);
+        Assert.Contains("TextQueue.push_back(GameCubeTextDrawCommand { text });", source, StringComparison.Ordinal);
+        Assert.Contains("RoundedRectQueue.push_back(GameCubeRoundedRectDrawCommand { shape });", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube raster renderer exposes a GX-backed 2D pass for menu drawables.
+    /// </summary>
+    [Fact]
+    public void GameCubeRasterRenderer_WhenRenderingMenu_Contains2DGxEntryPoints() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string headerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+
+        Assert.Contains("void Render2D(", headerSource, StringComparison.Ordinal);
+        Assert.Contains("RenderRoundedRect2D(", headerSource, StringComparison.Ordinal);
+        Assert.Contains("RenderSprite2D(", headerSource, StringComparison.Ordinal);
+        Assert.Contains("RenderText2D(", headerSource, StringComparison.Ordinal);
+        Assert.Contains("Render2D(const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight)", source, StringComparison.Ordinal);
+        Assert.Contains("RenderRoundedRect2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
+        Assert.Contains("RenderSprite2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
+        Assert.Contains("RenderText2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
+        Assert.Contains("GX_LoadProjectionMtx(projectionMatrix, GX_ORTHOGRAPHIC);", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube application resets and renders the 2D queue during the packaged menu frame loop.
+    /// </summary>
+    [Fact]
+    public void GameCubeApplication_WhenRunningMenu_BeginsAndRenders2DFrames() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string bootstrapSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
+
+        Assert.Contains("EngineRenderManager2D->BeginFrame();", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineRenderManager2D->HasCapturedDrawables()", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("Scenes/DemoDiscMainMenu.helen", bootstrapSource, StringComparison.Ordinal);
     }
 }

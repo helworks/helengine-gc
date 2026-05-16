@@ -21,23 +21,20 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
         string sourceRootPath = Path.Combine(workingRootPath, "project");
         string generatedCoreRootPath = Path.Combine(workingRootPath, "generated-core");
         string apploaderImagePath = Path.Combine(workingRootPath, "tooling", "apploader.img");
-        string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "rendering", "textured_cube_grid.hasset");
-        string modelSourcePath = Path.Combine(sourceRootPath, "cooked", "engine", "models", "cube.hasset");
-        string cubeMaterialPath = Path.Combine(sourceRootPath, "cooked", "materials", "rendering", "textured_cube_grid", "Cube00.hasset");
-        string importedTexturePath = Path.Combine(sourceRootPath, "cooked", "imported", "0143f809c636f1cd20053a4c3cfc191b7fb5e510eae696a567970db4d0abdf7e");
+        string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "DemoDiscMainMenu.hasset");
+        string fontSourcePath = Path.Combine(sourceRootPath, "cooked", "fonts", "DemoDiscBody.hefont");
+        string defaultFontSourcePath = Path.Combine(sourceRootPath, "cooked", "fonts", "default.hefont");
         string previousDirectory = Directory.GetCurrentDirectory();
 
         try {
             Directory.CreateDirectory(Path.GetDirectoryName(sceneSourcePath) ?? throw new InvalidOperationException("Scene directory path could not be resolved."));
-            Directory.CreateDirectory(Path.GetDirectoryName(modelSourcePath) ?? throw new InvalidOperationException("Model directory path could not be resolved."));
-            Directory.CreateDirectory(Path.GetDirectoryName(cubeMaterialPath) ?? throw new InvalidOperationException("Material directory path could not be resolved."));
-            Directory.CreateDirectory(Path.GetDirectoryName(importedTexturePath) ?? throw new InvalidOperationException("Imported texture directory path could not be resolved."));
+            Directory.CreateDirectory(Path.GetDirectoryName(fontSourcePath) ?? throw new InvalidOperationException("Font directory path could not be resolved."));
+            Directory.CreateDirectory(Path.GetDirectoryName(defaultFontSourcePath) ?? throw new InvalidOperationException("Default font directory path could not be resolved."));
             Directory.CreateDirectory(generatedCoreRootPath);
             Directory.CreateDirectory(Path.GetDirectoryName(apploaderImagePath) ?? throw new InvalidOperationException("Apploader directory path could not be resolved."));
             await File.WriteAllTextAsync(sceneSourcePath, "scene");
-            await File.WriteAllTextAsync(modelSourcePath, "model");
-            await File.WriteAllTextAsync(cubeMaterialPath, "cube-material");
-            await File.WriteAllTextAsync(importedTexturePath, "texture");
+            await File.WriteAllTextAsync(fontSourcePath, "font");
+            await File.WriteAllTextAsync(defaultFontSourcePath, "default-font");
             await File.WriteAllTextAsync(apploaderImagePath, "apploader");
             Directory.SetCurrentDirectory(sourceRootPath);
 
@@ -48,21 +45,20 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 "1.0.0",
                 "gamecube",
                 "1.0.0",
-                "scenes/rendering/textured_cube_grid.helen",
+                "Scenes/DemoDiscMainMenu.helen",
                 [
                     new PlatformBuildScene(
-                        "scenes/rendering/textured_cube_grid.helen",
-                        "Textured Cubes",
-                        "Scenes/rendering/textured_cube_grid.helen",
+                        "Scenes/DemoDiscMainMenu.helen",
+                        "Demo Disc Main Menu",
+                        "Scenes/DemoDiscMainMenu.helen",
                         [],
-                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/rendering/textured_cube_grid.hasset")])
+                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/DemoDiscMainMenu.hasset")])
                 ],
                 Array.Empty<PlatformBuildAsset>(),
                 [
-                    new PlatformBuildArtifact("cooked/scenes/rendering/textured_cube_grid.hasset", "scene-content-hash", "scene", "gamecube-default"),
-                    new PlatformBuildArtifact("cooked/engine/models/cube.hasset", "model-content-hash", "model", "gamecube-default"),
-                    new PlatformBuildArtifact("cooked/materials/rendering/textured_cube_grid/Cube00.hasset", "material-content-hash", "material", "gamecube-default"),
-                    new PlatformBuildArtifact("cooked/imported/0143f809c636f1cd20053a4c3cfc191b7fb5e510eae696a567970db4d0abdf7e", "texture-content-hash", "texture", "gamecube-default")
+                    new PlatformBuildArtifact("cooked/scenes/DemoDiscMainMenu.hasset", "scene-content-hash", "scene", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/fonts/DemoDiscBody.hefont", "font-content-hash", "font", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/fonts/default.hefont", "default-font-content-hash", "font", "gamecube-default")
                 ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
@@ -110,10 +106,9 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "sys", "boot.bin")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "sys", "bi2.bin")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "sys", "apploader.img")));
-            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "scenes", "rendering", "textured_cube_grid.hasset")));
-            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "engine", "models", "cube.hasset")));
-            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "materials", "rendering", "textured_cube_grid", "Cube00.hasset")));
-            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "imported", "0143f809c636f1cd20053a4c3cfc191b7fb5e510eae696a567970db4d0abdf7e")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "scenes", "DemoDiscMainMenu.hasset")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "DemoDiscBody.hefont")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.hefont")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "game.gcm")));
             Assert.True(File.Exists(Path.Combine(generatedCoreRootPath, "runtime", "gamecube_runtime_scene_manifest.hpp")));
         } finally {

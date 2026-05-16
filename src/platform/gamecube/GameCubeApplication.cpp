@@ -484,7 +484,7 @@ namespace helengine::gamecube {
         }
 
         const uint32_t rootEntryCount = ReadBigEndianU32(fstBytes + 8);
-        const char expectedAssetName[] = "textured_cube_grid.hasset";
+        const char expectedAssetName[] = "DemoDiscMainMenu.hasset";
         const uint8_t* searchBegin = fstBytes;
         const uint8_t* searchEnd = fstBytes + fstSize;
         const bool foundExpectedAsset = std::search(
@@ -494,7 +494,7 @@ namespace helengine::gamecube {
             expectedAssetName + (sizeof(expectedAssetName) - 1U)) != searchEnd;
 
         SYS_Report(
-            "[GC] Packaged FST probe rootEntryCount=%08lX foundTexturedCubeGrid=%d\n",
+            "[GC] Packaged FST probe rootEntryCount=%08lX foundDemoDiscMainMenu=%d\n",
             static_cast<unsigned long>(rootEntryCount),
             foundExpectedAsset ? 1 : 0);
 
@@ -537,7 +537,7 @@ namespace helengine::gamecube {
 
         std::size_t discOffset = 0U;
         std::size_t fileSize = 0U;
-        const std::string expectedPath = "dvd:/cooked/scenes/rendering/textured_cube_grid.hasset";
+        const std::string expectedPath = "dvd:/cooked/scenes/DemoDiscMainMenu.hasset";
         if (!TryResolvePackagedFstFile(fstBytes, 0U, "dvd:/", expectedPath, discOffset, fileSize)) {
             SYS_Report("[GC] Packaged asset probe failed: expected file was not resolved from the FST.\n");
             return false;
@@ -790,7 +790,7 @@ namespace helengine::gamecube {
     /// Advances one engine frame when the generated core was initialized successfully.
     bool GameCubeApplication::UpdateEngineCore() {
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
-        if (!EngineInitialized || EngineCore == nullptr) {
+        if (!EngineInitialized || EngineCore == nullptr || EngineRenderManager2D == nullptr) {
             FailBootPhase(GameCubeBootPhase::CoreUpdate, GXColor { 0xFF, 0x00, 0x00, 0xFF });
             return false;
         }
@@ -801,6 +801,7 @@ namespace helengine::gamecube {
                 SYS_Report("[GC] First update begin.\n");
                 FirstUpdateBeginReported = true;
             }
+            EngineRenderManager2D->BeginFrame();
             EngineCore->Update();
             UpdateCompletedSincePresent = true;
             if (!FirstUpdateCompletedReported) {
@@ -823,7 +824,7 @@ namespace helengine::gamecube {
     /// Draws one engine frame when the generated core was initialized successfully.
     bool GameCubeApplication::DrawEngineCore() {
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
-        if (!EngineInitialized || EngineCore == nullptr) {
+        if (!EngineInitialized || EngineCore == nullptr || EngineRenderManager3D == nullptr || EngineRenderManager2D == nullptr) {
             FailBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0xFF, 0x00, 0x00, 0xFF });
             return false;
         }
@@ -839,6 +840,14 @@ namespace helengine::gamecube {
             DrawCompletedSincePresent = true;
 #else
             EngineCore->Draw();
+            EngineRenderManager2D->Draw();
+            SYS_Report(
+                "[GC] 2D queue snapshot sprites=%lu text=%lu roundedRects=%lu has3D=%d\n",
+                static_cast<unsigned long>(EngineRenderManager2D->GetSpriteQueue().size()),
+                static_cast<unsigned long>(EngineRenderManager2D->GetTextQueue().size()),
+                static_cast<unsigned long>(EngineRenderManager2D->GetRoundedRectQueue().size()),
+                EngineRenderManager3D->HasRenderedScene() ? 1 : 0);
+            EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);
             DrawCompletedSincePresent = true;
 #endif
             if (!FirstDrawCompletedReported) {
@@ -846,6 +855,20 @@ namespace helengine::gamecube {
                 FirstDrawCompletedReported = true;
             }
             return true;
+        }
+        catch (Exception* exception) {
+            EngineInitialized = false;
+            FailBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            SYS_Report(
+                "[GC] Engine draw threw Exception*: %s\n",
+                exception != nullptr ? exception->what() : "<null>");
+            return false;
+        }
+        catch (const std::exception& exception) {
+            EngineInitialized = false;
+            FailBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            SYS_Report("[GC] Engine draw threw std::exception: %s\n", exception.what());
+            return false;
         }
         catch (...) {
             EngineInitialized = false;
@@ -865,7 +888,7 @@ namespace helengine::gamecube {
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
 #if HELENGINE_GAMECUBE_MINIMAL_SAMPLE
 #else
-        if (EngineRenderManager3D == nullptr || !EngineRenderManager3D->HasRenderedScene()) {
+        if (EngineRenderManager3D == nullptr || (!EngineRenderManager3D->HasRenderedScene() && (EngineRenderManager2D == nullptr || !EngineRenderManager2D->HasCapturedDrawables()))) {
             GX_SetCopyClear(visibleColor, 0x00FFFFFF);
         }
 #endif
@@ -913,13 +936,15 @@ namespace helengine::gamecube {
         return ClearColor;
 #else
         if (EngineInitialized) {
-            if (EngineRenderManager3D != nullptr && EngineRenderManager3D->HasRenderedScene()) {
+            if ((EngineRenderManager3D != nullptr && EngineRenderManager3D->HasRenderedScene())
+                || (EngineRenderManager2D != nullptr && EngineRenderManager2D->HasCapturedDrawables())) {
                 UpdateCompletedSincePresent = false;
                 DrawCompletedSincePresent = false;
                 return ClearColor;
             }
 
-            if (EngineRenderManager3D != nullptr && !EngineRenderManager3D->HasRenderedScene()) {
+            if ((EngineRenderManager3D != nullptr && !EngineRenderManager3D->HasRenderedScene())
+                && (EngineRenderManager2D == nullptr || !EngineRenderManager2D->HasCapturedDrawables())) {
                 return GXColor { 0x80, 0x00, 0x80, 0xFF };
             }
 

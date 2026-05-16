@@ -23,6 +23,7 @@
 #include "ShaderResourceType.hpp"
 #include "ShaderAsset.hpp"
 #include "StandardMaterialTextureBindingDefaults.hpp"
+#include "platform/gamecube/GameCubeRenderManager2D.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
 #include "platform/gamecube/GameCubeSceneRenderBridge.hpp"
 #include "runtime/native_exceptions.hpp"
@@ -110,6 +111,12 @@ namespace helengine::gamecube {
     /// Extracts the current frame and renders it through GX.
     void GameCubeRenderManager3D::Draw() {
         GameCubeFramePlan* framePlan = SceneRenderBridge->BuildFramePlan(CapabilityProfile, MainWindowSize.X, MainWindowSize.Y);
+        if (framePlan->DrawableSubmissions->get_Count() <= 0) {
+            HasRenderedSceneValue = false;
+            delete framePlan;
+            return;
+        }
+
         ExtractedFrameCount++;
         if (ExtractedFrameCount <= 5U || (ExtractedFrameCount % 60U) == 0U) {
             RenderFrameDrawableSubmission* firstSubmission = (*framePlan->DrawableSubmissions)[0];
@@ -130,6 +137,15 @@ namespace helengine::gamecube {
         }
         HasRenderedSceneValue = RasterRenderer->DrawFrame(framePlan);
         delete framePlan;
+    }
+
+    /// Draws the captured 2D overlay for the current frame through the shared GX raster path.
+    void GameCubeRenderManager3D::Draw2D(GameCubeRenderManager2D* renderManager2D, uint16_t frameWidth, uint16_t frameHeight) {
+        if (renderManager2D == nullptr) {
+            throw new ArgumentNullException("renderManager2D");
+        }
+
+        RasterRenderer->Render2D(*renderManager2D, frameWidth, frameHeight);
     }
 
     /// Returns the strict backend capability surface exposed by the first GameCube tier.

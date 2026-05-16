@@ -58,10 +58,6 @@ namespace helengine::gamecube {
             throw new NotSupportedException("Transparent 3D submissions are not supported in the first GameCube renderer tier.");
         }
 
-        if (frame->get_DrawableSubmissions()->get_Count() == 0) {
-            throw new InvalidOperationException("The startup GameCube scene produced no visible 3D drawable submissions.");
-        }
-
         float4 viewport = CameraViewportResolver::ResolveViewport(camera->get_Viewport(), targetWidth, targetHeight);
         float4x4 view = BuildViewMatrix(camera);
         float4x4 projection = CameraProjectionUtils::CreatePerspectiveProjection(camera, static_cast<float>(3.14159265358979323846 / 4.0), viewport.Z / viewport.W);

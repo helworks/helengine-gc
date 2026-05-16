@@ -15,6 +15,7 @@ class MaterialLayout;
 namespace helengine::gamecube {
     class GameCubeMeshCache;
     class GameCubeRasterRenderer;
+    class GameCubeRenderManager2D;
     class GameCubeRuntimeMaterial;
     class GameCubeSceneRenderBridge;
 
@@ -38,6 +39,9 @@ namespace helengine::gamecube {
 
         /// Extracts the current frame and renders it through GX.
         void Draw() override;
+
+        /// Draws the captured 2D overlay for the current frame through the shared GX raster path.
+        void Draw2D(GameCubeRenderManager2D* renderManager2D, uint16_t frameWidth, uint16_t frameHeight);
 
         /// Returns the strict backend capability surface exposed by the first GameCube tier.
         RendererBackendCapabilityProfile* GetCapabilityProfile() override;

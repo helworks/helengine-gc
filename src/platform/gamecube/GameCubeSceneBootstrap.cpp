@@ -12,13 +12,13 @@
 #include "system/io/path.hpp"
 
 namespace helengine::gamecube {
-    std::string GameCubeSceneBootstrap::BundledContentRootPath = "tmp/city-cube-test-content";
+    std::string GameCubeSceneBootstrap::BundledContentRootPath = "tmp/city-demo-disc-main-menu-content";
 
-    std::string GameCubeSceneBootstrap::BundledContentRootWindowsHostPath = "C:/dev/helworks/helengine-gc/tmp/city-cube-test-content";
+    std::string GameCubeSceneBootstrap::BundledContentRootWindowsHostPath = "C:/dev/helworks/helengine-gc/tmp/city-demo-disc-main-menu-content";
 
-    std::string GameCubeSceneBootstrap::BundledContentRootWslPath = "/mnt/c/dev/helworks/helengine-gc/tmp/city-cube-test-content";
+    std::string GameCubeSceneBootstrap::BundledContentRootWslPath = "/mnt/c/dev/helworks/helengine-gc/tmp/city-demo-disc-main-menu-content";
 
-    std::string GameCubeSceneBootstrap::StartupSceneId = "scenes/rendering/cube_test.helen";
+    std::string GameCubeSceneBootstrap::StartupSceneId = "Scenes/DemoDiscMainMenu.helen";
 
     /// Returns the staged content root and fails if the bundle has not been prepared.
     std::string GameCubeSceneBootstrap::GetValidatedContentRootPath() {
@@ -37,17 +37,17 @@ namespace helengine::gamecube {
             return wslRootPath;
         }
 
-        ValidateRequiredFile(relativeRootPath, "cooked/scenes/rendering/cube_test.hasset");
-        ValidateRequiredFile(relativeRootPath, "cooked/engine/models/cube.hasset");
-        ValidateRequiredFile(relativeRootPath, "cooked/engine/materials/standard.hasset");
-        ValidateRequiredFile(relativeRootPath, "cooked/shaders/ForwardStandardShader.dx11.hasset");
+        ValidateRequiredFile(relativeRootPath, "cooked/scenes/DemoDiscMainMenu.hasset");
+        ValidateRequiredFile(relativeRootPath, "cooked/fonts/DemoDiscBody.hefont");
+        ValidateRequiredFile(relativeRootPath, "cooked/fonts/default.hefont");
+        ValidateRequiredFile(relativeRootPath, "cooked/imported/3df8b122ea9a854acc1138581a579c38858b774c8b72e02117d059539873897a");
         return relativeRootPath;
     }
 
-    /// Creates the single-scene runtime catalog used by the first GameCube renderer milestone.
+    /// Creates the single-scene runtime catalog used by the current authored GameCube startup milestone.
     RuntimeSceneCatalog* GameCubeSceneBootstrap::CreateSceneCatalog() {
         Array<RuntimeSceneCatalogEntry*>* entries = new Array<RuntimeSceneCatalogEntry*>(1);
-        (*entries)[0] = new RuntimeSceneCatalogEntry(StartupSceneId, "cooked/scenes/rendering/cube_test.hasset");
+        (*entries)[0] = new RuntimeSceneCatalogEntry(StartupSceneId, "cooked/scenes/DemoDiscMainMenu.hasset");
         return new RuntimeSceneCatalog(entries);
     }
 
@@ -93,10 +93,10 @@ namespace helengine::gamecube {
             return false;
         }
 
-        return File::Exists(Path::GetFullPath(Path::Combine(rootPath, "cooked/scenes/rendering/cube_test.hasset")))
-            && File::Exists(Path::GetFullPath(Path::Combine(rootPath, "cooked/engine/models/cube.hasset")))
-            && File::Exists(Path::GetFullPath(Path::Combine(rootPath, "cooked/engine/materials/standard.hasset")))
-            && File::Exists(Path::GetFullPath(Path::Combine(rootPath, "cooked/shaders/ForwardStandardShader.dx11.hasset")));
+        return File::Exists(Path::GetFullPath(Path::Combine(rootPath, "cooked/scenes/DemoDiscMainMenu.hasset")))
+            && File::Exists(Path::GetFullPath(Path::Combine(rootPath, "cooked/fonts/DemoDiscBody.hefont")))
+            && File::Exists(Path::GetFullPath(Path::Combine(rootPath, "cooked/fonts/default.hefont")))
+            && File::Exists(Path::GetFullPath(Path::Combine(rootPath, "cooked/imported/3df8b122ea9a854acc1138581a579c38858b774c8b72e02117d059539873897a")));
     }
 
     /// Verifies one required staged content file exists under the bundle root.

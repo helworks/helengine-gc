@@ -1,13 +1,24 @@
 #include "platform/gamecube/GameCubeRasterRenderer.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <vector>
 
 #include <ogc/system.h>
 
+#include "byte4.hpp"
 #include "CameraClearSettings.hpp"
 #include "CameraComponent.hpp"
+#include "ClipRectComponent.hpp"
+#include "Component.hpp"
 #include "Entity.hpp"
 #include "IDrawable3D.hpp"
+#include "IRoundedRectDrawable2D.hpp"
+#include "ISpriteDrawable2D.hpp"
+#include "ITextDrawable2D.hpp"
+#include "FontAsset.hpp"
+#include "FontChar.hpp"
+#include "FontInfo.hpp"
 #include "LightComponent.hpp"
 #include "LightType.hpp"
 #include "MaterialRenderState.hpp"
@@ -21,12 +32,16 @@
 #include "float3.hpp"
 #include "float4.hpp"
 #include "float4x4.hpp"
+#include "TextLayoutUtils.hpp"
+#include "int2.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeMeshCache.hpp"
+#include "platform/gamecube/GameCubeRenderManager2D.hpp"
 #include "platform/gamecube/GameCubeRuntimeMaterial.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
 #include "platform/gamecube/GameCubeRuntimeTexture.hpp"
 #include "runtime/native_exceptions.hpp"
+#include "runtime/native_list.hpp"
 
 namespace {
     constexpr u8 OpaqueMeshColorRed = 255;
@@ -77,6 +92,46 @@ namespace helengine::gamecube {
         return true;
     }
 
+    /// Draws the captured 2D overlay drawables for the current frame through GX.
+    void GameCubeRasterRenderer::Render2D(const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight) {
+        if (!renderManager2D.HasCapturedDrawables()) {
+            return;
+        }
+
+        Mtx44 projectionMatrix;
+        guOrtho(
+            projectionMatrix,
+            0.0f,
+            static_cast<float>(frameHeight),
+            0.0f,
+            static_cast<float>(frameWidth),
+            -1.0f,
+            1.0f);
+        GX_LoadProjectionMtx(projectionMatrix, GX_ORTHOGRAPHIC);
+
+        Mtx identityMatrix = {
+            { 1.0f, 0.0f, 0.0f, 0.0f },
+            { 0.0f, 1.0f, 0.0f, 0.0f },
+            { 0.0f, 0.0f, 1.0f, 0.0f }
+        };
+        GX_LoadPosMtxImm(identityMatrix, GX_PNMTX0);
+        GX_SetCurrentMtx(GX_PNMTX0);
+
+        for (const GameCubeRoundedRectDrawCommand& command : renderManager2D.GetRoundedRectQueue()) {
+            RenderRoundedRect2D(command, frameWidth, frameHeight);
+        }
+
+        for (const GameCubeSpriteDrawCommand& command : renderManager2D.GetSpriteQueue()) {
+            RenderSprite2D(command, frameWidth, frameHeight);
+        }
+
+        for (const GameCubeTextDrawCommand& command : renderManager2D.GetTextQueue()) {
+            RenderText2D(command, frameWidth, frameHeight);
+        }
+
+        GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+    }
+
     /// Configures the GX state used by the current opaque mesh path.
     void GameCubeRasterRenderer::ConfigurePipeline(bool useTexturedBranch) {
         GX_ClearVtxDesc();
@@ -102,6 +157,33 @@ namespace helengine::gamecube {
         GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
         GX_SetColorUpdate(GX_TRUE);
         GX_SetAlphaUpdate(GX_FALSE);
+    }
+
+    /// Configures the GX state used by the current 2D overlay path.
+    void GameCubeRasterRenderer::Configure2DPipeline(bool useTexturedBranch) {
+        GX_ClearVtxDesc();
+        GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+        GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? GX_DIRECT : GX_NONE);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+        GX_SetNumChans(1);
+        GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_VTX, GX_SRC_VTX, GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE);
+        GX_SetNumTexGens(useTexturedBranch ? 1 : 0);
+        if (useTexturedBranch) {
+            GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+        }
+        GX_SetNumTevStages(1);
+        GX_SetTevOrder(GX_TEVSTAGE0, useTexturedBranch ? GX_TEXCOORD0 : GX_TEXCOORDNULL, useTexturedBranch ? GX_TEXMAP0 : GX_TEXMAP_NULL, GX_COLOR0A0);
+        GX_SetTevOp(GX_TEVSTAGE0, useTexturedBranch ? GX_MODULATE : GX_PASSCLR);
+        GX_SetCullMode(GX_CULL_NONE);
+        GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+        GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
+        GX_SetZCompLoc(GX_TRUE);
+        GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+        GX_SetColorUpdate(GX_TRUE);
+        GX_SetAlphaUpdate(GX_TRUE);
     }
 
     /// Converts the authored runtime clear settings into the presented GX clear color.
@@ -287,6 +369,16 @@ namespace helengine::gamecube {
         };
     }
 
+    /// Converts one shared-engine byte color into a GX color.
+    GXColor GameCubeRasterRenderer::ConvertByteColorToGx(const byte4& color) {
+        return GXColor {
+            color.X,
+            color.Y,
+            color.Z,
+            color.W
+        };
+    }
+
     /// Builds one authored world matrix through the generated platform-adapted float4x4 runtime.
     void GameCubeRasterRenderer::BuildWorldMatrix(Entity* entity, float4x4& worldMatrix) {
         if (entity == nullptr) {
@@ -400,5 +492,337 @@ namespace helengine::gamecube {
             }
         }
         GX_End();
+    }
+
+    /// Draws one captured rounded rectangle through the current 2D GX path.
+    void GameCubeRasterRenderer::RenderRoundedRect2D(const GameCubeRoundedRectDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight) {
+        IRoundedRectDrawable2D* drawable = command.Drawable;
+        if (drawable == nullptr || drawable->get_Parent() == nullptr || !drawable->get_Parent()->get_Enabled()) {
+            return;
+        }
+
+        int2 size = drawable->get_Size();
+        if (size.X <= 0 || size.Y <= 0) {
+            return;
+        }
+
+        float4 clipRect;
+        if (TryResolveClipRect(drawable->get_Parent(), clipRect)) {
+            ApplyClipScissor(clipRect, frameWidth, frameHeight);
+        } else {
+            GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+        }
+
+        Configure2DPipeline(false);
+        const float3 position = drawable->get_Parent()->get_Position();
+        const float radius = std::max(0.0f, drawable->get_Radius());
+        const float borderThickness = std::max(0.0f, drawable->get_BorderThickness());
+        const GXColor fillColor = ConvertByteColorToGx(drawable->get_FillColor());
+        const GXColor borderColor = ConvertByteColorToGx(drawable->get_BorderColor());
+
+        if (borderThickness > 0.0f) {
+            DrawRoundedPolygon2D(
+                position.X,
+                position.Y,
+                static_cast<float>(size.X),
+                static_cast<float>(size.Y),
+                radius,
+                drawable->get_Corners(),
+                borderColor);
+        }
+
+        const float innerX = position.X + borderThickness;
+        const float innerY = position.Y + borderThickness;
+        const float innerWidth = static_cast<float>(size.X) - (borderThickness * 2.0f);
+        const float innerHeight = static_cast<float>(size.Y) - (borderThickness * 2.0f);
+        if (innerWidth > 0.0f && innerHeight > 0.0f) {
+            DrawRoundedPolygon2D(
+                innerX,
+                innerY,
+                innerWidth,
+                innerHeight,
+                std::max(0.0f, radius - borderThickness),
+                drawable->get_Corners(),
+                fillColor);
+        }
+    }
+
+    /// Draws one captured sprite through the current 2D GX path.
+    void GameCubeRasterRenderer::RenderSprite2D(const GameCubeSpriteDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight) {
+        ISpriteDrawable2D* drawable = command.Drawable;
+        if (drawable == nullptr || drawable->get_Parent() == nullptr || !drawable->get_Parent()->get_Enabled()) {
+            return;
+        }
+
+        RuntimeTexture* runtimeTexture = drawable->get_Texture();
+        GameCubeRuntimeTexture* texture = dynamic_cast<GameCubeRuntimeTexture*>(runtimeTexture);
+        if (texture == nullptr || !texture->HasNativeTextureObject()) {
+            return;
+        }
+
+        int2 size = drawable->get_Size();
+        const float width = size.X > 0 ? static_cast<float>(size.X) : static_cast<float>(runtimeTexture->get_Width());
+        const float height = size.Y > 0 ? static_cast<float>(size.Y) : static_cast<float>(runtimeTexture->get_Height());
+        if (width <= 0.0f || height <= 0.0f) {
+            return;
+        }
+
+        float4 clipRect;
+        if (TryResolveClipRect(drawable->get_Parent(), clipRect)) {
+            ApplyClipScissor(clipRect, frameWidth, frameHeight);
+        } else {
+            GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+        }
+
+        Configure2DPipeline(true);
+        const float3 position = drawable->get_Parent()->get_Position();
+        DrawTexturedQuad2D(position.X, position.Y, width, height, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);
+    }
+
+    /// Draws one captured text drawable through the current 2D GX path.
+    void GameCubeRasterRenderer::RenderText2D(const GameCubeTextDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight) {
+        ITextDrawable2D* drawable = command.Drawable;
+        if (drawable == nullptr || drawable->get_Parent() == nullptr || !drawable->get_Parent()->get_Enabled()) {
+            return;
+        }
+
+        FontAsset* font = drawable->get_Font();
+        if (font == nullptr || font->get_Texture() == nullptr) {
+            return;
+        }
+
+        GameCubeRuntimeTexture* texture = dynamic_cast<GameCubeRuntimeTexture*>(font->get_Texture());
+        if (texture == nullptr || !texture->HasNativeTextureObject()) {
+            return;
+        }
+
+        float4 clipRect;
+        if (TryResolveClipRect(drawable->get_Parent(), clipRect)) {
+            ApplyClipScissor(clipRect, frameWidth, frameHeight);
+        } else {
+            GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+        }
+
+        Configure2DPipeline(true);
+        GX_LoadTexObj(texture->GetNativeTextureObject(), GX_TEXMAP0);
+
+        std::string content = drawable->get_Text();
+        const double fontScale = std::max(static_cast<double>(drawable->get_FontScale()), 0.0001);
+        if (drawable->get_WrapText()) {
+            content = TextLayoutUtils::WrapText(content, font, std::max(1, static_cast<int32_t>(std::lround(drawable->get_Size().X / fontScale))));
+        }
+
+        const GXColor glyphColor = ConvertByteColorToGx(drawable->get_Color());
+        const float3 position = drawable->get_Parent()->get_Position();
+        const double baseX = std::round(position.X);
+        const double baseY = std::round(position.Y);
+        const double lineHeight = std::max(static_cast<double>(font->get_LineHeight()) * fontScale, 1.0);
+        double offsetX = 0.0;
+        double offsetY = 0.0;
+
+        for (int32_t index = 0; index < static_cast<int32_t>(content.size()); index++) {
+            const char character = content[index];
+            if (character == '\n') {
+                offsetY += lineHeight;
+                offsetX = 0.0;
+                continue;
+            }
+
+            if (character == ' ') {
+                offsetX += font->get_FontInfo()->get_SpaceWidth() * fontScale;
+                continue;
+            }
+
+            FontChar glyph;
+            if (!font->get_Characters()->TryGetValue(character, glyph)) {
+                continue;
+            }
+
+            const double glyphWidth = glyph.SourceRect.Z * font->get_AtlasWidth() * fontScale;
+            const double glyphHeight = glyph.SourceRect.W * font->get_AtlasHeight() * fontScale;
+            const double snappedLineOffsetY = std::round(offsetY);
+            DrawTexturedQuad2D(
+                static_cast<float>(baseX + offsetX),
+                static_cast<float>(baseY + snappedLineOffsetY + (glyph.OffsetY * fontScale)),
+                static_cast<float>(glyphWidth),
+                static_cast<float>(glyphHeight),
+                glyph.SourceRect,
+                glyphColor,
+                texture);
+
+            const double advanceWidth = glyph.AdvanceWidth > 0.0f
+                ? glyph.AdvanceWidth * fontScale
+                : glyphWidth;
+            offsetX += advanceWidth;
+        }
+    }
+
+    /// Emits one untextured screen-space quad in pixel coordinates.
+    void GameCubeRasterRenderer::DrawSolidQuad2D(float x, float y, float width, float height, GXColor color) {
+        GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+        GX_Position3f32(x, y, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_Position3f32(x + width, y, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_Position3f32(x + width, y + height, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_Position3f32(x, y + height, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_End();
+    }
+
+    /// Emits one rounded screen-space convex polygon in pixel coordinates.
+    void GameCubeRasterRenderer::DrawRoundedPolygon2D(float x, float y, float width, float height, float radius, RoundedRectCorners corners, GXColor color) {
+        if (width <= 0.0f || height <= 0.0f) {
+            return;
+        }
+
+        std::vector<float2> outline;
+        BuildRoundedRectOutline(x, y, width, height, radius, corners, outline);
+        if (outline.size() < 3U) {
+            return;
+        }
+
+        const float centerX = x + (width * 0.5f);
+        const float centerY = y + (height * 0.5f);
+        GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, static_cast<u16>(outline.size() + 2U));
+        GX_Position3f32(centerX, centerY, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        for (std::size_t vertexIndex = 0; vertexIndex < outline.size(); vertexIndex++) {
+            GX_Position3f32(outline[vertexIndex].X, outline[vertexIndex].Y, 0.0f);
+            GX_Color4u8(color.r, color.g, color.b, color.a);
+        }
+        GX_Position3f32(outline[0].X, outline[0].Y, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_End();
+    }
+
+    /// Builds one clockwise rounded-rectangle outline in screen-space coordinates.
+    void GameCubeRasterRenderer::BuildRoundedRectOutline(float x, float y, float width, float height, float radius, RoundedRectCorners corners, std::vector<float2>& outline) {
+        outline.clear();
+        const float clampedRadius = std::min(radius, std::min(width * 0.5f, height * 0.5f));
+        const bool topLeftRounded = HasRoundedCorner(corners, RoundedRectCorners::TopLeft) && clampedRadius > 0.0f;
+        const bool topRightRounded = HasRoundedCorner(corners, RoundedRectCorners::TopRight) && clampedRadius > 0.0f;
+        const bool bottomRightRounded = HasRoundedCorner(corners, RoundedRectCorners::BottomRight) && clampedRadius > 0.0f;
+        const bool bottomLeftRounded = HasRoundedCorner(corners, RoundedRectCorners::BottomLeft) && clampedRadius > 0.0f;
+
+        outline.emplace_back(topLeftRounded ? x + clampedRadius : x, y);
+        if (topRightRounded) {
+            outline.emplace_back(x + width - clampedRadius, y);
+            AppendCornerArc(outline, x + width - clampedRadius, y + clampedRadius, clampedRadius, -1.57079632679f, 0.0f, true);
+        } else {
+            outline.emplace_back(x + width, y);
+        }
+
+        if (bottomRightRounded) {
+            outline.emplace_back(x + width, y + height - clampedRadius);
+            AppendCornerArc(outline, x + width - clampedRadius, y + height - clampedRadius, clampedRadius, 0.0f, 1.57079632679f, true);
+        } else {
+            outline.emplace_back(x + width, y + height);
+        }
+
+        if (bottomLeftRounded) {
+            outline.emplace_back(x + clampedRadius, y + height);
+            AppendCornerArc(outline, x + clampedRadius, y + height - clampedRadius, clampedRadius, 1.57079632679f, 3.14159265359f, true);
+        } else {
+            outline.emplace_back(x, y + height);
+        }
+
+        if (topLeftRounded) {
+            outline.emplace_back(x, y + clampedRadius);
+            AppendCornerArc(outline, x + clampedRadius, y + clampedRadius, clampedRadius, 3.14159265359f, 4.71238898038f, true);
+        } else {
+            outline.emplace_back(x, y);
+        }
+    }
+
+    /// Appends one clockwise corner arc into the outline builder.
+    void GameCubeRasterRenderer::AppendCornerArc(std::vector<float2>& outline, float centerX, float centerY, float radius, float startAngle, float endAngle, bool skipFirstPoint) {
+        constexpr int ArcSegments = 8;
+        const int startIndex = skipFirstPoint ? 1 : 0;
+        for (int segmentIndex = startIndex; segmentIndex <= ArcSegments; segmentIndex++) {
+            const float interpolation = static_cast<float>(segmentIndex) / static_cast<float>(ArcSegments);
+            const float angle = startAngle + ((endAngle - startAngle) * interpolation);
+            outline.emplace_back(
+                centerX + (std::cos(angle) * radius),
+                centerY + (std::sin(angle) * radius));
+        }
+    }
+
+    /// Resolves whether the authored corner mask includes one specific corner.
+    bool GameCubeRasterRenderer::HasRoundedCorner(RoundedRectCorners corners, RoundedRectCorners corner) const {
+        return (static_cast<int32_t>(corners) & static_cast<int32_t>(corner)) != 0;
+    }
+
+    /// Emits one textured screen-space quad in pixel coordinates.
+    void GameCubeRasterRenderer::DrawTexturedQuad2D(float x, float y, float width, float height, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture) {
+        if (texture == nullptr) {
+            throw new ArgumentNullException("texture");
+        }
+
+        GX_LoadTexObj(texture->GetNativeTextureObject(), GX_TEXMAP0);
+        GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+        GX_Position3f32(x, y, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_TexCoord2f32(sourceRect.X, sourceRect.Y);
+        GX_Position3f32(x + width, y, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y);
+        GX_Position3f32(x + width, y + height, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y + sourceRect.W);
+        GX_Position3f32(x, y + height, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_TexCoord2f32(sourceRect.X, sourceRect.Y + sourceRect.W);
+        GX_End();
+    }
+
+    /// Resolves the active clip rectangle for one 2D drawable by intersecting ancestor clip regions.
+    bool GameCubeRasterRenderer::TryResolveClipRect(Entity* entity, float4& clipRect) {
+        if (entity == nullptr) {
+            return false;
+        }
+
+        bool hasClip = false;
+        Entity* current = entity;
+        while (current != nullptr) {
+            List<Component*>* components = current->get_Components();
+            if (components != nullptr) {
+                for (int32_t componentIndex = 0; componentIndex < components->get_Count(); componentIndex++) {
+                    ClipRectComponent* clipComponent = dynamic_cast<ClipRectComponent*>((*components)[componentIndex]);
+                    if (clipComponent == nullptr) {
+                        continue;
+                    }
+
+                    float4 currentClipRect = clipComponent->GetClipRect();
+                    if (!hasClip) {
+                        clipRect = currentClipRect;
+                        hasClip = true;
+                        continue;
+                    }
+
+                    const float left = std::max(clipRect.X, currentClipRect.X);
+                    const float top = std::max(clipRect.Y, currentClipRect.Y);
+                    const float right = std::min(clipRect.X + clipRect.Z, currentClipRect.X + currentClipRect.Z);
+                    const float bottom = std::min(clipRect.Y + clipRect.W, currentClipRect.Y + currentClipRect.W);
+                    clipRect = float4(left, top, std::max(0.0f, right - left), std::max(0.0f, bottom - top));
+                }
+            }
+
+            current = current->get_Parent();
+        }
+
+        return hasClip;
+    }
+
+    /// Applies one resolved clip rectangle as the active GX scissor state.
+    void GameCubeRasterRenderer::ApplyClipScissor(const float4& clipRect, uint16_t frameWidth, uint16_t frameHeight) {
+        const int32_t left = std::max(0, static_cast<int32_t>(std::floor(clipRect.X)));
+        const int32_t top = std::max(0, static_cast<int32_t>(std::floor(clipRect.Y)));
+        const int32_t right = std::min(static_cast<int32_t>(frameWidth), static_cast<int32_t>(std::ceil(clipRect.X + clipRect.Z)));
+        const int32_t bottom = std::min(static_cast<int32_t>(frameHeight), static_cast<int32_t>(std::ceil(clipRect.Y + clipRect.W)));
+        const u32 width = right > left ? static_cast<u32>(right - left) : 0U;
+        const u32 height = bottom > top ? static_cast<u32>(bottom - top) : 0U;
+        GX_SetScissor(static_cast<u32>(left), static_cast<u32>(top), width, height);
     }
 }

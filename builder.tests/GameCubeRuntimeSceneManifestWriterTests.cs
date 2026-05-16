@@ -12,8 +12,8 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
     [Fact]
     public void Write_EmitsHeaderWithStartupSceneAndCookedSceneCatalog() {
         string outputRootPath = Path.Combine(Path.GetTempPath(), "gamecube-runtime-manifest-tests", Guid.NewGuid().ToString("N"));
-        const string StartupSceneId = "scenes/rendering/colored_cube_grid.helen";
-        const string StartupSceneCookedRelativePath = "cooked/scenes/rendering/colored_cube_grid.hasset";
+        const string StartupSceneId = "Scenes/DemoDiscMainMenu.helen";
+        const string StartupSceneCookedRelativePath = "cooked/scenes/DemoDiscMainMenu.hasset";
         PlatformBuildManifest manifest = new(
             1,
             "project",
@@ -25,8 +25,8 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
             [
                 new PlatformBuildScene(
                     StartupSceneId,
-                    "Colored Cubes",
-                    "Scenes/rendering/colored_cube_grid.helen",
+                    "Demo Disc Main Menu",
+                    "Scenes/DemoDiscMainMenu.helen",
                     [],
                     [new KeyValuePair<string, string>("cooked-relative-path", StartupSceneCookedRelativePath)])
             ],
@@ -45,8 +45,8 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
             Assert.Contains("he_get_runtime_gamecube_scene_entries", header, StringComparison.Ordinal);
 
             string source = File.ReadAllText(Path.Combine(outputRootPath, "runtime", "gamecube_runtime_scene_manifest.inl"));
-            Assert.Contains("\"scenes/rendering/colored_cube_grid.helen\"", source, StringComparison.Ordinal);
-            Assert.Contains("\"cooked/scenes/rendering/colored_cube_grid.hasset\"", source, StringComparison.Ordinal);
+            Assert.Contains("\"Scenes/DemoDiscMainMenu.helen\"", source, StringComparison.Ordinal);
+            Assert.Contains("\"cooked/scenes/DemoDiscMainMenu.hasset\"", source, StringComparison.Ordinal);
         } finally {
             if (Directory.Exists(outputRootPath)) {
                 Directory.Delete(outputRootPath, recursive: true);
