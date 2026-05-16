@@ -10,10 +10,12 @@ class RuntimeMaterial;
 class RuntimeModel;
 class ShaderAsset;
 class RendererBackendCapabilityProfile;
+class MaterialLayout;
 
 namespace helengine::gamecube {
     class GameCubeMeshCache;
     class GameCubeRasterRenderer;
+    class GameCubeRuntimeMaterial;
     class GameCubeSceneRenderBridge;
 
     /// Orchestrates authored runtime model creation, frame extraction, and GX execution for the GameCube backend.
@@ -60,5 +62,8 @@ namespace helengine::gamecube {
 
         /// Counts extracted GameCube scene frames for throttled diagnostics.
         uint32_t ExtractedFrameCount;
+
+        /// Builds the minimal shared-engine material layout needed for one diffuse texture binding.
+        MaterialLayout* CreateCookedMaterialLayout();
     };
 }

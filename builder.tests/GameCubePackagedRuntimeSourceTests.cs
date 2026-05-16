@@ -122,6 +122,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     public void PackagedDiscBootSource_UsesGameCubeDiscReadBridgeForDvdPaths() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
+        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
         string fileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-input-gamecube", "system", "io", "file.cpp"));
         string fileStreamHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "system", "io", "file-stream.hpp"));
         string discFileSystemSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscFileSystem.cpp"));
@@ -138,6 +139,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("ReadDiscRange(buffer, discOffset, fileSize)", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const uint32_t fstOffset = ReadBigEndianU32(discHeader + 0x424);", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const uint32_t fstSize = ReadBigEndianU32(discHeader + 0x428);", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("const char expectedAssetName[] = \"textured_cube_grid.hasset\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("const std::string expectedPath = \"dvd:/cooked/scenes/rendering/textured_cube_grid.hasset\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("foundTexturedCubeGrid", applicationSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -163,15 +167,69 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_UsesSharedLightingModelForWhiteDirectionalDiffuseRendering() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string renderManagerHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
+        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string runtimeMaterialHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.hpp"));
+        string runtimeMaterialSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.cpp"));
         string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
         string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
+        Assert.Contains("class GameCubeRuntimeMaterial;", renderManagerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeMaterial* runtimeMaterial = new GameCubeRuntimeMaterial();", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("runtimeMaterial->SetBaseColor(float3(", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("class GameCubeRuntimeMaterial final : public RuntimeMaterial", runtimeMaterialHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("float3 GetBaseColor() const;", runtimeMaterialHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("void SetBaseColor(float3 value);", runtimeMaterialHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeMaterial::GameCubeRuntimeMaterial()", runtimeMaterialSource, StringComparison.Ordinal);
         Assert.Contains("RuntimeMaterialLightingModel", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("EvaluateLitVertexColor(", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, float3 normal);", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("AccumulateAmbientAndDirectionalLight(", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("submission->get_Material()", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeMaterial* gameCubeRuntimeMaterial = dynamic_cast<GameCubeRuntimeMaterial*>(material);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("const float3 baseColor = material->GetBaseColor();", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("lighting.X * baseColor.X", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("lighting.Y * baseColor.Y", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("lighting.Z * baseColor.Z", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("RuntimeMaterialLightingModel::Unlit", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("RuntimeMaterialLightingModel::MetalRoughPbr", rasterRendererSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube cooked-material seam preserves authored texture paths and binds resolved runtime textures through the GX lit branch.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_PreservesCookedTexturePathsAndUsesTexturedGxBranch() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string runtimeMaterialHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.hpp"));
+        string runtimeMaterialSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.cpp"));
+        string runtimeTextureHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.hpp"));
+        string runtimeTextureSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.cpp"));
+        string renderManager2DSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string normalizerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeGeneratedCoreCompatibilityNormalizer.cs"));
+        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
+
+        Assert.Contains("const std::string& GetTextureRelativePath() const;", runtimeMaterialHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("void SetTextureRelativePath(std::string value);", runtimeMaterialHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("TextureRelativePathValue", runtimeMaterialSource, StringComparison.Ordinal);
+        Assert.Contains("runtimeMaterial->SetTextureRelativePath(materialAsset->TextureRelativePath);", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("class GameCubeRuntimeTexture final : public RuntimeTexture", runtimeTextureHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("void LoadFromRaw(TextureAsset* data);", runtimeTextureHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("GX_InitTexObj(&NativeTextureObject", runtimeTextureSource, StringComparison.Ordinal);
+        Assert.Contains("GX_InitTexObjFilterMode(&NativeTextureObject, GX_LINEAR, GX_LINEAR);", runtimeTextureSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeTexture* runtimeTexture = new GameCubeRuntimeTexture();", renderManager2DSource, StringComparison.Ordinal);
+        Assert.Contains("materialAsset->TextureRelativePath", normalizerSource, StringComparison.Ordinal);
+        Assert.Contains("BuildTextureFromRaw(textureAsset)", normalizerSource, StringComparison.Ordinal);
+        Assert.Contains("SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);", normalizerSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeTexture* boundTexture = ResolveBoundTexture(gameCubeRuntimeMaterial);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("const bool expectsTexture = !gameCubeRuntimeMaterial->GetTextureRelativePath().empty();", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GameCube textured material requires one resolved runtime texture.", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetNumTexGens(useTexturedBranch ? 1 : 0);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetTevOp(GX_TEVSTAGE0, useTexturedBranch ? GX_MODULATE : GX_PASSCLR);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_LoadTexObj(boundTexture->GetNativeTextureObject(), GX_TEXMAP0);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeTexture.cpp", makefileSource, StringComparison.Ordinal);
     }
 
     /// <summary>

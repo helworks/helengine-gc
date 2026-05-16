@@ -10,14 +10,18 @@ class CameraClearSettings;
 class Entity;
 class RenderFrameDrawableSubmission;
 class RuntimeMaterial;
+class RuntimeTexture;
 class RuntimeSubmesh;
+class float2;
 class float3;
 class float4x4;
 
 namespace helengine::gamecube {
     class GameCubeFramePlan;
     class GameCubeMeshCache;
+    class GameCubeRuntimeMaterial;
     class GameCubeRuntimeModel;
+    class GameCubeRuntimeTexture;
 
     /// Owns the first narrow GX execution path for authored opaque 3D meshes.
     class GameCubeRasterRenderer {
@@ -31,8 +35,8 @@ namespace helengine::gamecube {
         /// Shared runtime-model cache used by the draw path.
         GameCubeMeshCache* MeshCache;
 
-        /// Configures the GX state used by the first opaque mesh path.
-        void ConfigurePipeline();
+        /// Configures the GX state used by the current opaque mesh path.
+        void ConfigurePipeline(bool useTexturedBranch);
 
         /// Converts the authored runtime clear settings into the presented GX clear color.
         GXColor ResolveClearColor(CameraClearSettings clearSettings);
@@ -49,6 +53,9 @@ namespace helengine::gamecube {
         /// Resolves whether one submission should use the lit branch for the current checkpoint.
         bool UsesLitBranch(RenderFrameDrawableSubmission* submission);
 
+        /// Resolves one GameCube-native runtime texture from the current material graph when present.
+        GameCubeRuntimeTexture* ResolveBoundTexture(GameCubeRuntimeMaterial* material);
+
         /// Maps the shared material cull-mode contract onto the reversed GX face-culling convention.
         u8 ResolveGxCullMode(MaterialCullMode cullMode);
 
@@ -56,7 +63,7 @@ namespace helengine::gamecube {
         float3 AccumulateAmbientAndDirectionalLight(GameCubeFramePlan* framePlan, Entity* entity, float3 normal);
 
         /// Evaluates one final GX vertex color for the first lit branch.
-        GXColor EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, float3 normal);
+        GXColor EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, float3 normal);
 
         /// Converts a normalized RGB lighting value into a GX color with full alpha.
         GXColor ConvertLightingColorToGx(float3 color);

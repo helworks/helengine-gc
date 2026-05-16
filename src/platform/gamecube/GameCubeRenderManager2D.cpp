@@ -1,6 +1,9 @@
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 
 #include "RuntimeTexture.hpp"
+#include "TextureAsset.hpp"
+#include "platform/gamecube/GameCubeRuntimeTexture.hpp"
+#include "runtime/native_exceptions.hpp"
 
 namespace helengine::gamecube {
     /// Creates the GameCube 2D render bridge.
@@ -8,10 +11,16 @@ namespace helengine::gamecube {
         : RenderManager2D() {
     }
 
-    /// Builds a placeholder runtime texture from generated texture asset metadata.
+    /// Builds one GameCube-native runtime texture from generated texture asset metadata.
     RuntimeTexture* GameCubeRenderManager2D::BuildTextureFromRaw(TextureAsset* data) {
-        (void)data;
-        return new RuntimeTexture();
+        if (data == nullptr) {
+            throw new ArgumentNullException("data");
+        }
+
+        GameCubeRuntimeTexture* runtimeTexture = new GameCubeRuntimeTexture();
+        runtimeTexture->set_Id(data->get_Id());
+        runtimeTexture->LoadFromRaw(data);
+        return runtimeTexture;
     }
 
     /// Accepts a sprite draw request without issuing native rendering yet.

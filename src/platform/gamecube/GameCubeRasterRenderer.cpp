@@ -15,13 +15,17 @@
 #include "RenderFrameLightSubmission.hpp"
 #include "RuntimeMaterial.hpp"
 #include "RuntimeMaterialLightingModel.hpp"
+#include "RuntimeTexture.hpp"
 #include "RuntimeSubmesh.hpp"
+#include "float2.hpp"
 #include "float3.hpp"
 #include "float4.hpp"
 #include "float4x4.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeMeshCache.hpp"
+#include "platform/gamecube/GameCubeRuntimeMaterial.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
+#include "platform/gamecube/GameCubeRuntimeTexture.hpp"
 #include "runtime/native_exceptions.hpp"
 
 namespace {
@@ -46,7 +50,6 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("framePlan");
         }
 
-        ConfigurePipeline();
         CameraClearSettings clearSettings = framePlan->Camera->get_ClearSettings();
         GX_SetCopyClear(ResolveClearColor(clearSettings), ResolveClearDepth(clearSettings));
         GX_SetViewport(framePlan->Viewport.X, framePlan->Viewport.Y, framePlan->Viewport.Z, framePlan->Viewport.W, 0.0f, 1.0f);
@@ -74,19 +77,24 @@ namespace helengine::gamecube {
         return true;
     }
 
-    /// Configures the GX state used by the first opaque mesh path.
-    void GameCubeRasterRenderer::ConfigurePipeline() {
+    /// Configures the GX state used by the current opaque mesh path.
+    void GameCubeRasterRenderer::ConfigurePipeline(bool useTexturedBranch) {
         GX_ClearVtxDesc();
         GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
         GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? GX_DIRECT : GX_NONE);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
         GX_SetNumChans(1);
         GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_VTX, GX_SRC_VTX, GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE);
-        GX_SetNumTexGens(0);
+        GX_SetNumTexGens(useTexturedBranch ? 1 : 0);
+        if (useTexturedBranch) {
+            GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+        }
         GX_SetNumTevStages(1);
-        GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0);
-        GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+        GX_SetTevOrder(GX_TEVSTAGE0, useTexturedBranch ? GX_TEXCOORD0 : GX_TEXCOORDNULL, useTexturedBranch ? GX_TEXMAP0 : GX_TEXMAP_NULL, GX_COLOR0A0);
+        GX_SetTevOp(GX_TEVSTAGE0, useTexturedBranch ? GX_MODULATE : GX_PASSCLR);
         GX_SetCullMode(GX_CULL_FRONT);
         GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
         GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
@@ -174,6 +182,25 @@ namespace helengine::gamecube {
         return material->get_LightingModel() == RuntimeMaterialLightingModel::MetalRoughPbr;
     }
 
+    /// Resolves one GameCube-native runtime texture from the current material graph when present.
+    GameCubeRuntimeTexture* GameCubeRasterRenderer::ResolveBoundTexture(GameCubeRuntimeMaterial* material) {
+        if (material == nullptr) {
+            throw new ArgumentNullException("material");
+        }
+
+        RuntimeTexture* runtimeTexture = material->ResolveTexture();
+        if (runtimeTexture == nullptr) {
+            return nullptr;
+        }
+
+        GameCubeRuntimeTexture* gameCubeRuntimeTexture = dynamic_cast<GameCubeRuntimeTexture*>(runtimeTexture);
+        if (gameCubeRuntimeTexture == nullptr || !gameCubeRuntimeTexture->HasNativeTextureObject()) {
+            return nullptr;
+        }
+
+        return gameCubeRuntimeTexture;
+    }
+
     /// Maps the shared material cull-mode contract onto GX, which interprets front and back winding in reverse.
     u8 GameCubeRasterRenderer::ResolveGxCullMode(MaterialCullMode cullMode) {
         switch (cullMode) {
@@ -237,12 +264,17 @@ namespace helengine::gamecube {
     }
 
     /// Evaluates one final GX vertex color for the first lit branch.
-    GXColor GameCubeRasterRenderer::EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, float3 normal) {
+    GXColor GameCubeRasterRenderer::EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, float3 normal) {
+        if (material == nullptr) {
+            throw new ArgumentNullException("material");
+        }
+
         const float3 lighting = AccumulateAmbientAndDirectionalLight(framePlan, entity, normal);
+        const float3 baseColor = material->GetBaseColor();
         return ConvertLightingColorToGx(float3(
-            std::min(1.0f, lighting.X),
-            std::min(1.0f, lighting.Y),
-            std::min(1.0f, lighting.Z)));
+            std::min(1.0f, lighting.X * baseColor.X),
+            std::min(1.0f, lighting.Y * baseColor.Y),
+            std::min(1.0f, lighting.Z * baseColor.Z)));
     }
 
     /// Converts a normalized RGB lighting value into a GX color with full alpha.
@@ -320,7 +352,23 @@ namespace helengine::gamecube {
             throw new InvalidOperationException("GameCube drawable submission requires a runtime material.");
         }
 
+        GameCubeRuntimeMaterial* gameCubeRuntimeMaterial = dynamic_cast<GameCubeRuntimeMaterial*>(material);
+        if (gameCubeRuntimeMaterial == nullptr) {
+            throw new InvalidOperationException("GameCube drawable submission requires a GameCubeRuntimeMaterial.");
+        }
+
+        const bool expectsTexture = !gameCubeRuntimeMaterial->GetTextureRelativePath().empty();
+        GameCubeRuntimeTexture* boundTexture = ResolveBoundTexture(gameCubeRuntimeMaterial);
+        if (expectsTexture && boundTexture == nullptr) {
+            throw new InvalidOperationException("GameCube textured material requires one resolved runtime texture.");
+        }
+
+        const bool useTexturedBranch = boundTexture != nullptr;
+        ConfigurePipeline(useTexturedBranch);
         GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
+        if (useTexturedBranch) {
+            GX_LoadTexObj(boundTexture->GetNativeTextureObject(), GX_TEXMAP0);
+        }
 
         const bool useLitBranch = UsesLitBranch(submission);
         GX_Begin(GX_TRIANGLES, GX_VTXFMT0, runtimeSubmesh->get_IndexCount());
@@ -336,10 +384,19 @@ namespace helengine::gamecube {
                     throw new InvalidOperationException("GameCube lit rendering requires authored mesh normals.");
                 }
 
-                GXColor litColor = EvaluateLitVertexColor(framePlan, entity, (*runtimeModel->Normals)[positionIndex]);
+                GXColor litColor = EvaluateLitVertexColor(framePlan, entity, gameCubeRuntimeMaterial, (*runtimeModel->Normals)[positionIndex]);
                 GX_Color4u8(litColor.r, litColor.g, litColor.b, litColor.a);
             } else {
                 GX_Color4u8(OpaqueMeshColorRed, OpaqueMeshColorGreen, OpaqueMeshColorBlue, OpaqueMeshColorAlpha);
+            }
+
+            if (useTexturedBranch) {
+                if (runtimeModel->TexCoords == nullptr) {
+                    throw new InvalidOperationException("GameCube textured rendering requires authored mesh texture coordinates.");
+                }
+
+                const float2 textureCoordinate = (*runtimeModel->TexCoords)[positionIndex];
+                GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);
             }
         }
         GX_End();

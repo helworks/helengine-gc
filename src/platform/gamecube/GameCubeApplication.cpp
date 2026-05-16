@@ -484,7 +484,7 @@ namespace helengine::gamecube {
         }
 
         const uint32_t rootEntryCount = ReadBigEndianU32(fstBytes + 8);
-        const char expectedAssetName[] = "cube_test.hasset";
+        const char expectedAssetName[] = "textured_cube_grid.hasset";
         const uint8_t* searchBegin = fstBytes;
         const uint8_t* searchEnd = fstBytes + fstSize;
         const bool foundExpectedAsset = std::search(
@@ -494,7 +494,7 @@ namespace helengine::gamecube {
             expectedAssetName + (sizeof(expectedAssetName) - 1U)) != searchEnd;
 
         SYS_Report(
-            "[GC] Packaged FST probe rootEntryCount=%08lX foundCubeTest=%d\n",
+            "[GC] Packaged FST probe rootEntryCount=%08lX foundTexturedCubeGrid=%d\n",
             static_cast<unsigned long>(rootEntryCount),
             foundExpectedAsset ? 1 : 0);
 
@@ -537,7 +537,7 @@ namespace helengine::gamecube {
 
         std::size_t discOffset = 0U;
         std::size_t fileSize = 0U;
-        const std::string expectedPath = "dvd:/cooked/scenes/rendering/cube_test.hasset";
+        const std::string expectedPath = "dvd:/cooked/scenes/rendering/textured_cube_grid.hasset";
         if (!TryResolvePackagedFstFile(fstBytes, 0U, "dvd:/", expectedPath, discOffset, fileSize)) {
             SYS_Report("[GC] Packaged asset probe failed: expected file was not resolved from the FST.\n");
             return false;

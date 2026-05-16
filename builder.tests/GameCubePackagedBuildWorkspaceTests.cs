@@ -21,17 +21,23 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
         string sourceRootPath = Path.Combine(workingRootPath, "project");
         string generatedCoreRootPath = Path.Combine(workingRootPath, "generated-core");
         string apploaderImagePath = Path.Combine(workingRootPath, "tooling", "apploader.img");
-        string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "rendering", "cube_test.hasset");
+        string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "rendering", "textured_cube_grid.hasset");
         string modelSourcePath = Path.Combine(sourceRootPath, "cooked", "engine", "models", "cube.hasset");
+        string cubeMaterialPath = Path.Combine(sourceRootPath, "cooked", "materials", "rendering", "textured_cube_grid", "Cube00.hasset");
+        string importedTexturePath = Path.Combine(sourceRootPath, "cooked", "imported", "0143f809c636f1cd20053a4c3cfc191b7fb5e510eae696a567970db4d0abdf7e");
         string previousDirectory = Directory.GetCurrentDirectory();
 
         try {
             Directory.CreateDirectory(Path.GetDirectoryName(sceneSourcePath) ?? throw new InvalidOperationException("Scene directory path could not be resolved."));
             Directory.CreateDirectory(Path.GetDirectoryName(modelSourcePath) ?? throw new InvalidOperationException("Model directory path could not be resolved."));
+            Directory.CreateDirectory(Path.GetDirectoryName(cubeMaterialPath) ?? throw new InvalidOperationException("Material directory path could not be resolved."));
+            Directory.CreateDirectory(Path.GetDirectoryName(importedTexturePath) ?? throw new InvalidOperationException("Imported texture directory path could not be resolved."));
             Directory.CreateDirectory(generatedCoreRootPath);
             Directory.CreateDirectory(Path.GetDirectoryName(apploaderImagePath) ?? throw new InvalidOperationException("Apploader directory path could not be resolved."));
             await File.WriteAllTextAsync(sceneSourcePath, "scene");
             await File.WriteAllTextAsync(modelSourcePath, "model");
+            await File.WriteAllTextAsync(cubeMaterialPath, "cube-material");
+            await File.WriteAllTextAsync(importedTexturePath, "texture");
             await File.WriteAllTextAsync(apploaderImagePath, "apploader");
             Directory.SetCurrentDirectory(sourceRootPath);
 
@@ -42,19 +48,21 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 "1.0.0",
                 "gamecube",
                 "1.0.0",
-                "cube-test",
+                "scenes/rendering/textured_cube_grid.helen",
                 [
                     new PlatformBuildScene(
-                        "cube-test",
-                        "Cube Test",
-                        "Scenes/rendering/cube_test.helen",
+                        "scenes/rendering/textured_cube_grid.helen",
+                        "Textured Cubes",
+                        "Scenes/rendering/textured_cube_grid.helen",
                         [],
-                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/rendering/cube_test.hasset")])
+                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/rendering/textured_cube_grid.hasset")])
                 ],
                 Array.Empty<PlatformBuildAsset>(),
                 [
-                    new PlatformBuildArtifact("cooked/scenes/rendering/cube_test.hasset", "scene-content-hash", "scene", "gamecube-default"),
-                    new PlatformBuildArtifact("cooked/engine/models/cube.hasset", "model-content-hash", "model", "gamecube-default")
+                    new PlatformBuildArtifact("cooked/scenes/rendering/textured_cube_grid.hasset", "scene-content-hash", "scene", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/engine/models/cube.hasset", "model-content-hash", "model", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/materials/rendering/textured_cube_grid/Cube00.hasset", "material-content-hash", "material", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/imported/0143f809c636f1cd20053a4c3cfc191b7fb5e510eae696a567970db4d0abdf7e", "texture-content-hash", "texture", "gamecube-default")
                 ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
@@ -102,8 +110,10 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "sys", "boot.bin")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "sys", "bi2.bin")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "sys", "apploader.img")));
-            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "scenes", "rendering", "cube_test.hasset")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "scenes", "rendering", "textured_cube_grid.hasset")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "engine", "models", "cube.hasset")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "materials", "rendering", "textured_cube_grid", "Cube00.hasset")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "imported", "0143f809c636f1cd20053a4c3cfc191b7fb5e510eae696a567970db4d0abdf7e")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "game.gcm")));
             Assert.True(File.Exists(Path.Combine(generatedCoreRootPath, "runtime", "gamecube_runtime_scene_manifest.hpp")));
         } finally {
@@ -124,15 +134,18 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
         string sourceRootPath = Path.Combine(workingRootPath, "project");
         string generatedCoreRootPath = Path.Combine(workingRootPath, "generated-core");
         string apploaderImagePath = Path.Combine(workingRootPath, "tooling", "apploader.img");
-        string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "rendering", "cube_test.hasset");
+        string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "rendering", "textured_cube_grid.hasset");
+        string cubeMaterialPath = Path.Combine(sourceRootPath, "cooked", "materials", "rendering", "textured_cube_grid", "Cube00.hasset");
         string previousDirectory = Directory.GetCurrentDirectory();
         string previousWitPath = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_WIT_PATH");
 
         try {
             Directory.CreateDirectory(Path.GetDirectoryName(sceneSourcePath) ?? throw new InvalidOperationException("Scene directory path could not be resolved."));
+            Directory.CreateDirectory(Path.GetDirectoryName(cubeMaterialPath) ?? throw new InvalidOperationException("Material directory path could not be resolved."));
             Directory.CreateDirectory(generatedCoreRootPath);
             Directory.CreateDirectory(Path.GetDirectoryName(apploaderImagePath) ?? throw new InvalidOperationException("Apploader directory path could not be resolved."));
             await File.WriteAllTextAsync(sceneSourcePath, "scene");
+            await File.WriteAllTextAsync(cubeMaterialPath, "cube-material");
             await File.WriteAllTextAsync(apploaderImagePath, "apploader");
             Directory.SetCurrentDirectory(sourceRootPath);
             Environment.SetEnvironmentVariable("HELENGINE_GAMECUBE_WIT_PATH", null);
@@ -144,17 +157,20 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 "1.0.0",
                 "gamecube",
                 "1.0.0",
-                "cube-test",
+                "scenes/rendering/textured_cube_grid.helen",
                 [
                     new PlatformBuildScene(
-                        "cube-test",
-                        "Cube Test",
-                        "Scenes/rendering/cube_test.helen",
+                        "scenes/rendering/textured_cube_grid.helen",
+                        "Textured Cubes",
+                        "Scenes/rendering/textured_cube_grid.helen",
                         [],
-                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/rendering/cube_test.hasset")])
+                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/rendering/textured_cube_grid.hasset")])
                 ],
                 Array.Empty<PlatformBuildAsset>(),
-                [new PlatformBuildArtifact("cooked/scenes/rendering/cube_test.hasset", "scene-content-hash", "scene", "gamecube-default")],
+                [
+                    new PlatformBuildArtifact("cooked/scenes/rendering/textured_cube_grid.hasset", "scene-content-hash", "scene", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/materials/rendering/textured_cube_grid/Cube00.hasset", "material-content-hash", "material", "gamecube-default")
+                ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
                 new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()));
@@ -214,15 +230,18 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
         string outputRootPath = Path.Combine(workingRootPath, "out");
         string sourceRootPath = Path.Combine(workingRootPath, "project");
         string generatedCoreRootPath = Path.Combine(workingRootPath, "generated-core");
-        string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "rendering", "cube_test.hasset");
+        string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "rendering", "textured_cube_grid.hasset");
+        string cubeMaterialPath = Path.Combine(sourceRootPath, "cooked", "materials", "rendering", "textured_cube_grid", "Cube00.hasset");
         string previousDirectory = Directory.GetCurrentDirectory();
         string previousWitPath = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_WIT_PATH");
         string previousApploaderPath = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_APPLOADER_PATH");
 
         try {
             Directory.CreateDirectory(Path.GetDirectoryName(sceneSourcePath) ?? throw new InvalidOperationException("Scene directory path could not be resolved."));
+            Directory.CreateDirectory(Path.GetDirectoryName(cubeMaterialPath) ?? throw new InvalidOperationException("Material directory path could not be resolved."));
             Directory.CreateDirectory(generatedCoreRootPath);
             await File.WriteAllTextAsync(sceneSourcePath, "scene");
+            await File.WriteAllTextAsync(cubeMaterialPath, "cube-material");
             Directory.SetCurrentDirectory(sourceRootPath);
             Environment.SetEnvironmentVariable("HELENGINE_GAMECUBE_WIT_PATH", Path.Combine(workingRootPath, "wit.exe"));
             Environment.SetEnvironmentVariable("HELENGINE_GAMECUBE_APPLOADER_PATH", null);
@@ -235,17 +254,20 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 "1.0.0",
                 "gamecube",
                 "1.0.0",
-                "cube-test",
+                "scenes/rendering/textured_cube_grid.helen",
                 [
                     new PlatformBuildScene(
-                        "cube-test",
-                        "Cube Test",
-                        "Scenes/rendering/cube_test.helen",
+                        "scenes/rendering/textured_cube_grid.helen",
+                        "Textured Cubes",
+                        "Scenes/rendering/textured_cube_grid.helen",
                         [],
-                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/rendering/cube_test.hasset")])
+                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/rendering/textured_cube_grid.hasset")])
                 ],
                 Array.Empty<PlatformBuildAsset>(),
-                [new PlatformBuildArtifact("cooked/scenes/rendering/cube_test.hasset", "scene-content-hash", "scene", "gamecube-default")],
+                [
+                    new PlatformBuildArtifact("cooked/scenes/rendering/textured_cube_grid.hasset", "scene-content-hash", "scene", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/materials/rendering/textured_cube_grid/Cube00.hasset", "material-content-hash", "material", "gamecube-default")
+                ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
                 new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()));

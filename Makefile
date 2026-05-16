@@ -98,6 +98,8 @@ GENERATED_BRIDGE_SOURCES := \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneBootstrap.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneRenderBridge.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeMeshCache.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeRuntimeMaterial.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeRuntimeTexture.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRasterRenderer.cpp
 CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_GENERATED_CORE=1 -I$(HELENGINE_CORE_CPP_ROOT)
 endif

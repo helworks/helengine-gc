@@ -101,7 +101,8 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
     /// <returns>Normalized runtime scene resolver source.</returns>
     static string NormalizeRuntimeSceneAssetReferenceResolverSource(string contents) {
         if (contents.Contains("BuildMaterialFromCooked(materialAsset)", StringComparison.Ordinal)
-            && contents.Contains("PlatformMaterialAsset *materialAsset", StringComparison.Ordinal)) {
+            && contents.Contains("PlatformMaterialAsset *materialAsset", StringComparison.Ordinal)
+            && contents.Contains("materialAsset->TextureRelativePath", StringComparison.Ordinal)) {
             return contents;
         }
 
@@ -113,11 +114,19 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
                 StringComparison.Ordinal);
         }
 
+        const string cookedMaterialBlockWithoutTextureBinding = "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nreturn runtimeMaterial;}";
+        if (normalizedContents.Contains(cookedMaterialBlockWithoutTextureBinding, StringComparison.Ordinal)) {
+            return normalizedContents.Replace(
+                cookedMaterialBlockWithoutTextureBinding,
+                "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
+                StringComparison.Ordinal);
+        }
+
         string modernRawMaterialBlock = "::MaterialAsset *materialAsset = this->AssetContentManager->Load<MaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::ShaderAsset *shaderAsset = this->AssetContentManager->Load<ShaderAsset*>(this->ResolveShaderPackagePath(materialAsset->ShaderAssetId), RuntimeContentProcessorIds::ShaderAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromRaw(materialAsset, shaderAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nthis->ApplyMaterialDiffuseTexture(runtimeMaterial, materialAsset, fullPath);\nreturn runtimeMaterial;}";
         if (normalizedContents.Contains(modernRawMaterialBlock, StringComparison.Ordinal)) {
             return normalizedContents.Replace(
                 modernRawMaterialBlock,
-                "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nreturn runtimeMaterial;}",
+                "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
                 StringComparison.Ordinal);
         }
 
@@ -140,7 +149,7 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
                 StringComparison.Ordinal)
             .Replace(
                 "this->ApplyMaterialDiffuseTexture(runtimeMaterial, materialAsset, fullPath);\n",
-                string.Empty,
+                "if (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\n",
                 StringComparison.Ordinal);
         if (string.Equals(fallbackNormalizedContents, contents, StringComparison.Ordinal)) {
             throw new InvalidOperationException("GameCube generated runtime scene asset resolver should resolve materials through the cooked platform material contract.");

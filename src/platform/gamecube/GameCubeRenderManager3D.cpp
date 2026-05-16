@@ -5,6 +5,8 @@
 #include "Entity.hpp"
 #include "IDrawable3D.hpp"
 #include "MaterialAsset.hpp"
+#include "MaterialLayout.hpp"
+#include "MaterialLayoutBinding.hpp"
 #include "MaterialCullMode.hpp"
 #include "MaterialRenderState.hpp"
 #include "PlatformMaterialAsset.hpp"
@@ -12,12 +14,15 @@
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeMeshCache.hpp"
 #include "platform/gamecube/GameCubeRasterRenderer.hpp"
+#include "platform/gamecube/GameCubeRuntimeMaterial.hpp"
 #include "ModelAssetIndexData.hpp"
 #include "ModelAsset.hpp"
 #include "ModelSubmeshResolver.hpp"
 #include "RuntimeMaterial.hpp"
 #include "RuntimeMaterialLightingModel.hpp"
+#include "ShaderResourceType.hpp"
 #include "ShaderAsset.hpp"
+#include "StandardMaterialTextureBindingDefaults.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
 #include "platform/gamecube/GameCubeSceneRenderBridge.hpp"
 #include "runtime/native_exceptions.hpp"
@@ -50,7 +55,7 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("shaderAsset");
         }
 
-        RuntimeMaterial* runtimeMaterial = new RuntimeMaterial();
+        GameCubeRuntimeMaterial* runtimeMaterial = new GameCubeRuntimeMaterial();
         runtimeMaterial->set_Id(materialAsset->get_Id());
         runtimeMaterial->set_CastsShadows(materialAsset->CastsShadows);
         runtimeMaterial->set_ReceivesShadows(materialAsset->ReceivesShadows);
@@ -63,11 +68,18 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("materialAsset");
         }
 
-        RuntimeMaterial* runtimeMaterial = new RuntimeMaterial();
+        GameCubeRuntimeMaterial* runtimeMaterial = new GameCubeRuntimeMaterial();
         runtimeMaterial->set_Id(materialAsset->get_Id());
+        runtimeMaterial->SetLayout(CreateCookedMaterialLayout());
+        StandardMaterialTextureBindingDefaults::Apply(runtimeMaterial);
         runtimeMaterial->set_LightingModel(materialAsset->Lit
             ? RuntimeMaterialLightingModel::MetalRoughPbr
             : RuntimeMaterialLightingModel::Unlit);
+        runtimeMaterial->SetBaseColor(float3(
+            static_cast<float>(materialAsset->BaseColorR) / 255.0f,
+            static_cast<float>(materialAsset->BaseColorG) / 255.0f,
+            static_cast<float>(materialAsset->BaseColorB) / 255.0f));
+        runtimeMaterial->SetTextureRelativePath(materialAsset->TextureRelativePath);
         if (materialAsset->DoubleSided) {
             runtimeMaterial->get_RenderState()->set_CullMode(MaterialCullMode::None);
         }
@@ -88,6 +100,7 @@ namespace helengine::gamecube {
         runtimeModel->SetSubmeshes(ModelSubmeshResolver::BuildRuntimeSubmeshes(data));
         runtimeModel->Positions = data->Positions;
         runtimeModel->Normals = data->Normals;
+        runtimeModel->TexCoords = data->TexCoords;
         runtimeModel->Indices16 = indexData->get_Indices16();
         runtimeModel->Indices32 = indexData->get_Indices32();
         runtimeModel->Uses32BitIndices = indexData->get_Uses32BitIndices();
@@ -127,5 +140,25 @@ namespace helengine::gamecube {
     /// Reports whether this backend has already emitted at least one real GX scene frame.
     bool GameCubeRenderManager3D::HasRenderedScene() const {
         return HasRenderedSceneValue;
+    }
+
+    /// Builds the minimal shared-engine material layout needed for one diffuse texture binding.
+    MaterialLayout* GameCubeRenderManager3D::CreateCookedMaterialLayout() {
+        return new MaterialLayout(
+            std::string(),
+            std::string(),
+            std::string(),
+            std::string(),
+            new MaterialRenderState(),
+            new Array<MaterialLayoutBinding*>({
+                new MaterialLayoutBinding(
+                    StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName,
+                    ShaderResourceType::Texture2D,
+                    0,
+                    0,
+                    0)
+            }),
+            Array<MaterialLayoutBinding*>::Empty(),
+            Array<MaterialLayoutBinding*>::Empty());
     }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RuntimeModel.hpp"
+#include "float2.hpp"
 #include "float3.hpp"
 #include "runtime/array.hpp"
 
@@ -13,6 +14,7 @@ namespace helengine::gamecube {
             : RuntimeModel()
             , Positions(nullptr)
             , Normals(nullptr)
+            , TexCoords(nullptr)
             , Indices16(nullptr)
             , Indices32(nullptr)
             , Uses32BitIndices(false) {
@@ -23,6 +25,9 @@ namespace helengine::gamecube {
 
         /// Authored model normals used by the first lit GameCube path.
         Array<float3>* Normals;
+
+        /// Authored model texture coordinates used by the first textured GameCube path.
+        Array<float2>* TexCoords;
 
         /// Authored 16-bit indices when the source mesh uses them.
         Array<uint16_t>* Indices16;

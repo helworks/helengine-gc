@@ -11,7 +11,7 @@ namespace helengine::gamecube {
         /// Creates the GameCube 2D render bridge.
         GameCubeRenderManager2D();
 
-        /// Builds a placeholder runtime texture from generated texture asset metadata.
+        /// Builds one GameCube-native runtime texture from generated texture asset metadata.
         RuntimeTexture* BuildTextureFromRaw(TextureAsset* data) override;
 
         /// Accepts a sprite draw request without issuing native rendering yet.
