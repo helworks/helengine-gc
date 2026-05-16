@@ -1,4 +1,6 @@
 build/
+obj/
+tmp/
 *.elf
 *.map
 .worktrees/

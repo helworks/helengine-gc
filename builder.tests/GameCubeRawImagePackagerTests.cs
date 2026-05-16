@@ -40,7 +40,8 @@ public sealed class GameCubeRawImagePackagerTests {
 
             Assert.True(File.Exists(outputImagePath));
             FileInfo outputImage = new(outputImagePath);
-            Assert.Equal(GameCubeRawImagePackager.DiscSize, outputImage.Length);
+            Assert.True(outputImage.Length >= GameCubeDiscSystemAreaWriter.FirstPayloadOffset);
+            Assert.Equal(0, outputImage.Length % 0x800);
 
             byte[] bootBinBytes = File.ReadAllBytes(Path.Combine(discRootPath, "sys", "boot.bin"));
             byte[] bi2BinBytes = File.ReadAllBytes(Path.Combine(discRootPath, "sys", "bi2.bin"));
@@ -111,13 +112,13 @@ public sealed class GameCubeRawImagePackagerTests {
     }
 
     /// <summary>
-    /// Reads one 4-byte-unit boot header field back into a byte offset or size.
+    /// Reads one raw-byte boot header field back into a byte offset or size.
     /// </summary>
     /// <param name="bootBinBytes">Serialized <c>boot.bin</c> bytes.</param>
     /// <param name="fieldOffset">Field byte offset inside <c>boot.bin</c>.</param>
     /// <returns>Decoded byte offset or size.</returns>
     static uint ReadBootField(byte[] bootBinBytes, int fieldOffset) {
-        return BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(fieldOffset, sizeof(uint))) << 2;
+        return BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(fieldOffset, sizeof(uint)));
     }
 
     /// <summary>

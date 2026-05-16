@@ -12,6 +12,8 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
     [Fact]
     public void Write_EmitsHeaderWithStartupSceneAndCookedSceneCatalog() {
         string outputRootPath = Path.Combine(Path.GetTempPath(), "gamecube-runtime-manifest-tests", Guid.NewGuid().ToString("N"));
+        const string StartupSceneId = "scenes/rendering/colored_cube_grid.helen";
+        const string StartupSceneCookedRelativePath = "cooked/scenes/rendering/colored_cube_grid.hasset";
         PlatformBuildManifest manifest = new(
             1,
             "project",
@@ -19,14 +21,14 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
             "1.0.0",
             "gamecube",
             "1.0.0",
-            "cube-test",
+            StartupSceneId,
             [
                 new PlatformBuildScene(
-                    "cube-test",
-                    "Cube Test",
-                    "Scenes/rendering/cube_test.helen",
+                    StartupSceneId,
+                    "Colored Cubes",
+                    "Scenes/rendering/colored_cube_grid.helen",
                     [],
-                    [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/rendering/cube_test.hasset")])
+                    [new KeyValuePair<string, string>("cooked-relative-path", StartupSceneCookedRelativePath)])
             ],
             Array.Empty<PlatformBuildAsset>(),
             Array.Empty<PlatformBuildArtifact>(),
@@ -43,8 +45,8 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
             Assert.Contains("he_get_runtime_gamecube_scene_entries", header, StringComparison.Ordinal);
 
             string source = File.ReadAllText(Path.Combine(outputRootPath, "runtime", "gamecube_runtime_scene_manifest.inl"));
-            Assert.Contains("\"cube-test\"", source, StringComparison.Ordinal);
-            Assert.Contains("\"cooked/scenes/rendering/cube_test.hasset\"", source, StringComparison.Ordinal);
+            Assert.Contains("\"scenes/rendering/colored_cube_grid.helen\"", source, StringComparison.Ordinal);
+            Assert.Contains("\"cooked/scenes/rendering/colored_cube_grid.hasset\"", source, StringComparison.Ordinal);
         } finally {
             if (Directory.Exists(outputRootPath)) {
                 Directory.Delete(outputRootPath, recursive: true);
