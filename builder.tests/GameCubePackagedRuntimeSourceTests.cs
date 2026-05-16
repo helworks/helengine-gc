@@ -161,6 +161,27 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
+    /// Ensures the GameCube input backend maps native pad buttons onto the shared gamepad-state contract used by menu navigation.
+    /// </summary>
+    [Fact]
+    public void GameCubeInputManager_WhenBuiltForMenu_MapsNativePadButtonsToSharedGamepadState() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
+
+        Assert.Contains("PAD_ScanPads();", source, StringComparison.Ordinal);
+        Assert.Contains("frame.set_GamepadCount(1);", source, StringComparison.Ordinal);
+        Assert.Contains("Array<InputGamepadState>* gamepads = new Array<InputGamepadState>(1);", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.set_Connected(true);", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::DPadUp", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::DPadDown", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::DPadLeft", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::DPadRight", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::South", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::East", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::Start", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures the GameCube frame plan preserves extracted light submissions and authored normals for the lit mesh path.
     /// </summary>
     [Fact]
