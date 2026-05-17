@@ -7,6 +7,11 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public sealed class GameCubeBuilderPaths {
     /// <summary>
+    /// Environment variable that overrides the GameCube repository root when the builder is hosted inside the editor process.
+    /// </summary>
+    const string RepositoryRootEnvironmentVariableName = "HELENGINE_GAMECUBE_REPOSITORY_ROOT";
+
+    /// <summary>
     /// Creates one packaged-build path set from a resolved GameCube build request.
     /// </summary>
     /// <param name="request">Resolved build request that owns the packaged build paths.</param>
@@ -16,7 +21,7 @@ public sealed class GameCubeBuilderPaths {
             throw new ArgumentNullException(nameof(request));
         }
 
-        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string repositoryRootPath = ResolveRepositoryRootPath();
         return new GameCubeBuilderPaths(
             repositoryRootPath,
             request.GeneratedCoreCppRootPath,
@@ -26,6 +31,54 @@ public sealed class GameCubeBuilderPaths {
             Path.Combine(request.OutputRoot, "native", "helengine_gc.dol"),
             Path.Combine(request.OutputRoot, "native", "apploader.img"),
             Path.Combine(request.OutputRoot, "native", "gbi.hdr"));
+    }
+
+    /// <summary>
+    /// Resolves the GameCube repository root from the GameCube builder assembly location instead of the hosting application directory.
+    /// </summary>
+    /// <returns>Absolute GameCube repository root path.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the GameCube repository root cannot be resolved from the builder assembly location.</exception>
+    static string ResolveRepositoryRootPath() {
+        string configuredRepositoryRootPath = Environment.GetEnvironmentVariable(RepositoryRootEnvironmentVariableName) ?? string.Empty;
+        if (IsRepositoryRootPath(configuredRepositoryRootPath)) {
+            return Path.GetFullPath(configuredRepositoryRootPath);
+        }
+
+        string assemblyLocation = typeof(GameCubeBuilderPaths).Assembly.Location;
+        if (string.IsNullOrWhiteSpace(assemblyLocation)) {
+            throw new InvalidOperationException("The GameCube builder assembly location could not be resolved.");
+        }
+
+        string currentPath = Path.GetDirectoryName(assemblyLocation) ?? string.Empty;
+        while (!string.IsNullOrWhiteSpace(currentPath)) {
+            if (IsRepositoryRootPath(currentPath)) {
+                return currentPath;
+            }
+
+            DirectoryInfo parentDirectory = Directory.GetParent(currentPath);
+            if (parentDirectory == null) {
+                break;
+            }
+
+            currentPath = parentDirectory.FullName;
+        }
+
+        throw new InvalidOperationException("Could not resolve the helengine-gc repository root from the builder assembly location.");
+    }
+
+    /// <summary>
+    /// Returns true when one path contains the GameCube repository markers needed for native packaged builds.
+    /// </summary>
+    /// <param name="path">Candidate repository root path.</param>
+    /// <returns>True when the candidate path is the GameCube repository root.</returns>
+    static bool IsRepositoryRootPath(string path) {
+        if (string.IsNullOrWhiteSpace(path)) {
+            return false;
+        }
+
+        string makefilePath = Path.Combine(path, "Makefile");
+        string bootHostPath = Path.Combine(path, "src", "platform", "gamecube", "GameCubeApplication.cpp");
+        return File.Exists(makefilePath) && File.Exists(bootHostPath);
     }
 
     /// <summary>

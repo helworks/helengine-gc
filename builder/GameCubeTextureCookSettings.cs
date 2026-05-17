@@ -1,0 +1,72 @@
+using System.Text.Json;
+
+namespace helengine.gamecube.builder;
+
+/// <summary>
+/// Represents the GameCube-native texture cook settings emitted by the shared editor build graph.
+/// </summary>
+public sealed class GameCubeTextureCookSettings {
+    /// <summary>
+    /// Initializes one GameCube texture cook settings record.
+    /// </summary>
+    /// <param name="maxResolution">Maximum allowed output width or height, or zero when uncapped.</param>
+    /// <param name="colorFormat">Final serialized texture payload format.</param>
+    /// <param name="alphaPrecision">Final serialized alpha precision.</param>
+    public GameCubeTextureCookSettings(int maxResolution, TextureAssetColorFormat colorFormat, TextureAssetAlphaPrecision alphaPrecision) {
+        if (maxResolution < 0) {
+            throw new ArgumentOutOfRangeException(nameof(maxResolution), "Maximum resolution must be zero or greater.");
+        }
+
+        MaxResolution = maxResolution;
+        ColorFormat = colorFormat;
+        AlphaPrecision = alphaPrecision;
+    }
+
+    /// <summary>
+    /// Parses one serialized editor settings payload into GameCube texture cook settings.
+    /// </summary>
+    /// <param name="serializedPlatformSettings">Serialized settings payload emitted by the editor build graph.</param>
+    /// <returns>Parsed GameCube texture cook settings.</returns>
+    public static GameCubeTextureCookSettings Parse(string serializedPlatformSettings) {
+        if (string.IsNullOrWhiteSpace(serializedPlatformSettings)) {
+            throw new ArgumentException("Serialized platform settings must be provided.", nameof(serializedPlatformSettings));
+        }
+
+        using JsonDocument document = JsonDocument.Parse(serializedPlatformSettings);
+        JsonElement root = document.RootElement;
+
+        int maxResolution = root.TryGetProperty("maxResolution", out JsonElement maxResolutionElement)
+            ? maxResolutionElement.GetInt32()
+            : 0;
+        string colorFormatName = root.TryGetProperty("colorFormat", out JsonElement colorFormatElement)
+            ? colorFormatElement.GetString() ?? string.Empty
+            : string.Empty;
+        string alphaPrecisionName = root.TryGetProperty("alphaPrecision", out JsonElement alphaPrecisionElement)
+            ? alphaPrecisionElement.GetString() ?? string.Empty
+            : string.Empty;
+
+        if (!Enum.TryParse(colorFormatName, ignoreCase: true, out TextureAssetColorFormat colorFormat)) {
+            throw new InvalidOperationException($"Unsupported GameCube texture color format '{colorFormatName}'.");
+        }
+        if (!Enum.TryParse(alphaPrecisionName, ignoreCase: true, out TextureAssetAlphaPrecision alphaPrecision)) {
+            throw new InvalidOperationException($"Unsupported GameCube texture alpha precision '{alphaPrecisionName}'.");
+        }
+
+        return new GameCubeTextureCookSettings(maxResolution, colorFormat, alphaPrecision);
+    }
+
+    /// <summary>
+    /// Gets the maximum allowed output width or height, or zero when uncapped.
+    /// </summary>
+    public int MaxResolution { get; }
+
+    /// <summary>
+    /// Gets the final serialized texture payload format.
+    /// </summary>
+    public TextureAssetColorFormat ColorFormat { get; }
+
+    /// <summary>
+    /// Gets the final serialized alpha precision.
+    /// </summary>
+    public TextureAssetAlphaPrecision AlphaPrecision { get; }
+}

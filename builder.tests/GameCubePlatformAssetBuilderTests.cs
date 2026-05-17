@@ -30,6 +30,18 @@ public sealed class GameCubePlatformAssetBuilderTests {
         Assert.Contains(builder.Definition.GraphicsProfiles, profile => profile.ProfileId == "gx");
         Assert.Equal(RuntimeMaterialResolutionMode.CookedPlatformOwned, builder.Definition.RuntimeGenerationContract.MaterialResolutionMode);
         Assert.Contains(builder.Definition.MaterialSchemas, schema => schema.SchemaId == GameCubeMaterialSchemaIds.StandardTexturedSchemaId);
+        Assert.Contains(
+            builder.Definition.AssetCookCapabilities,
+            capability => capability.SourceAssetKind == "texture"
+                && capability.TargetArtifactKind == "runtime-texture"
+                && capability.OwnershipKind == PlatformAssetCookOwnershipKind.BuilderOwned
+                && capability.SettingsContractId == "gamecube-texture");
+        Assert.Contains(
+            builder.Definition.AssetCookCapabilities,
+            capability => capability.SourceAssetKind == "font-atlas-texture"
+                && capability.TargetArtifactKind == "runtime-font-atlas-texture"
+                && capability.OwnershipKind == PlatformAssetCookOwnershipKind.BuilderOwned
+                && capability.SettingsContractId == "gamecube-texture");
     }
 
     /// <summary>

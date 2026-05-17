@@ -19,8 +19,13 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
 
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "RuntimeContentManagerConfiguration.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "RuntimeSceneAssetReferenceResolver.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "ContentManager.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "SceneManager.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "RenderManager3D.hpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "RenderManager3D.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "FPSComponent.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "Entity.hpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "Entity.cpp");
     }
 
     /// <summary>
@@ -60,10 +65,20 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
             return NormalizeRuntimeContentManagerConfigurationSource(normalizedContents);
         } else if (string.Equals(relativePath, "RuntimeSceneAssetReferenceResolver.cpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeRuntimeSceneAssetReferenceResolverSource(normalizedContents);
+        } else if (string.Equals(relativePath, "ContentManager.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeContentManagerSource(normalizedContents);
+        } else if (string.Equals(relativePath, "SceneManager.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeSceneManagerSource(normalizedContents);
         } else if (string.Equals(relativePath, "RenderManager3D.hpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeRenderManager3DHeaderSource(normalizedContents);
         } else if (string.Equals(relativePath, "RenderManager3D.cpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeRenderManager3DSource(normalizedContents);
+        } else if (string.Equals(relativePath, "FPSComponent.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeFpsComponentSource(normalizedContents);
+        } else if (string.Equals(relativePath, "Entity.hpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeEntityHeaderSource(normalizedContents);
+        } else if (string.Equals(relativePath, "Entity.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeEntitySource(normalizedContents);
         }
 
         return normalizedContents;
@@ -102,11 +117,34 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
     static string NormalizeRuntimeSceneAssetReferenceResolverSource(string contents) {
         if (contents.Contains("BuildMaterialFromCooked(materialAsset)", StringComparison.Ordinal)
             && contents.Contains("PlatformMaterialAsset *materialAsset", StringComparison.Ordinal)
-            && contents.Contains("materialAsset->TextureRelativePath", StringComparison.Ordinal)) {
+            && contents.Contains("materialAsset->TextureRelativePath", StringComparison.Ordinal)
+            && contents.Contains("delete textureAsset;", StringComparison.Ordinal)) {
             return contents;
         }
 
         string normalizedContents = contents;
+        string cookedGeneratedMaterialBlock = "::PlatformMaterialAsset *generatedPlatformMaterialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(generatedFullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *generatedCookedRuntimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(generatedPlatformMaterialAsset);\nthis->ActiveGeneratedMaterialsByKey->Add(generatedAssetKey, generatedCookedRuntimeMaterial);\nreturn generatedCookedRuntimeMaterial;    }";
+        if (normalizedContents.Contains(cookedGeneratedMaterialBlock, StringComparison.Ordinal)) {
+            normalizedContents = normalizedContents.Replace(
+                cookedGeneratedMaterialBlock,
+                "::PlatformMaterialAsset *generatedPlatformMaterialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(generatedFullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *generatedCookedRuntimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(generatedPlatformMaterialAsset);\nif (!String::IsNullOrWhiteSpace(generatedPlatformMaterialAsset->TextureRelativePath)) {\n::TextureAsset *generatedTextureAsset = this->AssetContentManager->Load<TextureAsset*>(generatedPlatformMaterialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *generatedRuntimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(generatedTextureAsset);\nif (generatedTextureAsset->Colors != nullptr && generatedTextureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete generatedTextureAsset->Colors;\ngeneratedTextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (generatedTextureAsset->PaletteColors != nullptr && generatedTextureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete generatedTextureAsset->PaletteColors;\ngeneratedTextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete generatedTextureAsset;\nthis->TrackOwnedTexture(generatedRuntimeTexture);\ngeneratedCookedRuntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, generatedRuntimeTexture);\n}\nthis->ActiveGeneratedMaterialsByKey->Add(generatedAssetKey, generatedCookedRuntimeMaterial);\nreturn generatedCookedRuntimeMaterial;    }",
+                StringComparison.Ordinal);
+        }
+
+        string cookedMaterialReturnBlock = "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\nreturn Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);}";
+        if (normalizedContents.Contains(cookedMaterialReturnBlock, StringComparison.Ordinal)) {
+            normalizedContents = normalizedContents.Replace(
+                cookedMaterialReturnBlock,
+                "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
+                StringComparison.Ordinal);
+        }
+
+        if (normalizedContents.Contains("materialAsset->TextureRelativePath", StringComparison.Ordinal)
+            && normalizedContents.Contains("delete textureAsset;", StringComparison.Ordinal)
+            && normalizedContents.Contains("generatedPlatformMaterialAsset->TextureRelativePath", StringComparison.Ordinal)) {
+            return normalizedContents;
+        }
+
         if (!normalizedContents.Contains("#include \"PlatformMaterialAsset.hpp\"", StringComparison.Ordinal)) {
             normalizedContents = normalizedContents.Replace(
                 "#include \"MaterialAsset.hpp\"\n",
@@ -118,7 +156,7 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         if (normalizedContents.Contains(cookedMaterialBlockWithoutTextureBinding, StringComparison.Ordinal)) {
             return normalizedContents.Replace(
                 cookedMaterialBlockWithoutTextureBinding,
-                "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
+                "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
                 StringComparison.Ordinal);
         }
 
@@ -126,7 +164,7 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         if (normalizedContents.Contains(modernRawMaterialBlock, StringComparison.Ordinal)) {
             return normalizedContents.Replace(
                 modernRawMaterialBlock,
-                "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
+                "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
                 StringComparison.Ordinal);
         }
 
@@ -149,13 +187,94 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
                 StringComparison.Ordinal)
             .Replace(
                 "this->ApplyMaterialDiffuseTexture(runtimeMaterial, materialAsset, fullPath);\n",
-                "if (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\n",
+                "if (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\n",
+                StringComparison.Ordinal);
+        fallbackNormalizedContents = fallbackNormalizedContents
+            .Replace(
+                "::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(fullPath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nthis->TrackOwnedTexture(runtimeTexture);\nreturn runtimeTexture;}",
+                "::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(fullPath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nreturn runtimeTexture;}",
+                StringComparison.Ordinal)
+            .Replace(
+                "::TextureAsset *sourceTextureAsset = this->AssetContentManager->Load<TextureAsset*>(diffuseTexturePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *sourceRuntimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(sourceTextureAsset);\nthis->TrackOwnedTexture(sourceRuntimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, sourceRuntimeTexture);\nreturn;    }",
+                "::TextureAsset *sourceTextureAsset = this->AssetContentManager->Load<TextureAsset*>(diffuseTexturePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *sourceRuntimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(sourceTextureAsset);\nif (sourceTextureAsset->Colors != nullptr && sourceTextureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete sourceTextureAsset->Colors;\nsourceTextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (sourceTextureAsset->PaletteColors != nullptr && sourceTextureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete sourceTextureAsset->PaletteColors;\nsourceTextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete sourceTextureAsset;\nthis->TrackOwnedTexture(sourceRuntimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, sourceRuntimeTexture);\nreturn;    }",
+                StringComparison.Ordinal)
+            .Replace(
+                "::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(diffuseTexturePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}",
+                "::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(diffuseTexturePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}",
                 StringComparison.Ordinal);
         if (string.Equals(fallbackNormalizedContents, contents, StringComparison.Ordinal)) {
             throw new InvalidOperationException("GameCube generated runtime scene asset resolver should resolve materials through the cooked platform material contract.");
         }
 
         return fallbackNormalizedContents;
+    }
+
+    /// <summary>
+    /// Rewrites generated content-manager loads so GameCube packaged builds log each resolved asset path.
+    /// </summary>
+    /// <param name="contents">Generated content-manager source.</param>
+    /// <returns>Normalized generated content-manager source.</returns>
+    static string NormalizeContentManagerSource(string contents) {
+        string normalizedContents = contents;
+        if (!normalizedContents.Contains("#include <ogc/system.h>", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "#include \"system/string_comparer.hpp\"\n",
+                "#include \"system/string_comparer.hpp\"\n#include <ogc/system.h>\n",
+                "GameCube generated ContentManager.cpp should include SYS_Report support for load diagnostics.");
+        }
+
+        if (normalizedContents.Contains("SYS_Report(\"[GC] ContentManager opening asset: %s\\n\", fullPath.c_str());", StringComparison.Ordinal)) {
+            return normalizedContents;
+        }
+
+        return ReplaceRequired(
+            normalizedContents,
+            "{\n::FileStream *stream = File::OpenRead(fullPath);\n",
+            "{\nSYS_Report(\"[GC] ContentManager opening asset: %s\\n\", fullPath.c_str());\n::FileStream *stream = File::OpenRead(fullPath);\n",
+            "GameCube generated ContentManager.cpp should log resolved asset paths before opening packaged content.");
+    }
+
+    /// <summary>
+    /// Rewrites generated scene-manager loads so GameCube packaged builds record scene-load start times for first-draw timing logs.
+    /// </summary>
+    /// <param name="contents">Generated scene-manager source.</param>
+    /// <returns>Normalized generated scene-manager source.</returns>
+    static string NormalizeSceneManagerSource(string contents) {
+        string normalizedContents = contents;
+        if (!normalizedContents.Contains("extern \"C\" void GameCubeRecordSceneLoadRequest(const char* sceneId);", StringComparison.Ordinal)) {
+            if (normalizedContents.Contains("#include \"SceneManager.hpp\"\n", StringComparison.Ordinal)) {
+                normalizedContents = normalizedContents.Replace(
+                    "#include \"SceneManager.hpp\"\n",
+                    "#include \"SceneManager.hpp\"\nextern \"C\" void GameCubeRecordSceneLoadRequest(const char* sceneId);\n",
+                    StringComparison.Ordinal);
+            } else if (normalizedContents.Contains("#include <ogc/system.h>\n", StringComparison.Ordinal)) {
+                normalizedContents = ReplaceRequired(
+                    normalizedContents,
+                    "#include <ogc/system.h>\n",
+                    "#include <ogc/system.h>\nextern \"C\" void GameCubeRecordSceneLoadRequest(const char* sceneId);\n",
+                    "GameCube generated SceneManager.cpp should declare the native scene-load timing hook.");
+            } else {
+                throw new InvalidOperationException("GameCube generated SceneManager.cpp should declare the native scene-load timing hook.");
+            }
+        }
+
+        if (normalizedContents.Contains("GameCubeRecordSceneLoadRequest(sceneId.c_str());", StringComparison.Ordinal)) {
+            return normalizedContents;
+        }
+
+        if (normalizedContents.Contains("this->RecordTraceState(\"LoadSceneImmediateBegin\", sceneId);\n", StringComparison.Ordinal)) {
+            return normalizedContents.Replace(
+                "this->RecordTraceState(\"LoadSceneImmediateBegin\", sceneId);\n",
+                "this->RecordTraceState(\"LoadSceneImmediateBegin\", sceneId);\nGameCubeRecordSceneLoadRequest(sceneId.c_str());\n",
+                StringComparison.Ordinal);
+        }
+
+        return ReplaceRequired(
+            normalizedContents,
+            "        ? static_cast<long>(this->SceneCatalog->get_Entries()->get_Length())\n        : -1L);\n",
+            "        ? static_cast<long>(this->SceneCatalog->get_Entries()->get_Length())\n        : -1L);\nGameCubeRecordSceneLoadRequest(sceneId.c_str());\n",
+            "GameCube generated SceneManager.cpp should record scene-load start times immediately after scene-load requests are logged.");
     }
 
     /// <summary>
@@ -206,6 +325,93 @@ throw new NotSupportedException("This renderer does not support platform-owned c
             "::RuntimeMaterial* RenderManager3D::BuildMaterialFromRaw(::MaterialAsset* materialAsset, ::ShaderAsset* shaderAsset)\n",
             cookedImplementation + "::RuntimeMaterial* RenderManager3D::BuildMaterialFromRaw(::MaterialAsset* materialAsset, ::ShaderAsset* shaderAsset)\n",
             "GameCube generated RenderManager3D.cpp should expose the cooked platform material default implementation.");
+    }
+
+    /// <summary>
+    /// Rewrites the generated FPS overlay teardown so packaged scene transitions dispose the overlay subtree instead of only detaching it.
+    /// </summary>
+    /// <param name="contents">Generated FPS component source.</param>
+    /// <returns>Normalized generated FPS component source.</returns>
+    static string NormalizeFpsComponentSource(string contents) {
+        if (contents.Contains("this->OverlayHost->Dispose();", StringComparison.Ordinal)) {
+            return contents;
+        }
+
+        return ReplaceRequired(
+            contents,
+            "    if (Parent != nullptr && this->OverlayHost != nullptr && this->OverlayHost->get_Parent() == Parent)\n    {\nParent->RemoveChild(this->OverlayHost);\n    }\n",
+            "    if (this->OverlayHost != nullptr)\n    {\nthis->OverlayHost->Dispose();\n    }\n",
+            "GameCube generated FPSComponent.cpp should dispose the overlay subtree during teardown.");
+    }
+
+    /// <summary>
+    /// Rewrites the generated entity header so disposal-aware detach suppression state exists on GameCube builds.
+    /// </summary>
+    /// <param name="contents">Generated entity header source.</param>
+    /// <returns>Normalized generated entity header source.</returns>
+    static string NormalizeEntityHeaderSource(string contents) {
+        string normalizedContents = contents;
+
+        if (!normalizedContents.Contains("bool isDisposing;", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "private:\n    bool isEnabled;\n",
+                "private:\n    bool isDisposing;\n\n    bool isEnabled;\n",
+                "GameCube generated Entity.hpp should store the disposal guard state.");
+        }
+
+        if (!normalizedContents.Contains("bool ShouldSuppressRegistrationRefreshForDetachment(::Entity* entity);", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "    void RefreshRegistrationsAfterParentChange();\n",
+                "    bool ShouldSuppressRegistrationRefreshForDetachment(::Entity* entity);\n\n    void RefreshRegistrationsAfterParentChange();\n",
+                "GameCube generated Entity.hpp should declare the disposal-aware detach suppression helper.");
+        }
+
+        return normalizedContents;
+    }
+
+    /// <summary>
+    /// Rewrites the generated entity teardown so disposal-time detach does not refresh registrations against stale scene state.
+    /// </summary>
+    /// <param name="contents">Generated entity source.</param>
+    /// <returns>Normalized generated entity source.</returns>
+    static string NormalizeEntitySource(string contents) {
+        string normalizedContents = contents;
+
+        if (normalizedContents.Contains("Entity::Entity() : Children(), Components(), LayerMask(), Parent(), isEnabled(), isInitialized(), isStatic(), orientation(), position(), scale()", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "Entity::Entity() : Children(), Components(), LayerMask(), Parent(), isEnabled(), isInitialized(), isStatic(), orientation(), position(), scale()\n",
+                "Entity::Entity() : Children(), Components(), LayerMask(), Parent(), isDisposing(), isEnabled(), isInitialized(), isStatic(), orientation(), position(), scale()\n",
+                "GameCube generated Entity.cpp constructor should initialize the disposal guard state.");
+        }
+
+        if (!normalizedContents.Contains("bool Entity::ShouldSuppressRegistrationRefreshForDetachment(::Entity* entity)", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "void Entity::RefreshRegistrationsAfterParentChange()\n{\n    if (!this->get_IsHierarchyEnabled() || Core::get_Instance() == nullptr || Core::get_Instance()->get_ObjectManager() == nullptr)\n    {\nreturn;    }\nthis->RefreshRegistrationsAfterParentChangeRecursive(this);\n}\n\n",
+                "bool Entity::ShouldSuppressRegistrationRefreshForDetachment(::Entity* entity)\n{\n    if (entity == nullptr)\n    {\nthrow new ArgumentNullException(\"entity\");\n    }\nreturn this->isDisposing || entity->isDisposing;\n}\n\nvoid Entity::RefreshRegistrationsAfterParentChange()\n{\n    if (!this->get_IsHierarchyEnabled() || Core::get_Instance() == nullptr || Core::get_Instance()->get_ObjectManager() == nullptr)\n    {\nreturn;    }\nthis->RefreshRegistrationsAfterParentChangeRecursive(this);\n}\n\n",
+                "GameCube generated Entity.cpp should expose the disposal-aware detach suppression helper.");
+        }
+
+        if (normalizedContents.Contains("if (wasHierarchyEnabled && entity->get_IsHierarchyEnabled())", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "    if (wasHierarchyEnabled && entity->get_IsHierarchyEnabled())\n    {\nentity->RefreshRegistrationsAfterParentChange();\n    }\n",
+                "    if (!this->ShouldSuppressRegistrationRefreshForDetachment(entity) && wasHierarchyEnabled && entity->get_IsHierarchyEnabled())\n    {\nentity->RefreshRegistrationsAfterParentChange();\n    }\n",
+                "GameCube generated Entity.cpp should suppress registration refresh while entities are being disposed.");
+        }
+
+        if (!normalizedContents.Contains("if (this->isDisposing)", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "void Entity::Dispose()\n{\n    if (this->Children != nullptr)\n",
+                "void Entity::Dispose()\n{\n    if (this->isDisposing)\n    {\nreturn;    }\nthis->isDisposing = true;\n    if (this->Children != nullptr)\n",
+                "GameCube generated Entity.cpp should guard disposal re-entry before tearing down children.");
+        }
+
+        return normalizedContents;
     }
 
     /// <summary>

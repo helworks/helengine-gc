@@ -111,6 +111,7 @@ public static class GameCubeBuildWorkspace {
         }
 
         GameCubeBuilderPaths paths = GameCubeBuilderPaths.Create(request);
+        string phaseMarkerPath = Path.Combine(request.OutputRoot, "gamecube-build-phase.txt");
         Directory.CreateDirectory(request.OutputRoot);
         Directory.CreateDirectory(request.WorkingRoot);
         Directory.CreateDirectory(paths.GeneratedCoreRootPath);
@@ -121,24 +122,36 @@ public static class GameCubeBuildWorkspace {
 
         ResetDirectory(paths.StagingRootPath);
         Directory.CreateDirectory(paths.StagingRootPath);
+        WritePhaseMarker(phaseMarkerPath, "platform cook work items begin");
+        ExecutePlatformCookWorkItems(request.Manifest.PlatformCookWorkItems ?? [], paths.StagingRootPath);
+        WritePhaseMarker(phaseMarkerPath, "platform cook work items completed");
+        WritePhaseMarker(phaseMarkerPath, "stage cooked artifacts begin");
         StageCookedArtifacts(request, paths.StagingRootPath, progressReporter, diagnosticReporter, diagnostics, cancellationToken);
+        WritePhaseMarker(phaseMarkerPath, "stage cooked artifacts completed");
 
         if (diagnostics.Count > 0) {
+            WritePhaseMarker(phaseMarkerPath, "diagnostics reported before packaged native build");
             return Task.FromResult(new PlatformBuildReport(false, [.. diagnostics], [.. sceneOutcomes], [.. looseAssetOutcomes]));
         }
 
         new GameCubeRuntimeSceneManifestWriter().Write(paths.GeneratedCoreRootPath, request.Manifest);
+        WritePhaseMarker(phaseMarkerPath, "runtime scene manifest written");
         progressReporter.Report(new PlatformBuildProgressUpdate("Generate Runtime Manifest", "runtime-scene-manifest", 1, 4, "Generated GameCube packaged runtime scene manifest."));
 
         nativeBuildExecutor.Build(paths, cancellationToken);
+        WritePhaseMarker(phaseMarkerPath, "native build completed");
         progressReporter.Report(new PlatformBuildProgressUpdate("Build Native Executable", "helengine_gc.dol", 2, 4, "Built packaged-mode GameCube native executable."));
 
         GameCubeDiscSystemAreaOptions effectiveDiscSystemAreaOptions = discSystemAreaOptions ?? CreateConfiguredDiscSystemAreaOptions(request.Manifest, paths);
         GameCubeDiscLayoutResult discLayout = new GameCubeDiscLayoutWriter().Write(paths.StagingRootPath, paths.NativeExecutablePath, paths.DiscRootPath, effectiveDiscSystemAreaOptions);
+        WritePhaseMarker(phaseMarkerPath, "disc layout written");
         progressReporter.Report(new PlatformBuildProgressUpdate("Write Disc Layout", "disc-root", 3, 4, "Wrote extracted GameCube disc layout."));
 
         IGameCubeImagePackager effectiveImagePackager = imagePackager ?? CreateConfiguredImagePackager(paths);
         effectiveImagePackager.Package(discLayout, paths.DiscImagePath, cancellationToken);
+        WritePhaseMarker(phaseMarkerPath, "disc image packaged");
+        VerifyPackagedOutputs(paths);
+        WritePhaseMarker(phaseMarkerPath, "packaged outputs verified");
         progressReporter.Report(new PlatformBuildProgressUpdate("Package Disc Image", "game.gcm", 4, 4, "Packaged GameCube disc image artifact."));
 
         return Task.FromResult(new PlatformBuildReport(true, [.. diagnostics], [.. sceneOutcomes], [.. looseAssetOutcomes]));
@@ -176,15 +189,38 @@ public static class GameCubeBuildWorkspace {
             throw new ArgumentNullException(nameof(paths));
         }
 
-        string apploaderPath = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_APPLOADER_PATH");
-        if (string.IsNullOrWhiteSpace(apploaderPath)) {
-            throw new InvalidOperationException("GameCube packaged-disc builds require HELENGINE_GAMECUBE_APPLOADER_PATH to point at a real GameCube apploader.img.");
-        }
+        string apploaderPath = ResolveApploaderPath(paths);
 
         return new GameCubeDiscSystemAreaOptions(
             apploaderPath,
             CreateDiscId(manifest.ProjectId),
             manifest.ProjectId);
+    }
+
+    /// <summary>
+    /// Resolves the apploader image path for one packaged GameCube build, preferring an explicit environment override and falling back to the staged native packaged-disc apploader.
+    /// </summary>
+    /// <param name="paths">Packaged-build paths that expose the staged native apploader artifact.</param>
+    /// <returns>Absolute apploader image path for the packaged disc system area.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when neither the explicit override nor the staged native apploader image exists.</exception>
+    static string ResolveApploaderPath(GameCubeBuilderPaths paths) {
+        if (paths == null) {
+            throw new ArgumentNullException(nameof(paths));
+        }
+
+        string explicitApploaderPath = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_APPLOADER_PATH");
+        if (!string.IsNullOrWhiteSpace(explicitApploaderPath)) {
+            if (!File.Exists(explicitApploaderPath)) {
+                throw new InvalidOperationException($"HELENGINE_GAMECUBE_APPLOADER_PATH does not point at an existing apploader.img: {explicitApploaderPath}");
+            }
+
+            return explicitApploaderPath;
+        } else if (File.Exists(paths.NativeApploaderImagePath)) {
+            return paths.NativeApploaderImagePath;
+        }
+
+        throw new InvalidOperationException(
+            $"GameCube packaged-disc builds require either HELENGINE_GAMECUBE_APPLOADER_PATH or a staged native apploader image at '{paths.NativeApploaderImagePath}'.");
     }
 
     /// <summary>
@@ -481,6 +517,25 @@ public static class GameCubeBuildWorkspace {
     }
 
     /// <summary>
+    /// Executes any builder-owned platform cook work items emitted by the shared editor build graph.
+    /// </summary>
+    /// <param name="platformCookWorkItems">Platform cook work items emitted by the editor build graph.</param>
+    /// <param name="stagingRootPath">Staging root that receives the cooked outputs.</param>
+    static void ExecutePlatformCookWorkItems(PlatformCookWorkItem[] platformCookWorkItems, string stagingRootPath) {
+        if (platformCookWorkItems == null) {
+            throw new ArgumentNullException(nameof(platformCookWorkItems));
+        } else if (string.IsNullOrWhiteSpace(stagingRootPath)) {
+            throw new ArgumentException("Staging root path must be provided.", nameof(stagingRootPath));
+        }
+
+        if (platformCookWorkItems.Length == 0) {
+            return;
+        }
+
+        new GameCubePlatformCookWorkItemExecutor().Execute(platformCookWorkItems, Directory.GetCurrentDirectory(), stagingRootPath);
+    }
+
+    /// <summary>
     /// Builds successful scene outcomes for the packaged-build report.
     /// </summary>
     /// <param name="scenes">Scenes included in the packaged build request.</param>
@@ -523,6 +578,52 @@ public static class GameCubeBuildWorkspace {
     static void ResetDirectory(string path) {
         if (Directory.Exists(path)) {
             Directory.Delete(path, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Appends one build-phase marker into the current GameCube output root so editor-owned build failures can be recovered after the host process exits.
+    /// </summary>
+    /// <param name="phaseMarkerPath">Absolute phase-marker file path inside the active output root.</param>
+    /// <param name="message">Human-readable phase message to append.</param>
+    static void WritePhaseMarker(string phaseMarkerPath, string message) {
+        if (string.IsNullOrWhiteSpace(phaseMarkerPath)) {
+            throw new ArgumentException("Phase marker path must be provided.", nameof(phaseMarkerPath));
+        } else if (string.IsNullOrWhiteSpace(message)) {
+            throw new ArgumentException("Phase marker message must be provided.", nameof(message));
+        }
+
+        File.AppendAllText(phaseMarkerPath, message + Environment.NewLine);
+        Console.WriteLine("[helengine-gc] " + message);
+    }
+
+    /// <summary>
+    /// Verifies the packaged GameCube outputs exist after the builder finishes writing the disc layout and disc image.
+    /// </summary>
+    /// <param name="paths">Resolved GameCube builder paths that define the expected packaged outputs.</param>
+    static void VerifyPackagedOutputs(GameCubeBuilderPaths paths) {
+        if (paths == null) {
+            throw new ArgumentNullException(nameof(paths));
+        }
+
+        string discMainDolPath = Path.Combine(paths.DiscRootPath, "sys", "main.dol");
+        string discBootImagePath = Path.Combine(paths.DiscRootPath, "sys", "boot.bin");
+        string discBi2Path = Path.Combine(paths.DiscRootPath, "sys", "bi2.bin");
+        string discApploaderPath = Path.Combine(paths.DiscRootPath, "sys", "apploader.img");
+        if (!File.Exists(paths.NativeExecutablePath)) {
+            throw new FileNotFoundException("The packaged native GameCube DOL was not staged into the build output.", paths.NativeExecutablePath);
+        } else if (!File.Exists(paths.NativeApploaderImagePath)) {
+            throw new FileNotFoundException("The packaged native GameCube apploader image was not staged into the build output.", paths.NativeApploaderImagePath);
+        } else if (!File.Exists(discMainDolPath)) {
+            throw new FileNotFoundException("The extracted GameCube disc main.dol was not produced.", discMainDolPath);
+        } else if (!File.Exists(discBootImagePath)) {
+            throw new FileNotFoundException("The extracted GameCube disc boot.bin was not produced.", discBootImagePath);
+        } else if (!File.Exists(discBi2Path)) {
+            throw new FileNotFoundException("The extracted GameCube disc bi2.bin was not produced.", discBi2Path);
+        } else if (!File.Exists(discApploaderPath)) {
+            throw new FileNotFoundException("The extracted GameCube disc apploader.img was not produced.", discApploaderPath);
+        } else if (!File.Exists(paths.DiscImagePath)) {
+            throw new FileNotFoundException("The packaged GameCube disc image was not produced.", paths.DiscImagePath);
         }
     }
 

@@ -8,6 +8,11 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public static class GameCubePlatformDefinitionFactory {
     /// <summary>
+    /// Serialized default texture cook settings used when GameCube-owned assets do not author an explicit platform override yet.
+    /// </summary>
+    const string DefaultGameCubeTextureSettings = "{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}";
+
+    /// <summary>
     /// Creates the current GameCube platform definition.
     /// </summary>
     /// <returns>The GameCube platform definition.</returns>
@@ -21,6 +26,7 @@ public static class GameCubePlatformDefinitionFactory {
                     "GameCube Default",
                     "Standard GameCube player build",
                     "gx",
+                    "default",
                     [
                         new PlatformSettingDefinition(
                             "texture-scale-percent",
@@ -160,11 +166,39 @@ public static class GameCubePlatformDefinitionFactory {
                     PlatformSerializationEndianness.BigEndian,
                     [])
             ],
-            Array.Empty<PlatformStorageProfileDefinition>(),
-            Array.Empty<PlatformMediaProfileDefinition>(),
+            [
+                new PlatformStorageProfileDefinition(
+                    "disc-layout",
+                    "Disc Layout",
+                    PlatformStorageProfileKind.DiscLayout,
+                    "gamecube-disc-layout",
+                    allowContainerSegmentation: true)
+            ],
+            [
+                new PlatformMediaProfileDefinition(
+                    "gamecube-install-tree",
+                    "GameCube Install Tree",
+                    PlatformMediaLayoutKind.InstallTree,
+                    allowPhysicalDuplication: true,
+                    preferLocalityOverDeduplication: true)
+            ],
             new RuntimeGenerationContract(
                 RuntimeMaterialResolutionMode.CookedPlatformOwned,
                 true,
-                PackagedPathPolicy.ContentRelativeOnly));
+                PackagedPathPolicy.ContentRelativeOnly),
+            assetCookCapabilities: [
+                new PlatformAssetCookCapabilityDefinition(
+                    "texture",
+                    "runtime-texture",
+                    PlatformAssetCookOwnershipKind.BuilderOwned,
+                    "gamecube-texture",
+                    DefaultGameCubeTextureSettings),
+                new PlatformAssetCookCapabilityDefinition(
+                    "font-atlas-texture",
+                    "runtime-font-atlas-texture",
+                    PlatformAssetCookOwnershipKind.BuilderOwned,
+                    "gamecube-texture",
+                    DefaultGameCubeTextureSettings)
+            ]);
     }
 }
