@@ -44,6 +44,9 @@ namespace helengine::gamecube {
         /// Releases any previously encoded native texture memory.
         void ResetNativeTextureData();
 
+        /// Loads one prepacked GX RGB5A3 payload that is already stored in native tiled texture memory order.
+        void LoadPrepackedRgb5A3(TextureAsset* data);
+
         /// Encodes one RGBA8 logical texture into tiled GX RGB5A3 memory.
         void EncodeRgba32ToRgb5A3(TextureAsset* data);
     };

@@ -68,8 +68,11 @@ namespace helengine::gamecube {
 
         ResetNativeTextureData();
 
-        if (data->ColorFormat != TextureAssetColorFormat::Rgba32) {
-            throw new InvalidOperationException("GameCube runtime textures currently require RGBA32 texture assets.");
+        if (data->ColorFormat == TextureAssetColorFormat::GxRgb5A3) {
+            LoadPrepackedRgb5A3(data);
+            return;
+        } else if (data->ColorFormat != TextureAssetColorFormat::Rgba32) {
+            throw new InvalidOperationException("GameCube runtime textures require either GxRgb5A3 or RGBA32 texture assets.");
         }
 
         EncodeRgba32ToRgb5A3(data);
@@ -99,6 +102,40 @@ namespace helengine::gamecube {
         NativeTextureDataSize = 0U;
         std::memset(&NativeTextureObject, 0, sizeof(NativeTextureObject));
         NativeTextureObjectInitialized = false;
+    }
+
+    /// Loads one prepacked GX RGB5A3 payload that is already stored in native tiled texture memory order.
+    void GameCubeRuntimeTexture::LoadPrepackedRgb5A3(TextureAsset* data) {
+        if (data == nullptr) {
+            throw new ArgumentNullException("data");
+        } else if (data->Width == 0 || data->Height == 0) {
+            throw new InvalidOperationException("GameCube runtime textures require nonzero dimensions.");
+        } else if (data->Colors == nullptr) {
+            throw new InvalidOperationException("GameCube runtime textures require prepacked RGB5A3 color data.");
+        }
+
+        const uint32_t width = data->Width;
+        const uint32_t height = data->Height;
+        const uint32_t paddedWidth = (width + 3U) & ~3U;
+        const uint32_t paddedHeight = (height + 3U) & ~3U;
+        const std::size_t expectedColorByteCount = static_cast<std::size_t>(paddedWidth) * static_cast<std::size_t>(paddedHeight) * 2U;
+        if (data->Colors->Length != static_cast<int32_t>(expectedColorByteCount)) {
+            throw new InvalidOperationException("GameCube prepacked textures must contain padded tiled RGB5A3 bytes.");
+        }
+
+        NativeTextureDataSize = expectedColorByteCount;
+        NativeTextureData = memalign(32, NativeTextureDataSize);
+        if (NativeTextureData == nullptr) {
+            throw new InvalidOperationException("Could not allocate GameCube texture memory.");
+        }
+
+        std::memcpy(NativeTextureData, &(*data->Colors)[0], NativeTextureDataSize);
+        DCFlushRange(NativeTextureData, NativeTextureDataSize);
+        GX_InitTexObj(&NativeTextureObject, NativeTextureData, paddedWidth, paddedHeight, GX_TF_RGB5A3, GX_REPEAT, GX_REPEAT, GX_FALSE);
+        GX_InitTexObjFilterMode(&NativeTextureObject, GX_LINEAR, GX_LINEAR);
+        NativeTextureObjectInitialized = true;
+        this->set_Width(static_cast<int32_t>(width));
+        this->set_Height(static_cast<int32_t>(height));
     }
 
     /// Encodes one RGBA8 logical texture into tiled GX RGB5A3 memory.

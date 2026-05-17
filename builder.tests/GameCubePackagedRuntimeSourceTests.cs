@@ -22,6 +22,10 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("HELENGINE_GAMECUBE_BATCH_VERIFY_FRAME_LIMIT", makefileSource, StringComparison.Ordinal);
         Assert.Contains("HELENGINE_GAMECUBE_MINIMAL_SAMPLE ?= 0", makefileSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeMinimalSampleMain.cpp", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("GENERATED_CORE_TRANSLATION_UNIT := helengine_core_amalgamated.cpp", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("GENERATED_CORE_TRANSLATION_UNIT := helengine_core_unity.cpp", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("does not contain helengine_core_amalgamated.cpp or helengine_core_unity.cpp", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("$(BUILD_DIR)/generated/$(GENERATED_CORE_TRANSLATION_UNIT:.cpp=.o): $(GENERATED_CORE_SOURCE)", makefileSource, StringComparison.Ordinal);
         Assert.Contains("packaged-disc-assets", makefileSource, StringComparison.Ordinal);
         Assert.Contains("APPLOADER_SOURCE_ROOT := $(THIRD_PARTY_DIR)/cubeboot-tools", makefileSource, StringComparison.Ordinal);
         Assert.Contains("gamecube_runtime_scene_manifest.inl", manifestWriterSource, StringComparison.Ordinal);
@@ -53,17 +57,23 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
         string bootstrapSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
+        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string renderManager2DSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
         string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
         string sceneManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "SceneManager.cpp"));
         string contentManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "ContentManager.cpp"));
         string fileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-input-gamecube", "system", "io", "file.cpp"));
+        string generatedCoreNormalizerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeGeneratedCoreCompatibilityNormalizer.cs"));
 
         Assert.Contains("[GC] Packaged content root:", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] Packaged startup scene id:", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] First update begin.", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] First update completed.", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("[GC] Engine update threw Exception*:", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("[GC] Engine update threw std::exception:", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] First draw begin.", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] First draw completed.", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("[GC] Scene load to first draw scene=%s elapsedMs=%.3f", applicationSource, StringComparison.Ordinal);
         Assert.Contains("!EngineRenderManager3D->HasRenderedScene()", applicationSource, StringComparison.Ordinal);
         Assert.Contains("EngineRenderManager3D != nullptr && EngineRenderManager3D->HasRenderedScene()", applicationSource, StringComparison.Ordinal);
         Assert.Contains("GXColor { 0xFF, 0x80, 0x00, 0xFF }", applicationSource, StringComparison.Ordinal);
@@ -95,10 +105,20 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("submission->get_Material()", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetCullMode(GX_CULL_FRONT);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("ResolveGxCullMode(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("[GC] 2D queue snapshot", applicationSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("[GC] Frame %u extracted.", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("RecordTraceState(\"LoadSceneImmediateBeforeContentLoad\"", sceneManagerSource, StringComparison.Ordinal);
         Assert.Contains("RecordTraceState(\"LoadSceneImmediateBeforeSceneLoadServiceLoad\"", sceneManagerSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRecordSceneLoadRequest(sceneId.c_str());", sceneManagerSource, StringComparison.Ordinal);
+        Assert.Contains("[GC] ContentManager opening asset:", contentManagerSource, StringComparison.Ordinal);
         Assert.Contains("[GC] File::Exists path=", fileSource, StringComparison.Ordinal);
         Assert.Contains("[GC] File::OpenRead path=", fileSource, StringComparison.Ordinal);
+        Assert.Contains("delete sourceTextureAsset;", renderManager2DSource, StringComparison.Ordinal);
+        Assert.Contains("delete static_cast<GameCubeRuntimeTexture*>(texture);", renderManager2DSource, StringComparison.Ordinal);
+        Assert.Contains("delete static_cast<GameCubeRuntimeMaterial*>(material);", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("delete runtimeModel;", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("delete textureAsset->Colors;", generatedCoreNormalizerSource, StringComparison.Ordinal);
+        Assert.Contains("NormalizeGeneratedCoreFile(generatedCoreRootPath, \"SceneManager.cpp\");", generatedCoreNormalizerSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -156,8 +176,52 @@ public sealed class GameCubePackagedRuntimeSourceTests {
 
         string stagingScriptSource = File.ReadAllText(stagingScriptPath);
         Assert.Contains("DemoDiscMainMenu.hasset", stagingScriptSource, StringComparison.Ordinal);
+        Assert.Contains("cp \"${CITY_COOKED_ROOT}/scenes/rendering/\"*.hasset", stagingScriptSource, StringComparison.Ordinal);
         Assert.Contains("DemoDiscBody.hefont", stagingScriptSource, StringComparison.Ordinal);
         Assert.Contains("default.hefont", stagingScriptSource, StringComparison.Ordinal);
+        Assert.Contains("cp -R \"${CITY_COOKED_ROOT}/materials/.\"", stagingScriptSource, StringComparison.Ordinal);
+        Assert.Contains("cp -R \"${CITY_COOKED_ROOT}/imported/.\"", stagingScriptSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the retail-check harness packages the authored demo-disc target scene catalog instead of a one-scene startup-only manifest.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_RetailHarnessIncludesPlayableDemoDiscSceneCatalog() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string retailHarnessSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "builder-retail-check", "Program.cs"));
+
+        Assert.Contains("const string CubeTestSceneId = \"cube_test\";", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("const string StartupSceneAliasId = \"DemoDiscMainMenu\";", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("const string ColoredCubeGridSceneId = \"colored_cube_grid\";", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("const string TexturedCubeGridSceneId = \"textured_cube_grid\";", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("const string AxisTestSceneId = \"axis_test\";", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("const string AxisTest2SceneId = \"axis_test2\";", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("const string DirectionalShadowPlazaSceneId = \"directional_shadow_plaza\";", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("const string SpotlightStreetSliceSceneId = \"spotlight_street_slice\";", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("new PlatformBuildScene(", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("Demo Disc Main Menu Alias", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("List<string> cookedSceneAssetPaths = new(manifest.Scenes.Length);", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("DiscoverAutomaticRuntimeComponentTypesFromCookedScenes(cookedSceneAssetPaths, scriptTypeResolver)", retailHarnessSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("IReadOnlyList<string> cookedSceneAssetPaths = [ cookedSceneAssetPath ];", retailHarnessSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the retail-check harness rewrites staged menu-scene material payloads into the GameCube cooked material contract before packaging.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_RetailHarnessRecooksGeneratedAndAuthoredMaterialsForGameCube() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string retailHarnessSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "builder-retail-check", "Program.cs"));
+
+        Assert.Contains("RecookPackagedMaterialAssets(repositoryRootPath);", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("static void RecookGeneratedStandardMaterialAsset(", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("engine/materials/standard.hasset", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("static void RecookStagedAuthoredMaterialAssets(", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("Directory.GetFiles(stagedMaterialsRootPath, \"*.hasset\", SearchOption.AllDirectories);", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("settingsService.LoadMaterialAsset(sourceMaterialAssetPath, \"gamecube\")", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("settingsService.TryLoadPlatformSettings(sourceMaterialAssetPath, \"gamecube\", out MaterialAssetProcessorSettings platformSettings)", retailHarnessSource, StringComparison.Ordinal);
+        Assert.Contains("fieldValues[GameCubeMaterialSchemaIds.TextureRelativePathFieldId] = \"cooked/imported/\" + materialAsset.DiffuseTextureAssetId;", retailHarnessSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -222,7 +286,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, float3 normal);", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("AccumulateAmbientAndDirectionalLight(", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("submission->get_Material()", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeRuntimeMaterial* gameCubeRuntimeMaterial = dynamic_cast<GameCubeRuntimeMaterial*>(material);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeMaterial* gameCubeRuntimeMaterial = static_cast<GameCubeRuntimeMaterial*>(material);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("const float3 baseColor = material->GetBaseColor();", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("lighting.X * baseColor.X", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("lighting.Y * baseColor.Y", rasterRendererSource, StringComparison.Ordinal);
@@ -259,7 +323,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("materialAsset->TextureRelativePath", normalizerSource, StringComparison.Ordinal);
         Assert.Contains("BuildTextureFromRaw(textureAsset)", normalizerSource, StringComparison.Ordinal);
         Assert.Contains("SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);", normalizerSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeRuntimeTexture* boundTexture = ResolveBoundTexture(gameCubeRuntimeMaterial);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeTexture* boundTexture = expectsTexture", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("? ResolveBoundTexture(gameCubeRuntimeMaterial)", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeTexture* gameCubeRuntimeTexture = static_cast<GameCubeRuntimeTexture*>(runtimeTexture);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("const bool expectsTexture = !gameCubeRuntimeMaterial->GetTextureRelativePath().empty();", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GameCube textured material requires one resolved runtime texture.", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetNumTexGens(useTexturedBranch ? 1 : 0);", rasterRendererSource, StringComparison.Ordinal);
@@ -267,6 +333,18 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GX_LoadTexObj(boundTexture->GetNativeTextureObject(), GX_TEXMAP0);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRuntimeTexture.cpp", makefileSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube runtime texture loader can accept already cooked GX RGB5A3 payloads without forcing an RGBA32 transcode path.
+    /// </summary>
+    [Fact]
+    public void PackagedRuntimeTextureLoader_WhenTextureIsAlreadyGxRgb5A3_DoesNotRequireRgba32Transcode() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string runtimeTextureSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.cpp"));
+
+        Assert.Contains("TextureAssetColorFormat::GxRgb5A3", runtimeTextureSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("GameCube runtime textures currently require RGBA32 texture assets.", runtimeTextureSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -398,7 +476,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
 
         Assert.Contains("EngineRenderManager2D->BeginFrame();", applicationSource, StringComparison.Ordinal);
         Assert.Contains("EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("EngineRenderManager2D->HasCapturedDrawables()", applicationSource, StringComparison.Ordinal);
         Assert.Contains("Scenes/DemoDiscMainMenu.helen", bootstrapSource, StringComparison.Ordinal);
+        Assert.Contains("const std::string startupSceneAliasId = \"DemoDiscMainMenu\";", bootstrapSource, StringComparison.Ordinal);
+        Assert.Contains("new RuntimeSceneCatalogEntry(startupSceneAliasId, entries[index].CookedRelativePath)", bootstrapSource, StringComparison.Ordinal);
     }
 }
