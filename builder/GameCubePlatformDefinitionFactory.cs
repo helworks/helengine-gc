@@ -1,5 +1,7 @@
 using helengine.baseplatform.Definitions;
 using helengine.baseplatform.Profiles;
+using helengine.editor;
+using System.Text.Json;
 
 namespace helengine.gamecube.builder;
 
@@ -8,9 +10,62 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public static class GameCubePlatformDefinitionFactory {
     /// <summary>
-    /// Serialized default texture cook settings used when GameCube-owned assets do not author an explicit platform override yet.
+    /// Creates the serialized default GameCube texture settings contract used when assets do not provide an explicit GameCube override.
     /// </summary>
-    const string DefaultGameCubeTextureSettings = "{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}";
+    /// <returns>Serialized default GameCube texture settings.</returns>
+    static string CreateDefaultSerializedTextureCookSettings() {
+        return SerializeTextureCookSettings(new TextureAssetProcessorSettings {
+            MaxResolution = 0,
+            ColorFormat = TextureAssetColorFormat.GxRgb5A3,
+            AlphaPrecision = TextureAssetAlphaPrecision.A8
+        });
+    }
+
+    /// <summary>
+    /// Creates the serialized default GameCube font-atlas texture settings contract used when fonts do not provide an explicit GameCube override.
+    /// </summary>
+    /// <returns>Serialized default GameCube font-atlas texture settings.</returns>
+    static string CreateDefaultSerializedFontAtlasTextureCookSettings() {
+        return SerializeTextureCookSettings(new TextureAssetProcessorSettings {
+            MaxResolution = 0,
+            ColorFormat = TextureAssetColorFormat.GxRgb5A3,
+            AlphaPrecision = TextureAssetAlphaPrecision.A8
+        });
+    }
+
+    /// <summary>
+    /// Serializes the generic texture cook settings contract published to the editor build graph.
+    /// </summary>
+    /// <param name="processorSettings">Resolved texture processor settings to serialize.</param>
+    /// <returns>Serialized generic texture cook settings payload.</returns>
+    static string SerializeTextureCookSettings(TextureAssetProcessorSettings processorSettings) {
+        if (processorSettings == null) {
+            throw new ArgumentNullException(nameof(processorSettings));
+        }
+
+        return JsonSerializer.Serialize(new Dictionary<string, object> {
+            ["maxResolution"] = processorSettings.MaxResolution,
+            ["colorFormat"] = processorSettings.ColorFormat.ToString(),
+            ["alphaPrecision"] = processorSettings.AlphaPrecision.ToString()
+        });
+    }
+
+    /// <summary>
+    /// Creates the generic texture format capability metadata supported by the GameCube texture cooker.
+    /// </summary>
+    /// <returns>Texture capability metadata for GameCube builder-owned texture cook contracts.</returns>
+    static PlatformTextureFormatCapabilityDefinition CreateTextureFormatCapabilities() {
+        return new PlatformTextureFormatCapabilityDefinition(
+            [
+                TextureAssetColorFormat.GxRgb5A3
+            ],
+            [
+                TextureAssetAlphaPrecision.A8
+            ],
+            [
+                new PlatformTextureFormatCombinationDefinition(TextureAssetColorFormat.GxRgb5A3, TextureAssetAlphaPrecision.A8)
+            ]);
+    }
 
     /// <summary>
     /// Creates the current GameCube platform definition.
@@ -192,13 +247,15 @@ public static class GameCubePlatformDefinitionFactory {
                     "runtime-texture",
                     PlatformAssetCookOwnershipKind.BuilderOwned,
                     "gamecube-texture",
-                    DefaultGameCubeTextureSettings),
+                    CreateDefaultSerializedTextureCookSettings(),
+                    CreateTextureFormatCapabilities()),
                 new PlatformAssetCookCapabilityDefinition(
                     "font-atlas-texture",
                     "runtime-font-atlas-texture",
                     PlatformAssetCookOwnershipKind.BuilderOwned,
                     "gamecube-texture",
-                    DefaultGameCubeTextureSettings)
+                    CreateDefaultSerializedFontAtlasTextureCookSettings(),
+                    CreateTextureFormatCapabilities())
             ]);
     }
 }

@@ -6,6 +6,7 @@ using helengine.baseplatform.Reporting;
 using helengine.baseplatform.Requests;
 using helengine.baseplatform.Results;
 using helengine.baseplatform.Targets;
+using helengine.editor;
 using helengine.gamecube.builder.tests.Builders;
 using helengine.files;
 
@@ -45,6 +46,33 @@ public sealed class GameCubePlatformAssetBuilderTests {
     }
 
     /// <summary>
+    /// Ensures the GameCube builder publishes generic texture-format capability metadata for both image textures and font atlas textures.
+    /// </summary>
+    [Fact]
+    public void DescriptorAndDefinition_ExposeTextureFormatCapabilities() {
+        GameCubePlatformAssetBuilder builder = new();
+
+        Assert.Collection(
+            builder.Definition.AssetCookCapabilities,
+            capability => {
+                Assert.Equal("texture", capability.SourceAssetKind);
+                Assert.Equal("runtime-texture", capability.TargetArtifactKind);
+                Assert.Equal(PlatformAssetCookOwnershipKind.BuilderOwned, capability.OwnershipKind);
+                Assert.Equal("gamecube-texture", capability.SettingsContractId);
+                Assert.Equal("{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}", capability.DefaultSerializedPlatformSettings);
+                AssertTextureFormatCapabilities(capability.TextureFormatCapabilities);
+            },
+            capability => {
+                Assert.Equal("font-atlas-texture", capability.SourceAssetKind);
+                Assert.Equal("runtime-font-atlas-texture", capability.TargetArtifactKind);
+                Assert.Equal(PlatformAssetCookOwnershipKind.BuilderOwned, capability.OwnershipKind);
+                Assert.Equal("gamecube-texture", capability.SettingsContractId);
+                Assert.Equal("{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}", capability.DefaultSerializedPlatformSettings);
+                AssertTextureFormatCapabilities(capability.TextureFormatCapabilities);
+            });
+    }
+
+    /// <summary>
     /// Ensures the GameCube builder cooks platform-owned material payloads without shader references.
     /// </summary>
     [Fact]
@@ -78,6 +106,26 @@ public sealed class GameCubePlatformAssetBuilderTests {
         Assert.Equal((byte)128, cookedAsset.BaseColorG);
         Assert.Equal((byte)64, cookedAsset.BaseColorB);
         Assert.Equal((byte)255, cookedAsset.BaseColorA);
+    }
+
+    /// <summary>
+    /// Verifies one GameCube texture cook capability advertises the expected supported formats and valid combinations.
+    /// </summary>
+    /// <param name="textureFormatCapabilities">Texture capability metadata to validate.</param>
+    static void AssertTextureFormatCapabilities(PlatformTextureFormatCapabilityDefinition textureFormatCapabilities) {
+        Assert.NotNull(textureFormatCapabilities);
+        Assert.Equal(
+            [TextureAssetColorFormat.GxRgb5A3],
+            textureFormatCapabilities.SupportedColorFormats);
+        Assert.Equal(
+            [TextureAssetAlphaPrecision.A8],
+            textureFormatCapabilities.SupportedAlphaPrecisions);
+        Assert.Collection(
+            textureFormatCapabilities.SupportedCombinations,
+            combination => {
+                Assert.Equal(TextureAssetColorFormat.GxRgb5A3, combination.ColorFormat);
+                Assert.Equal(TextureAssetAlphaPrecision.A8, combination.AlphaPrecision);
+            });
     }
 
     /// <summary>
