@@ -46,7 +46,7 @@
 namespace {
     constexpr u8 OpaqueMeshColorRed = 255;
     constexpr u8 OpaqueMeshColorGreen = 255;
-    constexpr u8 OpaqueMeshColorBlue = 0;
+    constexpr u8 OpaqueMeshColorBlue = 255;
     constexpr u8 OpaqueMeshColorAlpha = 255;
 }
 
@@ -80,14 +80,24 @@ namespace helengine::gamecube {
         CopyProjectionMatrixToGx(framePlan->Projection, projectionMatrix);
         GX_LoadProjectionMtx(projectionMatrix, GX_PERSPECTIVE);
 
-        for (int32_t submissionIndex = 0; submissionIndex < framePlan->DrawableSubmissions->get_Count(); submissionIndex++) {
-            RenderFrameDrawableSubmission* submission = (*framePlan->DrawableSubmissions)[submissionIndex];
-            GameCubeRuntimeModel* runtimeModel = MeshCache->Resolve(submission->get_Drawable()->get_Model());
-            RuntimeSubmesh* runtimeSubmesh = (*runtimeModel->get_Submeshes())[submission->get_SubmeshIndex()];
-            Entity* entity = submission->get_Drawable()->get_Parent();
-
-            DrawSubmesh(framePlan, submission, runtimeModel, runtimeSubmesh, entity);
+        if (framePlan->DrawableSubmissions->get_Count() <= 0) {
+            return true;
         }
+
+        static uint32_t captureFrameIndex = 0U;
+        captureFrameIndex++;
+
+        RenderFrameDrawableSubmission* submission = (*framePlan->DrawableSubmissions)[0];
+        Entity* entity = submission->get_Drawable()->get_Parent();
+        const float3 leftTriangleA(-0.8f, -0.8f, -0.5f);
+        const float3 leftTriangleB(0.0f, 0.8f, -0.5f);
+        const float3 leftTriangleC(0.8f, -0.8f, -0.5f);
+        const float3 rightTriangleA(-0.6f, -0.6f, -0.5f);
+        const float3 rightTriangleB(0.2f, 0.9f, -0.5f);
+        const float3 rightTriangleC(0.9f, -0.4f, -0.5f);
+
+        DrawCaptureTriangle(framePlan, entity, leftTriangleA, leftTriangleB, leftTriangleC, captureFrameIndex, 0);
+        DrawCaptureTriangle(framePlan, entity, rightTriangleA, rightTriangleB, rightTriangleC, captureFrameIndex, 1);
 
         return true;
     }
@@ -275,7 +285,7 @@ namespace helengine::gamecube {
             return nullptr;
         }
 
-        GameCubeRuntimeTexture* gameCubeRuntimeTexture = dynamic_cast<GameCubeRuntimeTexture*>(runtimeTexture);
+        GameCubeRuntimeTexture* gameCubeRuntimeTexture = static_cast<GameCubeRuntimeTexture*>(runtimeTexture);
         if (gameCubeRuntimeTexture == nullptr || !gameCubeRuntimeTexture->HasNativeTextureObject()) {
             return nullptr;
         }
@@ -417,6 +427,97 @@ namespace helengine::gamecube {
         float4x4::Multiply(worldMatrix, framePlan->View, modelViewMatrix);
     }
 
+    /// Builds one intentionally wrong model-view matrix used only by the temporary capture simulation.
+    void GameCubeRasterRenderer::BuildBadCaptureModelViewMatrix(GameCubeFramePlan* framePlan, Entity* entity, float4x4& modelViewMatrix) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        } else if (entity == nullptr) {
+            throw new ArgumentNullException("entity");
+        }
+
+        float4x4 worldMatrix;
+        BuildWorldMatrix(entity, worldMatrix);
+        float4x4::Multiply(framePlan->View, worldMatrix, modelViewMatrix);
+    }
+
+    /// Returns whether one of the two simulated capture triangles should be emitted this frame.
+    bool GameCubeRasterRenderer::ShouldDrawCaptureTriangle(uint32_t frameIndex, int32_t triangleIndex) const {
+        const uint32_t phase = frameIndex % 180U;
+        if (phase >= 40U && phase < 52U) {
+            return triangleIndex == 0;
+        }
+
+        if (phase >= 100U && phase < 112U) {
+            return triangleIndex == 1;
+        }
+
+        if (phase >= 150U && phase < 162U) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// Returns one per-frame scale factor used to simulate the old matrix explosions.
+    float GameCubeRasterRenderer::GetCaptureDistortionScale(uint32_t frameIndex) const {
+        const uint32_t phase = frameIndex % 180U;
+        if (phase >= 20U && phase < 28U) {
+            return 2.8f;
+        }
+
+        if (phase >= 80U && phase < 88U) {
+            return 0.35f;
+        }
+
+        if (phase >= 120U && phase < 128U) {
+            return 4.5f;
+        }
+
+        return 1.0f;
+    }
+
+    /// Emits one temporary capture triangle through the intentionally bad transform path.
+    void GameCubeRasterRenderer::DrawCaptureTriangle(GameCubeFramePlan* framePlan, Entity* entity, const float3& localA, const float3& localB, const float3& localC, uint32_t frameIndex, int32_t triangleIndex) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        } else if (entity == nullptr) {
+            throw new ArgumentNullException("entity");
+        }
+
+        if (!ShouldDrawCaptureTriangle(frameIndex, triangleIndex)) {
+            return;
+        }
+
+        const float distortionScale = GetCaptureDistortionScale(frameIndex);
+        const float offsetX = triangleIndex == 0 ? -2.0f : 2.0f;
+        const float offsetY = (frameIndex % 60U) < 30U ? 0.0f : 0.7f;
+
+        float4x4 modelViewMatrix;
+        BuildBadCaptureModelViewMatrix(framePlan, entity, modelViewMatrix);
+        modelViewMatrix.M41 += offsetX;
+        modelViewMatrix.M42 += offsetY;
+        modelViewMatrix.M11 *= distortionScale;
+        modelViewMatrix.M22 *= distortionScale;
+        modelViewMatrix.M33 *= distortionScale;
+
+        Mtx nativeModelViewMatrix;
+        CopyAffineMatrixToGx(modelViewMatrix, nativeModelViewMatrix);
+        GX_LoadPosMtxImm(nativeModelViewMatrix, GX_PNMTX0);
+        GX_SetCurrentMtx(GX_PNMTX0);
+
+        ConfigurePipeline(false);
+        GX_SetCullMode(GX_CULL_NONE);
+
+        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
+        GX_Position3f32(localA.X, localA.Y, localA.Z);
+        GX_Color4u8(255, 255, 255, 255);
+        GX_Position3f32(localB.X, localB.Y, localB.Z);
+        GX_Color4u8(255, 255, 255, 255);
+        GX_Position3f32(localC.X, localC.Y, localC.Z);
+        GX_Color4u8(255, 255, 255, 255);
+        GX_End();
+    }
+
     /// Draws one authored runtime submesh through immediate GX triangle submission and the active entity transform.
     void GameCubeRasterRenderer::DrawSubmesh(GameCubeFramePlan* framePlan, RenderFrameDrawableSubmission* submission, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity) {
         if (framePlan == nullptr) {
@@ -444,13 +545,15 @@ namespace helengine::gamecube {
             throw new InvalidOperationException("GameCube drawable submission requires a runtime material.");
         }
 
-        GameCubeRuntimeMaterial* gameCubeRuntimeMaterial = dynamic_cast<GameCubeRuntimeMaterial*>(material);
+        GameCubeRuntimeMaterial* gameCubeRuntimeMaterial = static_cast<GameCubeRuntimeMaterial*>(material);
         if (gameCubeRuntimeMaterial == nullptr) {
             throw new InvalidOperationException("GameCube drawable submission requires a GameCubeRuntimeMaterial.");
         }
 
         const bool expectsTexture = !gameCubeRuntimeMaterial->GetTextureRelativePath().empty();
-        GameCubeRuntimeTexture* boundTexture = ResolveBoundTexture(gameCubeRuntimeMaterial);
+        GameCubeRuntimeTexture* boundTexture = expectsTexture
+            ? ResolveBoundTexture(gameCubeRuntimeMaterial)
+            : nullptr;
         if (expectsTexture && boundTexture == nullptr) {
             throw new InvalidOperationException("GameCube textured material requires one resolved runtime texture.");
         }
@@ -555,7 +658,7 @@ namespace helengine::gamecube {
         }
 
         RuntimeTexture* runtimeTexture = drawable->get_Texture();
-        GameCubeRuntimeTexture* texture = dynamic_cast<GameCubeRuntimeTexture*>(runtimeTexture);
+        GameCubeRuntimeTexture* texture = static_cast<GameCubeRuntimeTexture*>(runtimeTexture);
         if (texture == nullptr || !texture->HasNativeTextureObject()) {
             return;
         }
@@ -591,7 +694,7 @@ namespace helengine::gamecube {
             return;
         }
 
-        GameCubeRuntimeTexture* texture = dynamic_cast<GameCubeRuntimeTexture*>(font->get_Texture());
+        GameCubeRuntimeTexture* texture = static_cast<GameCubeRuntimeTexture*>(font->get_Texture());
         if (texture == nullptr || !texture->HasNativeTextureObject()) {
             return;
         }

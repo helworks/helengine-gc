@@ -91,6 +91,18 @@ namespace helengine::gamecube {
         /// Builds one authored model-view matrix through the generated platform-adapted float4x4 runtime.
         void BuildModelViewMatrix(GameCubeFramePlan* framePlan, Entity* entity, float4x4& modelViewMatrix);
 
+        /// Builds one intentionally wrong model-view matrix used only by the temporary capture simulation.
+        void BuildBadCaptureModelViewMatrix(GameCubeFramePlan* framePlan, Entity* entity, float4x4& modelViewMatrix);
+
+        /// Returns whether one of the two simulated capture triangles should be emitted this frame.
+        bool ShouldDrawCaptureTriangle(uint32_t frameIndex, int32_t triangleIndex) const;
+
+        /// Returns one per-frame scale factor used to simulate the old matrix explosions.
+        float GetCaptureDistortionScale(uint32_t frameIndex) const;
+
+        /// Emits one temporary capture triangle through the intentionally bad transform path.
+        void DrawCaptureTriangle(GameCubeFramePlan* framePlan, Entity* entity, const float3& localA, const float3& localB, const float3& localC, uint32_t frameIndex, int32_t triangleIndex);
+
         /// Draws one authored runtime submesh through immediate GX triangle submission and the active entity transform.
         void DrawSubmesh(GameCubeFramePlan* framePlan, RenderFrameDrawableSubmission* submission, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity);
 
