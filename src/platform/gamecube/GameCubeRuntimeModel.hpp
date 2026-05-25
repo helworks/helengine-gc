@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ModelAsset.hpp"
 #include "RuntimeModel.hpp"
 #include "float2.hpp"
 #include "float3.hpp"
@@ -17,7 +18,8 @@ namespace helengine::gamecube {
             , TexCoords(nullptr)
             , Indices16(nullptr)
             , Indices32(nullptr)
-            , Uses32BitIndices(false) {
+            , Uses32BitIndices(false)
+            , OwnedSourceModelAsset(nullptr) {
         }
 
         /// Authored model positions used by the first unlit triangle path.
@@ -37,5 +39,8 @@ namespace helengine::gamecube {
 
         /// Tracks whether the runtime mesh must read from `Indices32`.
         bool Uses32BitIndices;
+
+        /// Owns one deserialized cooked model asset when the runtime model was created from a packaged payload.
+        ModelAsset* OwnedSourceModelAsset;
     };
 }

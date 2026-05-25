@@ -69,14 +69,35 @@ namespace helengine::gamecube {
         std::size_t entryCount = 0;
         const HEGameCubeRuntimeSceneEntry* entries = he_get_runtime_gamecube_scene_entries(&entryCount);
         SYS_Report("[GC] Packaged manifest entry count: %u\n", static_cast<unsigned int>(entryCount));
-        Array<RuntimeSceneCatalogEntry*>* runtimeEntries = new Array<RuntimeSceneCatalogEntry*>(static_cast<int32_t>(entryCount));
+        const std::string startupSceneAliasId = "DemoDiscMainMenu";
+        bool startupSceneAliasExists = false;
+        bool startupSceneSourceExists = false;
+        for (std::size_t index = 0; index < entryCount; index++) {
+            if (startupSceneAliasId == entries[index].SceneId) {
+                startupSceneAliasExists = true;
+            }
+
+            if (StartupSceneId == entries[index].SceneId) {
+                startupSceneSourceExists = true;
+            }
+        }
+
+        const bool shouldAddStartupSceneAlias = !startupSceneAliasExists && startupSceneSourceExists;
+        const std::size_t runtimeEntryCount = shouldAddStartupSceneAlias ? entryCount + 1U : entryCount;
+        Array<RuntimeSceneCatalogEntry*>* runtimeEntries = new Array<RuntimeSceneCatalogEntry*>(static_cast<int32_t>(runtimeEntryCount));
+        std::size_t runtimeEntryIndex = 0;
         for (std::size_t index = 0; index < entryCount; index++) {
             SYS_Report(
                 "[GC] Packaged manifest entry[%u] scene=%s path=%s\n",
                 static_cast<unsigned int>(index),
                 entries[index].SceneId,
                 entries[index].CookedRelativePath);
-            (*runtimeEntries)[static_cast<int32_t>(index)] = new RuntimeSceneCatalogEntry(entries[index].SceneId, entries[index].CookedRelativePath);
+            (*runtimeEntries)[static_cast<int32_t>(runtimeEntryIndex)] = new RuntimeSceneCatalogEntry(entries[index].SceneId, entries[index].CookedRelativePath);
+            runtimeEntryIndex++;
+            if (shouldAddStartupSceneAlias && StartupSceneId == entries[index].SceneId) {
+                (*runtimeEntries)[static_cast<int32_t>(runtimeEntryIndex)] = new RuntimeSceneCatalogEntry(startupSceneAliasId, entries[index].CookedRelativePath);
+                runtimeEntryIndex++;
+            }
         }
 
         return new RuntimeSceneCatalog(runtimeEntries);

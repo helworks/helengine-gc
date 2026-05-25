@@ -2,12 +2,12 @@
 
 #include <string>
 
-#include "RuntimeMaterial.hpp"
+#include "ShaderRuntimeMaterial.hpp"
 #include "float3.hpp"
 
 namespace helengine::gamecube {
     /// Carries the minimal GameCube-owned material state required by the fixed-function GX raster path.
-    class GameCubeRuntimeMaterial final : public RuntimeMaterial {
+    class GameCubeRuntimeMaterial final : public ShaderRuntimeMaterial {
     public:
         /// Creates one GameCube runtime material with authored-color defaults that remain visible when cooking is incomplete.
         GameCubeRuntimeMaterial();

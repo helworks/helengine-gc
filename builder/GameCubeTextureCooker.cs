@@ -5,6 +5,16 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public sealed class GameCubeTextureCooker {
     /// <summary>
+    /// Packed GameCube texture color format value preserved for builder/runtime compatibility.
+    /// </summary>
+    static readonly TextureAssetColorFormat GameCubePackedColorFormat = (TextureAssetColorFormat)4;
+
+    /// <summary>
+    /// Opaque GameCube texture color format identifier published to the generic editor.
+    /// </summary>
+    const string GameCubePackedColorFormatId = "GxRgb5A3";
+
+    /// <summary>
     /// Cooks one shared-engine texture asset into a GameCube-native texture asset.
     /// </summary>
     /// <param name="sourceTexture">Shared-engine source texture asset.</param>
@@ -15,8 +25,8 @@ public sealed class GameCubeTextureCooker {
             throw new ArgumentNullException(nameof(sourceTexture));
         } else if (settings == null) {
             throw new ArgumentNullException(nameof(settings));
-        } else if (settings.ColorFormat != TextureAssetColorFormat.GxRgb5A3) {
-            throw new InvalidOperationException($"GameCube texture cooking currently supports only {TextureAssetColorFormat.GxRgb5A3}.");
+        } else if (!string.Equals(settings.ColorFormatId, GameCubePackedColorFormatId, StringComparison.Ordinal)) {
+            throw new InvalidOperationException($"GameCube texture cooking currently supports only {GameCubePackedColorFormatId}.");
         }
 
         TextureAsset workingTexture = CloneTextureAsset(sourceTexture);
@@ -24,7 +34,7 @@ public sealed class GameCubeTextureCooker {
             throw new InvalidOperationException("GameCube textures require nonzero dimensions.");
         }
 
-        if (workingTexture.ColorFormat == TextureAssetColorFormat.GxRgb5A3) {
+        if (workingTexture.ColorFormat == GameCubePackedColorFormat) {
             if (settings.MaxResolution > 0 && (workingTexture.Width > settings.MaxResolution || workingTexture.Height > settings.MaxResolution)) {
                 throw new InvalidOperationException("GameCube textures cannot resize prepacked GxRgb5A3 payloads. The editor must provide an RGBA32 source texture when downscaling is required.");
             }
@@ -48,7 +58,7 @@ public sealed class GameCubeTextureCooker {
             Height = workingTexture.Height,
             Colors = packedColors,
             PaletteColors = Array.Empty<byte>(),
-            ColorFormat = TextureAssetColorFormat.GxRgb5A3,
+            ColorFormat = GameCubePackedColorFormat,
             AlphaPrecision = settings.AlphaPrecision,
             IsEngineOwned = workingTexture.IsEngineOwned
         };

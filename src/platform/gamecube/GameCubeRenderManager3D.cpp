@@ -2,9 +2,11 @@
 
 #include <ogc/system.h>
 
+#include "Asset.hpp"
+#include "EditorAssetBinarySerializer.hpp"
 #include "Entity.hpp"
+#include "float2.hpp"
 #include "IDrawable3D.hpp"
-#include "MaterialAsset.hpp"
 #include "MaterialLayout.hpp"
 #include "MaterialLayoutBinding.hpp"
 #include "MaterialCullMode.hpp"
@@ -17,16 +19,19 @@
 #include "platform/gamecube/GameCubeRuntimeMaterial.hpp"
 #include "ModelAssetIndexData.hpp"
 #include "ModelAsset.hpp"
+#include "ModelSubmeshAsset.hpp"
 #include "ModelSubmeshResolver.hpp"
 #include "RuntimeMaterial.hpp"
 #include "RuntimeMaterialLightingModel.hpp"
+#include "RuntimeSubmesh.hpp"
 #include "ShaderResourceType.hpp"
-#include "ShaderAsset.hpp"
 #include "StandardMaterialTextureBindingDefaults.hpp"
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
 #include "platform/gamecube/GameCubeSceneRenderBridge.hpp"
+#include "runtime/native_cast.hpp"
 #include "runtime/native_exceptions.hpp"
+#include "system/io/file.hpp"
 
 namespace helengine::gamecube {
     /// Creates the GameCube 3D backend and its owned bridge/cache/raster collaborators.
@@ -46,21 +51,6 @@ namespace helengine::gamecube {
         delete MeshCache;
         delete SceneRenderBridge;
         delete CapabilityProfile;
-    }
-
-    /// Builds the minimal runtime material required for the first unlit GameCube draw path.
-    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromRaw(MaterialAsset* materialAsset, ShaderAsset* shaderAsset) {
-        if (materialAsset == nullptr) {
-            throw new ArgumentNullException("materialAsset");
-        } else if (shaderAsset == nullptr) {
-            throw new ArgumentNullException("shaderAsset");
-        }
-
-        GameCubeRuntimeMaterial* runtimeMaterial = new GameCubeRuntimeMaterial();
-        runtimeMaterial->set_Id(materialAsset->get_Id());
-        runtimeMaterial->set_CastsShadows(materialAsset->CastsShadows);
-        runtimeMaterial->set_ReceivesShadows(materialAsset->ReceivesShadows);
-        return runtimeMaterial;
     }
 
     /// Builds the minimal runtime material required for the first cooked-material GameCube draw path.
@@ -88,6 +78,31 @@ namespace helengine::gamecube {
         return runtimeMaterial;
     }
 
+    /// Builds the minimal runtime material required for the first cooked-material GameCube draw path from one serialized cooked asset path.
+    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromCooked(std::string cookedAssetPath) {
+        if (cookedAssetPath.empty()) {
+            throw new ArgumentException("GameCube cooked material path is required.", "cookedAssetPath");
+        }
+
+        ::FileStream* stream = ::File::OpenRead(cookedAssetPath);
+        try {
+            ::Asset* asset = ::EditorAssetBinarySerializer::Deserialize(stream);
+            ::PlatformMaterialAsset* cookedMaterialAsset = he_cpp_try_cast<::PlatformMaterialAsset>(asset);
+            if (cookedMaterialAsset == nullptr) {
+                throw new ArgumentException("GameCube cooked material payload did not deserialize as PlatformMaterialAsset.", "cookedAssetPath");
+            }
+
+            stream->Dispose();
+            return BuildMaterialFromCooked(cookedMaterialAsset);
+        } catch (...) {
+            if (stream != nullptr) {
+                stream->Dispose();
+            }
+
+            throw;
+        }
+    }
+
     /// Builds a GameCube runtime model that keeps authored submesh and geometry arrays alive.
     RuntimeModel* GameCubeRenderManager3D::BuildModelFromRaw(ModelAsset* data) {
         if (data == nullptr) {
@@ -105,7 +120,147 @@ namespace helengine::gamecube {
         runtimeModel->Indices16 = indexData->get_Indices16();
         runtimeModel->Indices32 = indexData->get_Indices32();
         runtimeModel->Uses32BitIndices = indexData->get_Uses32BitIndices();
+        delete indexData;
         return runtimeModel;
+    }
+
+    /// Builds a GameCube runtime model from one serialized cooked model asset path.
+    RuntimeModel* GameCubeRenderManager3D::BuildModelFromCooked(std::string cookedAssetPath) {
+        if (cookedAssetPath.empty()) {
+            throw new ArgumentException("GameCube cooked model path is required.", "cookedAssetPath");
+        }
+
+        ::FileStream* stream = ::File::OpenRead(cookedAssetPath);
+        try {
+            ::Asset* asset = ::EditorAssetBinarySerializer::Deserialize(stream);
+            ::ModelAsset* cookedModelAsset = he_cpp_try_cast<::ModelAsset>(asset);
+            if (cookedModelAsset == nullptr) {
+                throw new ArgumentException("GameCube cooked model payload did not deserialize as ModelAsset.", "cookedAssetPath");
+            }
+
+            stream->Dispose();
+            GameCubeRuntimeModel* runtimeModel = static_cast<GameCubeRuntimeModel*>(BuildModelFromRaw(cookedModelAsset));
+            runtimeModel->OwnedSourceModelAsset = cookedModelAsset;
+            return runtimeModel;
+        } catch (...) {
+            if (stream != nullptr) {
+                stream->Dispose();
+            }
+
+            throw;
+        }
+    }
+
+    /// Releases one GameCube runtime material after the final scene reference is removed.
+    void GameCubeRenderManager3D::ReleaseMaterial(RuntimeMaterial* material) {
+        if (material == nullptr) {
+            throw new ArgumentNullException("material");
+        }
+
+        ReleasedMaterials.push_back(material);
+    }
+
+    /// Releases deferred GameCube runtime materials and models after the scene manager reaches a safe transition boundary.
+    void GameCubeRenderManager3D::FlushReleasedAssets() {
+        for (RuntimeMaterial* material : ReleasedMaterials) {
+            if (material == nullptr) {
+                continue;
+            }
+
+            GameCubeRuntimeMaterial* runtimeMaterial = static_cast<GameCubeRuntimeMaterial*>(material);
+            MaterialPropertyBlock* properties = runtimeMaterial->get_Properties();
+            MaterialRenderState* renderState = runtimeMaterial->get_RenderState();
+            MaterialLayout* layout = runtimeMaterial->get_Layout();
+
+            delete properties;
+            delete renderState;
+
+            if (layout != nullptr && layout != MaterialLayout::get_Empty()) {
+                Array<MaterialLayoutBinding*>* textureBindings = layout->get_TextureBindings();
+                if (textureBindings != nullptr && textureBindings != Array<MaterialLayoutBinding*>::Empty()) {
+                    for (int32_t bindingIndex = 0; bindingIndex < textureBindings->get_Length(); bindingIndex++) {
+                        delete (*textureBindings)[bindingIndex];
+                    }
+
+                    delete textureBindings;
+                }
+
+                Array<MaterialLayoutBinding*>* constantBufferBindings = layout->get_ConstantBufferBindings();
+                if (constantBufferBindings != nullptr && constantBufferBindings != Array<MaterialLayoutBinding*>::Empty()) {
+                    for (int32_t bindingIndex = 0; bindingIndex < constantBufferBindings->get_Length(); bindingIndex++) {
+                        delete (*constantBufferBindings)[bindingIndex];
+                    }
+
+                    delete constantBufferBindings;
+                }
+
+                Array<MaterialLayoutBinding*>* samplerBindings = layout->get_SamplerBindings();
+                if (samplerBindings != nullptr && samplerBindings != Array<MaterialLayoutBinding*>::Empty()) {
+                    for (int32_t bindingIndex = 0; bindingIndex < samplerBindings->get_Length(); bindingIndex++) {
+                        delete (*samplerBindings)[bindingIndex];
+                    }
+
+                    delete samplerBindings;
+                }
+
+                delete layout->get_RenderState();
+                delete layout;
+            }
+
+            delete runtimeMaterial;
+        }
+
+        ReleasedMaterials.clear();
+
+        for (RuntimeModel* model : ReleasedModels) {
+            if (model == nullptr) {
+                continue;
+            }
+
+            GameCubeRuntimeModel* runtimeModel = static_cast<GameCubeRuntimeModel*>(model);
+            ReleaseOwnedSourceModelAsset(runtimeModel);
+            Array<RuntimeSubmesh*>* submeshes = runtimeModel->get_Submeshes();
+            if (submeshes != nullptr && submeshes != Array<RuntimeSubmesh*>::Empty()) {
+                for (int32_t submeshIndex = 0; submeshIndex < submeshes->get_Length(); submeshIndex++) {
+                    delete (*submeshes)[submeshIndex];
+                }
+
+                delete submeshes;
+            }
+
+            if (runtimeModel->Positions != nullptr && runtimeModel->Positions != Array<float3>::Empty()) {
+                delete runtimeModel->Positions;
+            }
+
+            if (runtimeModel->Normals != nullptr && runtimeModel->Normals != Array<float3>::Empty()) {
+                delete runtimeModel->Normals;
+            }
+
+            if (runtimeModel->TexCoords != nullptr && runtimeModel->TexCoords != Array<float2>::Empty()) {
+                delete runtimeModel->TexCoords;
+            }
+
+            if (runtimeModel->Indices16 != nullptr && runtimeModel->Indices16 != Array<uint16_t>::Empty()) {
+                delete runtimeModel->Indices16;
+            }
+
+            if (runtimeModel->Indices32 != nullptr && runtimeModel->Indices32 != Array<uint32_t>::Empty()) {
+                delete runtimeModel->Indices32;
+            }
+
+            delete runtimeModel;
+        }
+
+        ReleasedModels.clear();
+    }
+
+    /// Releases one GameCube runtime model after the final scene reference is removed.
+    void GameCubeRenderManager3D::ReleaseModel(RuntimeModel* model) {
+        if (model == nullptr) {
+            throw new ArgumentNullException("model");
+        }
+
+        ReleasedModels.push_back(model);
     }
 
     /// Extracts the current frame and renders it through GX.
@@ -118,23 +273,6 @@ namespace helengine::gamecube {
         }
 
         ExtractedFrameCount++;
-        if (ExtractedFrameCount <= 5U || (ExtractedFrameCount % 60U) == 0U) {
-            RenderFrameDrawableSubmission* firstSubmission = (*framePlan->DrawableSubmissions)[0];
-            Entity* firstEntity = firstSubmission->get_Drawable()->get_Parent();
-            const float3 firstEntityPosition = firstEntity->get_Position();
-            SYS_Report(
-                "[GC] Frame %u extracted. submissions=%d viewport=(%.2f, %.2f, %.2f, %.2f) firstEntity=(%.3f, %.3f, %.3f) submesh=%d\n",
-                ExtractedFrameCount,
-                framePlan->DrawableSubmissions->get_Count(),
-                framePlan->Viewport.X,
-                framePlan->Viewport.Y,
-                framePlan->Viewport.Z,
-                framePlan->Viewport.W,
-                firstEntityPosition.X,
-                firstEntityPosition.Y,
-                firstEntityPosition.Z,
-                firstSubmission->get_SubmeshIndex());
-        }
         HasRenderedSceneValue = RasterRenderer->DrawFrame(framePlan);
         delete framePlan;
     }
@@ -176,5 +314,32 @@ namespace helengine::gamecube {
             }),
             Array<MaterialLayoutBinding*>::Empty(),
             Array<MaterialLayoutBinding*>::Empty());
+    }
+
+    /// Releases one owned deserialized cooked model payload attached to a GameCube runtime model.
+    void GameCubeRenderManager3D::ReleaseOwnedSourceModelAsset(GameCubeRuntimeModel* runtimeModel) {
+        if (runtimeModel == nullptr || runtimeModel->OwnedSourceModelAsset == nullptr) {
+            return;
+        }
+
+        ModelAsset* ownedSourceModelAsset = runtimeModel->OwnedSourceModelAsset;
+        Array<ModelSubmeshAsset*>* submeshes = ownedSourceModelAsset->Submeshes;
+        ownedSourceModelAsset->Positions = nullptr;
+        ownedSourceModelAsset->Normals = nullptr;
+        ownedSourceModelAsset->TexCoords = nullptr;
+        ownedSourceModelAsset->Indices16 = nullptr;
+        ownedSourceModelAsset->Indices32 = nullptr;
+        ownedSourceModelAsset->Submeshes = nullptr;
+        runtimeModel->OwnedSourceModelAsset = nullptr;
+
+        if (submeshes != nullptr) {
+            for (int32_t submeshIndex = 0; submeshIndex < submeshes->get_Length(); submeshIndex++) {
+                delete (*submeshes)[submeshIndex];
+            }
+
+            delete submeshes;
+        }
+
+        delete ownedSourceModelAsset;
     }
 }

@@ -84,20 +84,34 @@ namespace helengine::gamecube {
             return true;
         }
 
-        static uint32_t captureFrameIndex = 0U;
-        captureFrameIndex++;
+        for (int32_t submissionIndex = 0; submissionIndex < framePlan->DrawableSubmissions->get_Count(); submissionIndex++) {
+            RenderFrameDrawableSubmission* submission = (*framePlan->DrawableSubmissions)[submissionIndex];
+            if (submission == nullptr || submission->get_Drawable() == nullptr) {
+                continue;
+            }
 
-        RenderFrameDrawableSubmission* submission = (*framePlan->DrawableSubmissions)[0];
-        Entity* entity = submission->get_Drawable()->get_Parent();
-        const float3 leftTriangleA(-0.8f, -0.8f, -0.5f);
-        const float3 leftTriangleB(0.0f, 0.8f, -0.5f);
-        const float3 leftTriangleC(0.8f, -0.8f, -0.5f);
-        const float3 rightTriangleA(-0.6f, -0.6f, -0.5f);
-        const float3 rightTriangleB(0.2f, 0.9f, -0.5f);
-        const float3 rightTriangleC(0.9f, -0.4f, -0.5f);
+            GameCubeRuntimeModel* runtimeModel = MeshCache->Resolve(submission->get_Drawable()->get_Model());
+            if (runtimeModel == nullptr) {
+                throw new InvalidOperationException("GameCube mesh cache must resolve runtime models for extracted drawable submissions.");
+            }
 
-        DrawCaptureTriangle(framePlan, entity, leftTriangleA, leftTriangleB, leftTriangleC, captureFrameIndex, 0);
-        DrawCaptureTriangle(framePlan, entity, rightTriangleA, rightTriangleB, rightTriangleC, captureFrameIndex, 1);
+            Array<RuntimeSubmesh*>* submeshes = runtimeModel->get_Submeshes();
+            if (submeshes == nullptr || submeshes == Array<RuntimeSubmesh*>::Empty()) {
+                throw new InvalidOperationException("GameCube runtime models must provide runtime submesh metadata.");
+            }
+
+            const int32_t submeshIndex = submission->get_SubmeshIndex();
+            if (submeshIndex < 0 || submeshIndex >= submeshes->get_Length()) {
+                throw new InvalidOperationException("GameCube drawable submission submesh index is outside the runtime model submesh range.");
+            }
+
+            Entity* entity = submission->get_Drawable()->get_Parent();
+            if (entity == nullptr) {
+                throw new InvalidOperationException("GameCube drawable submissions require a parent entity.");
+            }
+
+            DrawSubmesh(framePlan, submission, runtimeModel, (*submeshes)[submeshIndex], entity);
+        }
 
         return true;
     }
@@ -442,16 +456,16 @@ namespace helengine::gamecube {
 
     /// Returns whether one of the two simulated capture triangles should be emitted this frame.
     bool GameCubeRasterRenderer::ShouldDrawCaptureTriangle(uint32_t frameIndex, int32_t triangleIndex) const {
-        const uint32_t phase = frameIndex % 180U;
-        if (phase >= 40U && phase < 52U) {
+        const uint32_t phase = frameIndex % 7200U;
+        if (phase >= 2100U && phase < 2280U) {
             return triangleIndex == 0;
         }
 
-        if (phase >= 100U && phase < 112U) {
+        if (phase >= 4200U && phase < 4380U) {
             return triangleIndex == 1;
         }
 
-        if (phase >= 150U && phase < 162U) {
+        if (phase >= 6200U && phase < 6440U) {
             return false;
         }
 
@@ -460,17 +474,17 @@ namespace helengine::gamecube {
 
     /// Returns one per-frame scale factor used to simulate the old matrix explosions.
     float GameCubeRasterRenderer::GetCaptureDistortionScale(uint32_t frameIndex) const {
-        const uint32_t phase = frameIndex % 180U;
-        if (phase >= 20U && phase < 28U) {
-            return 2.8f;
+        const uint32_t phase = frameIndex % 7200U;
+        if (phase >= 1200U && phase < 1440U) {
+            return 1.18f;
         }
 
-        if (phase >= 80U && phase < 88U) {
-            return 0.35f;
+        if (phase >= 3200U && phase < 3440U) {
+            return 0.84f;
         }
 
-        if (phase >= 120U && phase < 128U) {
-            return 4.5f;
+        if (phase >= 5200U && phase < 5440U) {
+            return 1.2f;
         }
 
         return 1.0f;
@@ -489,8 +503,9 @@ namespace helengine::gamecube {
         }
 
         const float distortionScale = GetCaptureDistortionScale(frameIndex);
-        const float offsetX = triangleIndex == 0 ? -2.0f : 2.0f;
-        const float offsetY = (frameIndex % 60U) < 30U ? 0.0f : 0.7f;
+        const float offsetX = triangleIndex == 0 ? -1.2f : -4.8f;
+        const float baseOffsetY = triangleIndex == 0 ? 0.0f : 3.2f;
+        const float offsetY = ((frameIndex % 1800U) < 900U ? 0.0f : 0.25f) + baseOffsetY;
 
         float4x4 modelViewMatrix;
         BuildBadCaptureModelViewMatrix(framePlan, entity, modelViewMatrix);

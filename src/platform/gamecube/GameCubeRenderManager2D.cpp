@@ -2,6 +2,8 @@
 
 #include "CameraComponent.hpp"
 #include "Core.hpp"
+#include "FontAsset.hpp"
+#include "FontInfo.hpp"
 #include "ICamera.hpp"
 #include "IDrawable2D.hpp"
 #include "ObjectManager.hpp"
@@ -27,6 +29,44 @@ namespace helengine::gamecube {
         runtimeTexture->set_Id(data->get_Id());
         runtimeTexture->LoadFromRaw(data);
         return runtimeTexture;
+    }
+
+    /// Releases one GameCube runtime texture previously created for one packaged scene asset.
+    void GameCubeRenderManager2D::ReleaseTexture(RuntimeTexture* texture) {
+        if (texture == nullptr) {
+            throw new ArgumentNullException("texture");
+        } else if (texture->get_IsEngineOwned()) {
+            return;
+        }
+
+        ReleasedTextures.push_back(texture);
+    }
+
+    /// Releases one GameCube font asset together with its owned runtime texture and source texture payload.
+    void GameCubeRenderManager2D::ReleaseFont(FontAsset* font) {
+        if (font == nullptr) {
+            throw new ArgumentNullException("font");
+        }
+
+        TextureAsset* sourceTextureAsset = font->get_SourceTextureAsset();
+        if (sourceTextureAsset != nullptr) {
+            if (sourceTextureAsset->Colors != nullptr && sourceTextureAsset->Colors != Array<uint8_t>::Empty()) {
+                delete sourceTextureAsset->Colors;
+                sourceTextureAsset->Colors = Array<uint8_t>::Empty();
+            }
+
+            if (sourceTextureAsset->PaletteColors != nullptr && sourceTextureAsset->PaletteColors != Array<uint8_t>::Empty()) {
+                delete sourceTextureAsset->PaletteColors;
+                sourceTextureAsset->PaletteColors = Array<uint8_t>::Empty();
+            }
+
+            delete sourceTextureAsset;
+        }
+
+        delete font->get_FontInfo();
+        delete font->get_Characters();
+        font->Dispose();
+        delete font;
     }
 
     /// Walks the active camera 2D queue and lets each drawable submit itself into this frame capture.
@@ -55,6 +95,19 @@ namespace helengine::gamecube {
         }
 
         drawable->Draw();
+    }
+
+    /// Releases deferred runtime textures after the scene manager reaches a safe transition boundary.
+    void GameCubeRenderManager2D::FlushReleasedTextures() {
+        for (RuntimeTexture* texture : ReleasedTextures) {
+            if (texture == nullptr) {
+                continue;
+            }
+
+            delete static_cast<GameCubeRuntimeTexture*>(texture);
+        }
+
+        ReleasedTextures.clear();
     }
 
     /// Clears previously captured 2D draw requests before the next engine frame begins.

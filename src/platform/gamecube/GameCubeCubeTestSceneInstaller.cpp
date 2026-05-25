@@ -3,7 +3,6 @@
 #include "CameraClearSettings.hpp"
 #include "CameraComponent.hpp"
 #include "DirectionalLightComponent.hpp"
-#include "DirectionalShadowTowerSpinComponent.hpp"
 #include "Entity.hpp"
 #include "MeshComponent.hpp"
 #include "RuntimeMaterial.hpp"
@@ -22,7 +21,6 @@ namespace helengine::gamecube {
         constexpr float CameraFarPlaneDistance = 64.0f;
         constexpr float DirectionalLightYawRadians = -0.65f;
         constexpr float DirectionalLightPitchRadians = -0.85f;
-        constexpr float CubeAngularSpeedRadians = 0.0f;
         constexpr float CubeHalfExtent = 0.5f;
     }
 
@@ -131,10 +129,6 @@ namespace helengine::gamecube {
         mesh->set_RenderOrder3D(0);
         cubeEntity->AddComponent(mesh);
 
-        DirectionalShadowTowerSpinComponent* spin = new DirectionalShadowTowerSpinComponent();
-        spin->set_BaseYawRadians(0.0f);
-        spin->set_AngularSpeedRadians(CubeAngularSpeedRadians);
-        cubeEntity->AddComponent(spin);
         return cubeEntity;
     }
 }

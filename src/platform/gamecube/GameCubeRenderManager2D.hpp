@@ -36,6 +36,12 @@ namespace helengine::gamecube {
         /// Builds one GameCube-native runtime texture from generated texture asset metadata.
         RuntimeTexture* BuildTextureFromRaw(TextureAsset* data) override;
 
+        /// Releases one GameCube runtime texture previously created for one packaged scene asset.
+        void ReleaseTexture(RuntimeTexture* texture) override;
+
+        /// Releases one GameCube font asset together with its owned runtime texture and source texture payload.
+        void ReleaseFont(FontAsset* font) override;
+
         /// Accepts a sprite draw request without issuing native rendering yet.
         void DrawSprite(ISpriteDrawable2D* sprite) override;
 
@@ -50,6 +56,9 @@ namespace helengine::gamecube {
 
         /// Visits one ordered 2D drawable from the active camera queue.
         void Visit(IDrawable2D* drawable) override;
+
+        /// Releases any deferred runtime-texture deletions after the scene manager reaches a safe scene-transition boundary.
+        void FlushReleasedTextures() override;
 
         /// Clears previously captured 2D draw requests before the next engine frame begins.
         void BeginFrame();
@@ -75,5 +84,8 @@ namespace helengine::gamecube {
 
         /// Captured rounded-rectangle draw requests in shared-engine render order.
         std::vector<GameCubeRoundedRectDrawCommand> RoundedRectQueue;
+
+        /// Runtime textures deferred until the renderer reaches a safe destruction boundary.
+        std::vector<RuntimeTexture*> ReleasedTextures;
     };
 }

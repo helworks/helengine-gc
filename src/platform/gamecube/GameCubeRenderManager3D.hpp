@@ -4,11 +4,9 @@
 
 #include "RenderManager3D.hpp"
 
-class MaterialAsset;
 class PlatformMaterialAsset;
 class RuntimeMaterial;
 class RuntimeModel;
-class ShaderAsset;
 class RendererBackendCapabilityProfile;
 class MaterialLayout;
 
@@ -17,6 +15,7 @@ namespace helengine::gamecube {
     class GameCubeRasterRenderer;
     class GameCubeRenderManager2D;
     class GameCubeRuntimeMaterial;
+    class GameCubeRuntimeModel;
     class GameCubeSceneRenderBridge;
 
     /// Orchestrates authored runtime model creation, frame extraction, and GX execution for the GameCube backend.
@@ -28,14 +27,26 @@ namespace helengine::gamecube {
         /// Releases owned GameCube renderer collaborators.
         ~GameCubeRenderManager3D() override;
 
-        /// Builds the minimal runtime material required for the first unlit GameCube draw path.
-        RuntimeMaterial* BuildMaterialFromRaw(MaterialAsset* materialAsset, ShaderAsset* shaderAsset) override;
-
         /// Builds the minimal runtime material required for the first cooked-material GameCube draw path.
         RuntimeMaterial* BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset) override;
 
+        /// Builds the minimal runtime material required for the first cooked-material GameCube draw path from one serialized cooked material asset path.
+        RuntimeMaterial* BuildMaterialFromCooked(std::string cookedAssetPath) override;
+
         /// Builds a GameCube runtime model that keeps authored submesh and geometry arrays alive.
         RuntimeModel* BuildModelFromRaw(ModelAsset* data) override;
+
+        /// Builds a GameCube runtime model from one serialized cooked model asset path.
+        RuntimeModel* BuildModelFromCooked(std::string cookedAssetPath) override;
+
+        /// Releases one GameCube runtime material after the final scene reference is removed.
+        void ReleaseMaterial(RuntimeMaterial* material) override;
+
+        /// Releases one GameCube runtime model after the final scene reference is removed.
+        void ReleaseModel(RuntimeModel* model) override;
+
+        /// Releases any deferred runtime-material and runtime-model deletions after the scene manager reaches a safe transition boundary.
+        void FlushReleasedAssets() override;
 
         /// Extracts the current frame and renders it through GX.
         void Draw() override;
@@ -67,7 +78,16 @@ namespace helengine::gamecube {
         /// Counts extracted GameCube scene frames for throttled diagnostics.
         uint32_t ExtractedFrameCount;
 
+        /// Runtime materials deferred until the renderer reaches a safe destruction boundary.
+        std::vector<RuntimeMaterial*> ReleasedMaterials;
+
+        /// Runtime models deferred until the renderer reaches a safe destruction boundary.
+        std::vector<RuntimeModel*> ReleasedModels;
+
         /// Builds the minimal shared-engine material layout needed for one diffuse texture binding.
         MaterialLayout* CreateCookedMaterialLayout();
+
+        /// Releases one owned deserialized cooked model payload attached to a GameCube runtime model.
+        void ReleaseOwnedSourceModelAsset(GameCubeRuntimeModel* runtimeModel);
     };
 }

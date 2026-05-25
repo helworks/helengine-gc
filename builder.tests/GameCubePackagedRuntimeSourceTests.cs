@@ -62,11 +62,14 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
         string sceneManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "SceneManager.cpp"));
         string contentManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "ContentManager.cpp"));
+        string platformMenuSceneResolverSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "PlatformMenuSceneResolver.cpp"));
+        string fontAssetBinarySerializerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "FontAssetBinarySerializer.cpp"));
         string fileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-input-gamecube", "system", "io", "file.cpp"));
         string generatedCoreNormalizerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeGeneratedCoreCompatibilityNormalizer.cs"));
 
         Assert.Contains("[GC] Packaged content root:", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] Packaged startup scene id:", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("[GC] Runtime build stamp:", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] First update begin.", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] First update completed.", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] Engine update threw Exception*:", applicationSource, StringComparison.Ordinal);
@@ -111,6 +114,11 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("RecordTraceState(\"LoadSceneImmediateBeforeSceneLoadServiceLoad\"", sceneManagerSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRecordSceneLoadRequest(sceneId.c_str());", sceneManagerSource, StringComparison.Ordinal);
         Assert.Contains("[GC] ContentManager opening asset:", contentManagerSource, StringComparison.Ordinal);
+        Assert.Contains("std::string PlatformMenuSceneResolver::DesktopMainMenuSceneId = \"Scenes/DemoDiscMainMenu.helen\";", platformMenuSceneResolverSource, StringComparison.Ordinal);
+        Assert.Contains("uint8_t FontAssetBinarySerializer::CurrentVersion = 5;", fontAssetBinarySerializerSource, StringComparison.Ordinal);
+        Assert.Contains("uint8_t FontAssetBinarySerializer::ExternalCookedAtlasPathVersion = 5;", fontAssetBinarySerializerSource, StringComparison.Ordinal);
+        Assert.Contains("FontAssetBinarySerializer::set_LastDeserializeStage(\"ReadCookedAtlasTexturePath\");", fontAssetBinarySerializerSource, StringComparison.Ordinal);
+        Assert.Contains("if (sourceTexture->Width > 0 && sourceTexture->Height > 0 && sourceTexture->Colors != nullptr && sourceTexture->Colors->get_Length() > 0)", fontAssetBinarySerializerSource, StringComparison.Ordinal);
         Assert.Contains("[GC] File::Exists path=", fileSource, StringComparison.Ordinal);
         Assert.Contains("[GC] File::OpenRead path=", fileSource, StringComparison.Ordinal);
         Assert.Contains("delete sourceTextureAsset;", renderManager2DSource, StringComparison.Ordinal);
@@ -119,6 +127,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("delete runtimeModel;", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("delete textureAsset->Colors;", generatedCoreNormalizerSource, StringComparison.Ordinal);
         Assert.Contains("NormalizeGeneratedCoreFile(generatedCoreRootPath, \"SceneManager.cpp\");", generatedCoreNormalizerSource, StringComparison.Ordinal);
+        Assert.Contains("NormalizeGeneratedCoreFile(generatedCoreRootPath, \"PlatformMenuSceneResolver.cpp\");", generatedCoreNormalizerSource, StringComparison.Ordinal);
+        Assert.Contains("NormalizePlatformMenuSceneResolverSource", generatedCoreNormalizerSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -255,10 +265,20 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string sceneRenderBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
         string runtimeModelSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeModel.hpp"));
         string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string renderManagerHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("List<RenderFrameLightSubmission*>* LightSubmissions;", framePlanSource, StringComparison.Ordinal);
         Assert.Contains("frame->get_LightSubmissions()", sceneRenderBridgeSource, StringComparison.Ordinal);
         Assert.Contains("Array<float3>* Normals;", runtimeModelSource, StringComparison.Ordinal);
+        Assert.Contains("ModelAsset* OwnedSourceModelAsset;", runtimeModelSource, StringComparison.Ordinal);
+        Assert.Contains("RuntimeModel* BuildModelFromCooked(std::string cookedAssetPath) override;", renderManagerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeModel* runtimeModel = static_cast<GameCubeRuntimeModel*>(BuildModelFromRaw(cookedModelAsset));", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("runtimeModel->OwnedSourceModelAsset = cookedModelAsset;", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("ReleaseOwnedSourceModelAsset(runtimeModel);", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRuntimeModel* runtimeModel = MeshCache->Resolve(submission->get_Drawable()->get_Model());", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("DrawSubmesh(framePlan, submission, runtimeModel, (*submeshes)[submeshIndex], entity);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("DrawCaptureTriangle(framePlan, entity", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("runtimeModel->Normals = data->Normals;", renderManagerSource, StringComparison.Ordinal);
     }
 
@@ -478,6 +498,10 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("Scenes/DemoDiscMainMenu.helen", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("const std::string startupSceneAliasId = \"DemoDiscMainMenu\";", bootstrapSource, StringComparison.Ordinal);
+        Assert.Contains("bool startupSceneSourceExists = false;", bootstrapSource, StringComparison.Ordinal);
+        Assert.Contains("const bool shouldAddStartupSceneAlias = !startupSceneAliasExists && startupSceneSourceExists;", bootstrapSource, StringComparison.Ordinal);
+        Assert.Contains("const std::size_t runtimeEntryCount = shouldAddStartupSceneAlias ? entryCount + 1U : entryCount;", bootstrapSource, StringComparison.Ordinal);
+        Assert.Contains("if (shouldAddStartupSceneAlias && StartupSceneId == entries[index].SceneId) {", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("new RuntimeSceneCatalogEntry(startupSceneAliasId, entries[index].CookedRelativePath)", bootstrapSource, StringComparison.Ordinal);
     }
 }

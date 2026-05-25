@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <ogc/dvd.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/pad.h>
 #include <ogc/system.h>
 
@@ -25,6 +26,37 @@
 #include "platform/gamecube/GameCubeRenderManager3D.hpp"
 #include "platform/gamecube/GameCubeSceneBootstrap.hpp"
 #endif
+
+namespace {
+    constexpr const char* BuildStamp = __DATE__ " " __TIME__;
+    u64 PendingSceneLoadStartTicks = 0;
+    std::string PendingSceneLoadSceneId;
+
+    void ReportCompletedSceneLoadIfPending() {
+        if (PendingSceneLoadStartTicks == 0) {
+            return;
+        }
+
+        const u64 elapsedTicks = gettime() - PendingSceneLoadStartTicks;
+        const double elapsedMilliseconds = ticks_to_millisecs(elapsedTicks);
+        SYS_Report(
+            "[GC] Scene load to first draw scene=%s elapsedMs=%.3f\n",
+            PendingSceneLoadSceneId.c_str(),
+            elapsedMilliseconds);
+        PendingSceneLoadStartTicks = 0;
+        PendingSceneLoadSceneId.clear();
+    }
+}
+
+extern "C" void GameCubeRecordSceneLoadRequest(const char* sceneId) {
+    PendingSceneLoadStartTicks = gettime();
+    PendingSceneLoadSceneId = sceneId != nullptr ? sceneId : "<null>";
+}
+
+extern "C" void GameCubeClearSceneLoadRequest() {
+    PendingSceneLoadStartTicks = 0;
+    PendingSceneLoadSceneId.clear();
+}
 
 namespace helengine::gamecube {
     namespace {
@@ -619,10 +651,13 @@ namespace helengine::gamecube {
     /// Initializes the generated engine core when generated sources are present in the build.
     bool GameCubeApplication::InitializeEngineCore() {
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
+        const char* initializationStage = "BeforeCoreConstruction";
         try {
+            initializationStage = "ConstructCore";
             SetBootPhase(GameCubeBootPhase::CoreConstruction, GXColor { 0xFF, 0xFF, 0x00, 0xFF });
             EngineCore = new Core();
 
+            initializationStage = "ReadInitializationOptions";
             SetBootPhase(GameCubeBootPhase::CoreOptions, GXColor { 0xFF, 0x80, 0x00, 0xFF });
             CoreInitializationOptions* options = EngineCore->get_InitializationOptions();
             if (options == nullptr) {
@@ -630,6 +665,7 @@ namespace helengine::gamecube {
                 return false;
             }
 
+            initializationStage = "ConfigureSceneBootstrap";
             SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0x00, 0x40, 0x80, 0xFF });
 #if HELENGINE_GAMECUBE_PACKAGED_DISC_BOOT
             if (!GameCubeSceneBootstrap::InitializePackagedDisc()) {
@@ -643,6 +679,7 @@ namespace helengine::gamecube {
             options->SceneCatalog = GameCubeSceneBootstrap::CreatePackagedSceneCatalog();
             const std::string packagedStartupSceneId = GameCubeSceneBootstrap::GetPackagedStartupSceneId();
             SYS_Report("[GC] Packaged startup scene id: %s\n", packagedStartupSceneId.c_str());
+            SYS_Report("[GC] Runtime build stamp: %s\n", BuildStamp);
 #else
             options->ContentRootPath = ".";
             options->SceneCatalog = nullptr;
@@ -653,21 +690,43 @@ namespace helengine::gamecube {
             options->RenderList2DInitialCapacity = 64;
             options->RenderList3DInitialCapacity = 64;
 
+            initializationStage = "ConstructBridgeServices";
             SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x00, 0xFF, 0xFF, 0xFF });
             EngineRenderManager3D = new GameCubeRenderManager3D();
             EngineRenderManager2D = new GameCubeRenderManager2D();
             EngineInputManager = new GameCubeInputManager();
             EnginePlatformInfo = new PlatformInfo("gamecube", "gc-headless");
 
+            initializationStage = "AddPrimaryWindow";
             SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0x00, 0x00, 0xFF, 0xFF });
             EngineRenderManager3D->AddWindow(0, RenderMode->fbWidth, RenderMode->efbHeight);
+            initializationStage = "InitializeCore";
             EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);
             SYS_Report("[GC] Engine core initialized.\n");
+        }
+        catch (const std::exception& exception) {
+            EngineInitialized = false;
+            FailBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
+            SYS_Report(
+                "[GC] Engine core initialization threw std::exception stage=%s message=%s\n",
+                initializationStage,
+                exception.what());
+            return false;
+        }
+        catch (Exception* exception) {
+            EngineInitialized = false;
+            FailBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
+            const char* exceptionMessage = exception != nullptr ? exception->what() : "<null>";
+            SYS_Report(
+                "[GC] Engine core initialization threw Exception stage=%s message=%s\n",
+                initializationStage,
+                exceptionMessage);
+            return false;
         }
         catch (...) {
             EngineInitialized = false;
             FailBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
-            SYS_Report("[GC] Engine core initialization threw.\n");
+            SYS_Report("[GC] Engine core initialization threw stage=%s.\n", initializationStage);
             return false;
         }
 
@@ -803,6 +862,12 @@ namespace helengine::gamecube {
             }
             EngineRenderManager2D->BeginFrame();
             EngineCore->Update();
+            if (EngineRenderManager2D != nullptr) {
+                EngineRenderManager2D->FlushReleasedTextures();
+            }
+            if (EngineRenderManager3D != nullptr) {
+                EngineRenderManager3D->FlushReleasedAssets();
+            }
             UpdateCompletedSincePresent = true;
             if (!FirstUpdateCompletedReported) {
                 SYS_Report("[GC] First update completed.\n");
@@ -810,7 +875,24 @@ namespace helengine::gamecube {
             }
             return true;
         }
+        catch (Exception* exception) {
+            GameCubeClearSceneLoadRequest();
+            EngineInitialized = false;
+            FailBootPhase(GameCubeBootPhase::CoreUpdate, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            SYS_Report(
+                "[GC] Engine update threw Exception*: %s\n",
+                exception != nullptr ? exception->what() : "<null>");
+            return false;
+        }
+        catch (const std::exception& exception) {
+            GameCubeClearSceneLoadRequest();
+            EngineInitialized = false;
+            FailBootPhase(GameCubeBootPhase::CoreUpdate, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            SYS_Report("[GC] Engine update threw std::exception: %s\n", exception.what());
+            return false;
+        }
         catch (...) {
+            GameCubeClearSceneLoadRequest();
             EngineInitialized = false;
             FailBootPhase(GameCubeBootPhase::CoreUpdate, GXColor { 0xFF, 0x00, 0x00, 0xFF });
             SYS_Report("[GC] Engine update threw.\n");
@@ -841,12 +923,6 @@ namespace helengine::gamecube {
 #else
             EngineCore->Draw();
             EngineRenderManager2D->Draw();
-            SYS_Report(
-                "[GC] 2D queue snapshot sprites=%lu text=%lu roundedRects=%lu has3D=%d\n",
-                static_cast<unsigned long>(EngineRenderManager2D->GetSpriteQueue().size()),
-                static_cast<unsigned long>(EngineRenderManager2D->GetTextQueue().size()),
-                static_cast<unsigned long>(EngineRenderManager2D->GetRoundedRectQueue().size()),
-                EngineRenderManager3D->HasRenderedScene() ? 1 : 0);
             EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);
             DrawCompletedSincePresent = true;
 #endif
@@ -854,9 +930,11 @@ namespace helengine::gamecube {
                 SYS_Report("[GC] First draw completed.\n");
                 FirstDrawCompletedReported = true;
             }
+            ReportCompletedSceneLoadIfPending();
             return true;
         }
         catch (Exception* exception) {
+            GameCubeClearSceneLoadRequest();
             EngineInitialized = false;
             FailBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0xFF, 0x00, 0x00, 0xFF });
             SYS_Report(
@@ -865,12 +943,14 @@ namespace helengine::gamecube {
             return false;
         }
         catch (const std::exception& exception) {
+            GameCubeClearSceneLoadRequest();
             EngineInitialized = false;
             FailBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0xFF, 0x00, 0x00, 0xFF });
             SYS_Report("[GC] Engine draw threw std::exception: %s\n", exception.what());
             return false;
         }
         catch (...) {
+            GameCubeClearSceneLoadRequest();
             EngineInitialized = false;
             FailBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0xFF, 0x00, 0x00, 0xFF });
             SYS_Report("[GC] Engine draw threw.\n");

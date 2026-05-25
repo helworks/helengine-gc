@@ -16,7 +16,7 @@ public static class GameCubePlatformDefinitionFactory {
     static string CreateDefaultSerializedTextureCookSettings() {
         return SerializeTextureCookSettings(new TextureAssetProcessorSettings {
             MaxResolution = 0,
-            ColorFormat = TextureAssetColorFormat.GxRgb5A3,
+            ColorFormatId = "GxRgb5A3",
             AlphaPrecision = TextureAssetAlphaPrecision.A8
         });
     }
@@ -28,7 +28,7 @@ public static class GameCubePlatformDefinitionFactory {
     static string CreateDefaultSerializedFontAtlasTextureCookSettings() {
         return SerializeTextureCookSettings(new TextureAssetProcessorSettings {
             MaxResolution = 0,
-            ColorFormat = TextureAssetColorFormat.GxRgb5A3,
+            ColorFormatId = "GxRgb5A3",
             AlphaPrecision = TextureAssetAlphaPrecision.A8
         });
     }
@@ -45,7 +45,7 @@ public static class GameCubePlatformDefinitionFactory {
 
         return JsonSerializer.Serialize(new Dictionary<string, object> {
             ["maxResolution"] = processorSettings.MaxResolution,
-            ["colorFormat"] = processorSettings.ColorFormat.ToString(),
+            ["colorFormat"] = processorSettings.ColorFormatId,
             ["alphaPrecision"] = processorSettings.AlphaPrecision.ToString()
         });
     }
@@ -57,13 +57,13 @@ public static class GameCubePlatformDefinitionFactory {
     static PlatformTextureFormatCapabilityDefinition CreateTextureFormatCapabilities() {
         return new PlatformTextureFormatCapabilityDefinition(
             [
-                TextureAssetColorFormat.GxRgb5A3
+                "GxRgb5A3"
             ],
             [
                 TextureAssetAlphaPrecision.A8
             ],
             [
-                new PlatformTextureFormatCombinationDefinition(TextureAssetColorFormat.GxRgb5A3, TextureAssetAlphaPrecision.A8)
+                new PlatformTextureFormatCombinationDefinition("GxRgb5A3", TextureAssetAlphaPrecision.A8)
             ]);
     }
 

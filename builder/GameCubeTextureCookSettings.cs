@@ -10,15 +10,17 @@ public sealed class GameCubeTextureCookSettings {
     /// Initializes one GameCube texture cook settings record.
     /// </summary>
     /// <param name="maxResolution">Maximum allowed output width or height, or zero when uncapped.</param>
-    /// <param name="colorFormat">Final serialized texture payload format.</param>
+    /// <param name="colorFormatId">Final serialized texture payload format identifier.</param>
     /// <param name="alphaPrecision">Final serialized alpha precision.</param>
-    public GameCubeTextureCookSettings(int maxResolution, TextureAssetColorFormat colorFormat, TextureAssetAlphaPrecision alphaPrecision) {
+    public GameCubeTextureCookSettings(int maxResolution, string colorFormatId, TextureAssetAlphaPrecision alphaPrecision) {
         if (maxResolution < 0) {
             throw new ArgumentOutOfRangeException(nameof(maxResolution), "Maximum resolution must be zero or greater.");
+        } else if (string.IsNullOrWhiteSpace(colorFormatId)) {
+            throw new ArgumentException("Color format id must be provided.", nameof(colorFormatId));
         }
 
         MaxResolution = maxResolution;
-        ColorFormat = colorFormat;
+        ColorFormatId = colorFormatId;
         AlphaPrecision = alphaPrecision;
     }
 
@@ -45,14 +47,11 @@ public sealed class GameCubeTextureCookSettings {
             ? alphaPrecisionElement.GetString() ?? string.Empty
             : string.Empty;
 
-        if (!Enum.TryParse(colorFormatName, ignoreCase: true, out TextureAssetColorFormat colorFormat)) {
-            throw new InvalidOperationException($"Unsupported GameCube texture color format '{colorFormatName}'.");
-        }
         if (!Enum.TryParse(alphaPrecisionName, ignoreCase: true, out TextureAssetAlphaPrecision alphaPrecision)) {
             throw new InvalidOperationException($"Unsupported GameCube texture alpha precision '{alphaPrecisionName}'.");
         }
 
-        return new GameCubeTextureCookSettings(maxResolution, colorFormat, alphaPrecision);
+        return new GameCubeTextureCookSettings(maxResolution, colorFormatName, alphaPrecision);
     }
 
     /// <summary>
@@ -61,9 +60,9 @@ public sealed class GameCubeTextureCookSettings {
     public int MaxResolution { get; }
 
     /// <summary>
-    /// Gets the final serialized texture payload format.
+    /// Gets the final serialized texture payload format identifier.
     /// </summary>
-    public TextureAssetColorFormat ColorFormat { get; }
+    public string ColorFormatId { get; }
 
     /// <summary>
     /// Gets the final serialized alpha precision.

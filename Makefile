@@ -39,6 +39,7 @@ SOURCES := \
 endif
 GENERATED_BRIDGE_SOURCES :=
 GENERATED_CORE_SOURCE :=
+GENERATED_CORE_TRANSLATION_UNIT :=
 
 CXX := $(DEVKITPPC)/bin/powerpc-eabi-g++
 CC := $(DEVKITPPC)/bin/powerpc-eabi-gcc
@@ -70,12 +71,16 @@ endif
 ifeq ($(strip $(HELENGINE_CORE_CPP_ROOT)),)
 CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_GENERATED_CORE=0
 else
-GENERATED_CORE_SOURCE := $(HELENGINE_CORE_CPP_ROOT)/helengine_core_unity.cpp
+ifneq ($(wildcard $(HELENGINE_CORE_CPP_ROOT)/helengine_core_amalgamated.cpp),)
+GENERATED_CORE_TRANSLATION_UNIT := helengine_core_amalgamated.cpp
+else ifneq ($(wildcard $(HELENGINE_CORE_CPP_ROOT)/helengine_core_unity.cpp),)
+GENERATED_CORE_TRANSLATION_UNIT := helengine_core_unity.cpp
+else
+$(error HELENGINE_CORE_CPP_ROOT does not contain helengine_core_amalgamated.cpp or helengine_core_unity.cpp)
+endif
+GENERATED_CORE_SOURCE := $(HELENGINE_CORE_CPP_ROOT)/$(GENERATED_CORE_TRANSLATION_UNIT)
 ifeq ($(wildcard $(GENERATED_CONFIG)),)
 $(error HELENGINE_CORE_CPP_ROOT does not contain helcpp_config.hpp)
-endif
-ifeq ($(wildcard $(GENERATED_CORE_SOURCE)),)
-$(error HELENGINE_CORE_CPP_ROOT does not contain helengine_core_unity.cpp)
 endif
 ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_COMPILER_GCC 1$$'),0)
 $(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_COMPILER_GCC 1)
@@ -108,11 +113,11 @@ ALL_SOURCE_SOURCES := $(SOURCES) $(GENERATED_BRIDGE_SOURCES)
 OBJECTS := $(patsubst $(SOURCE_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(ALL_SOURCE_SOURCES))
 
 ifneq ($(strip $(GENERATED_CORE_SOURCE)),)
-OBJECTS += $(BUILD_DIR)/generated/helengine_core_unity.o
+OBJECTS += $(BUILD_DIR)/generated/$(GENERATED_CORE_TRANSLATION_UNIT:.cpp=.o)
 endif
 
 CXXFLAGS := \
-	-std=gnu++17 \
+	-std=gnu++20 \
 	-O2 \
 	-Wall \
 	-Wextra \
@@ -178,7 +183,7 @@ $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/generated/helengine_core_unity.o: $(GENERATED_CORE_SOURCE)
+$(BUILD_DIR)/generated/$(GENERATED_CORE_TRANSLATION_UNIT:.cpp=.o): $(GENERATED_CORE_SOURCE)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 

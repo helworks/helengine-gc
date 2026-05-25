@@ -26,6 +26,11 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "FPSComponent.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "Entity.hpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "Entity.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "PlatformMenuSceneResolver.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "DemoDiscReturnToMenuRuntimeComponent.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "TextureAssetColorFormat.hpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "EditorAssetBinarySerializer.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "FontAssetBinarySerializer.cpp");
     }
 
     /// <summary>
@@ -79,6 +84,16 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
             return NormalizeEntityHeaderSource(normalizedContents);
         } else if (string.Equals(relativePath, "Entity.cpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeEntitySource(normalizedContents);
+        } else if (string.Equals(relativePath, "PlatformMenuSceneResolver.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizePlatformMenuSceneResolverSource(normalizedContents);
+        } else if (string.Equals(relativePath, "DemoDiscReturnToMenuRuntimeComponent.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeDemoDiscReturnToMenuRuntimeComponentSource(normalizedContents);
+        } else if (string.Equals(relativePath, "TextureAssetColorFormat.hpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeTextureAssetColorFormatHeaderSource(normalizedContents);
+        } else if (string.Equals(relativePath, "EditorAssetBinarySerializer.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeTextureColorFormatReaderSource(normalizedContents);
+        } else if (string.Equals(relativePath, "FontAssetBinarySerializer.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeFontAssetBinarySerializerSource(normalizedContents);
         }
 
         return normalizedContents;
@@ -115,10 +130,7 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
     /// <param name="contents">Generated runtime scene resolver source.</param>
     /// <returns>Normalized runtime scene resolver source.</returns>
     static string NormalizeRuntimeSceneAssetReferenceResolverSource(string contents) {
-        if (contents.Contains("BuildMaterialFromCooked(materialAsset)", StringComparison.Ordinal)
-            && contents.Contains("PlatformMaterialAsset *materialAsset", StringComparison.Ordinal)
-            && contents.Contains("materialAsset->TextureRelativePath", StringComparison.Ordinal)
-            && contents.Contains("delete textureAsset;", StringComparison.Ordinal)) {
+        if (UsesPointerBasedCookedPlatformMaterialContract(contents) || UsesPathBasedCookedPlatformMaterialContract(contents)) {
             return contents;
         }
 
@@ -203,10 +215,60 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
                 "::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(diffuseTexturePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}",
                 StringComparison.Ordinal);
         if (string.Equals(fallbackNormalizedContents, contents, StringComparison.Ordinal)) {
-            throw new InvalidOperationException("GameCube generated runtime scene asset resolver should resolve materials through the cooked platform material contract.");
+            if (UsesCookedPlatformMaterialContract(fallbackNormalizedContents)) {
+                return fallbackNormalizedContents;
+            }
+
+            throw new InvalidOperationException(
+                "GameCube generated runtime scene asset resolver should resolve materials through the cooked platform material contract. "
+                + $"PointerBased={UsesPointerBasedCookedPlatformMaterialContract(fallbackNormalizedContents)}; "
+                + $"PathBased={UsesPathBasedCookedPlatformMaterialContract(fallbackNormalizedContents)}.");
         }
 
         return fallbackNormalizedContents;
+    }
+
+    /// <summary>
+    /// Determines whether the generated runtime scene resolver already uses the cooked platform material contract expected by the GameCube packaged runtime.
+    /// </summary>
+    /// <param name="contents">Generated runtime scene resolver source.</param>
+    /// <returns>True when the resolver already loads cooked platform materials and binds packaged textures directly.</returns>
+    static bool UsesCookedPlatformMaterialContract(string contents) {
+        if (contents == null) {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        return UsesPointerBasedCookedPlatformMaterialContract(contents) || UsesPathBasedCookedPlatformMaterialContract(contents);
+    }
+
+    /// <summary>
+    /// Determines whether the generated runtime scene resolver already uses the legacy pointer-based cooked platform material contract.
+    /// </summary>
+    /// <param name="contents">Generated runtime scene resolver source.</param>
+    /// <returns>True when the resolver loads <c>PlatformMaterialAsset</c> instances directly and binds textures in the resolver.</returns>
+    static bool UsesPointerBasedCookedPlatformMaterialContract(string contents) {
+        if (contents == null) {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        return contents.Contains("::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);", StringComparison.Ordinal)
+            && contents.Contains("::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);", StringComparison.Ordinal)
+            && contents.Contains("if (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {", StringComparison.Ordinal)
+            && contents.Contains("runtimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Determines whether the generated runtime scene resolver already uses the current path-based cooked platform material contract.
+    /// </summary>
+    /// <param name="contents">Generated runtime scene resolver source.</param>
+    /// <returns>True when the resolver delegates cooked material creation directly to the renderer using packaged material paths.</returns>
+    static bool UsesPathBasedCookedPlatformMaterialContract(string contents) {
+        if (contents == null) {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        return contents.Contains("::RuntimeMaterial *generatedCookedRuntimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(generatedFullPath);", StringComparison.Ordinal)
+            && contents.Contains("::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(fullPath);", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -233,6 +295,139 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
             "{\n::FileStream *stream = File::OpenRead(fullPath);\n",
             "{\nSYS_Report(\"[GC] ContentManager opening asset: %s\\n\", fullPath.c_str());\n::FileStream *stream = File::OpenRead(fullPath);\n",
             "GameCube generated ContentManager.cpp should log resolved asset paths before opening packaged content.");
+    }
+
+    /// <summary>
+    /// Rewrites the generated packaged font reader so GameCube accepts the current shared font payload version and layout.
+    /// </summary>
+    /// <param name="contents">Generated packaged font reader source.</param>
+    /// <returns>Normalized packaged font reader source.</returns>
+    static string NormalizeFontAssetBinarySerializerSource(string contents) {
+        string normalizedContents = NormalizeTextureColorFormatReaderSource(contents);
+        normalizedContents = global::System.Text.RegularExpressions.Regex.Replace(
+            normalizedContents,
+            """uint8_t FontAssetBinarySerializer::CurrentVersion = \d+;""",
+            "uint8_t FontAssetBinarySerializer::CurrentVersion = 5;",
+            global::System.Text.RegularExpressions.RegexOptions.Multiline);
+        normalizedContents = global::System.Text.RegularExpressions.Regex.Replace(
+            normalizedContents,
+            """uint8_t FontAssetBinarySerializer::RuntimeTextureIdVersion = \d+;""",
+            "uint8_t FontAssetBinarySerializer::RuntimeTextureIdVersion = 2;",
+            global::System.Text.RegularExpressions.RegexOptions.Multiline);
+        normalizedContents = global::System.Text.RegularExpressions.Regex.Replace(
+            normalizedContents,
+            """uint8_t FontAssetBinarySerializer::TextureColorFormatVersion = \d+;""",
+            "uint8_t FontAssetBinarySerializer::TextureColorFormatVersion = 3;",
+            global::System.Text.RegularExpressions.RegexOptions.Multiline);
+        normalizedContents = global::System.Text.RegularExpressions.Regex.Replace(
+            normalizedContents,
+            """uint8_t FontAssetBinarySerializer::PaletteTextureMetadataVersion = \d+;""",
+            "uint8_t FontAssetBinarySerializer::PaletteTextureMetadataVersion = 4;",
+            global::System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        if (!normalizedContents.Contains("uint8_t FontAssetBinarySerializer::ExternalCookedAtlasPathVersion = 5;", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "uint8_t FontAssetBinarySerializer::TextureColorFormatVersion = 3;\n\n::TextureAssetAlphaPrecision FontAssetBinarySerializer::GetDefaultTextureAssetAlphaPrecision(::TextureAssetColorFormat colorFormat)\n",
+                "uint8_t FontAssetBinarySerializer::TextureColorFormatVersion = 3;\n\nuint8_t FontAssetBinarySerializer::ExternalCookedAtlasPathVersion = 5;\n\n::TextureAssetAlphaPrecision FontAssetBinarySerializer::GetDefaultTextureAssetAlphaPrecision(::TextureAssetColorFormat colorFormat)\n",
+                "GameCube generated FontAssetBinarySerializer.cpp should expose the external cooked atlas font version constant.");
+        }
+
+        if (UsesCurrentCookedAtlasFontDeserializer(normalizedContents)) {
+            return NormalizeCurrentCookedAtlasFontDeserializer(normalizedContents);
+        }
+
+        if (normalizedContents.Contains("uint8_t FontAssetBinarySerializer::CurrentVersion = 5;", StringComparison.Ordinal)
+            && normalizedContents.Contains("uint8_t FontAssetBinarySerializer::ExternalCookedAtlasPathVersion = 5;", StringComparison.Ordinal)
+            && normalizedContents.Contains("if (header->get_Version() >= ExternalCookedAtlasPathVersion)", StringComparison.Ordinal)
+            && normalizedContents.Contains("cookedAtlasTextureRelativePath = reader->ReadString();", StringComparison.Ordinal)) {
+            return normalizedContents;
+        }
+
+        const string fontDeserializerStartMarker = "FontAssetBinarySerializer::set_LastDeserializeStage(\"ReadFontInfo\");";
+        const string fontDeserializerEndMarker = "FontAssetBinarySerializer::set_LastDeserializeStage(\"ReadCharacterCount\");";
+        int fontDeserializerStartIndex = normalizedContents.IndexOf(fontDeserializerStartMarker, StringComparison.Ordinal);
+        int fontDeserializerEndIndex = normalizedContents.IndexOf(fontDeserializerEndMarker, StringComparison.Ordinal);
+        if (fontDeserializerStartIndex < 0 || fontDeserializerEndIndex <= fontDeserializerStartIndex) {
+            throw new InvalidOperationException("GameCube generated FontAssetBinarySerializer.cpp should deserialize version-5 font payloads using the shared cooked-atlas layout.");
+        }
+        normalizedContents =
+            normalizedContents[..fontDeserializerStartIndex]
+            + "::TextureAsset *sourceTexture = new ::TextureAsset();\n::FontInfo *fontInfo = nullptr;\nfloat lineHeight = 0.0f;\nint32_t atlasWidth = 0;\nint32_t atlasHeight = 0;\nif (header->get_Version() >= ExternalCookedAtlasPathVersion)\n{\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadCookedAtlasTexturePath\");\nreader->ReadString();\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadSourceTextureHeader\");\nsourceTexture->set_RuntimeAssetId(header->get_Version() >= RuntimeTextureIdVersion ? static_cast<uint64_t>(reader->ReadInt64()) : 0ul);\nsourceTexture->Width = reader->ReadUInt16();\nsourceTexture->Height = reader->ReadUInt16();\nsourceTexture->ColorFormat = header->get_Version() >= TextureColorFormatVersion ? ReadTextureAssetColorFormat(reader) : TextureAssetColorFormat::Rgba32;\nsourceTexture->AlphaPrecision = header->get_Version() >= PaletteTextureMetadataVersion ? ReadTextureAssetAlphaPrecision(reader) : GetDefaultTextureAssetAlphaPrecision(sourceTexture->ColorFormat);\nsourceTexture->PaletteColors = header->get_Version() >= PaletteTextureMetadataVersion ? reader->ReadByteArray() : Array<uint8_t>::Empty();\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadSourceTextureColors\");\nsourceTexture->Colors = reader->ReadByteArray();\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadFontInfo\");\nfontInfo = ([&]() {\nauto __ctor_arg_000000BE = reader->ReadString();\nauto __ctor_arg_000000BF = reader->ReadInt32();\nauto __ctor_arg_000000C0 = reader->ReadSingle();\nreturn new ::FontInfo(__ctor_arg_000000BE, __ctor_arg_000000BF, __ctor_arg_000000C0);\n})();\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadAtlasMetrics\");\nlineHeight = reader->ReadSingle();\natlasWidth = reader->ReadInt32();\natlasHeight = reader->ReadInt32();\n}\nelse {\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadFontInfo\");\nfontInfo = ([&]() {\nauto __ctor_arg_000000BE = reader->ReadString();\nauto __ctor_arg_000000BF = reader->ReadInt32();\nauto __ctor_arg_000000C0 = reader->ReadSingle();\nreturn new ::FontInfo(__ctor_arg_000000BE, __ctor_arg_000000BF, __ctor_arg_000000C0);\n})();\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadAtlasMetrics\");\nlineHeight = reader->ReadSingle();\natlasWidth = reader->ReadInt32();\natlasHeight = reader->ReadInt32();\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadSourceTextureHeader\");\nsourceTexture->set_RuntimeAssetId(header->get_Version() >= RuntimeTextureIdVersion ? static_cast<uint64_t>(reader->ReadInt64()) : 0ul);\nsourceTexture->Width = reader->ReadUInt16();\nsourceTexture->Height = reader->ReadUInt16();\nsourceTexture->ColorFormat = header->get_Version() >= TextureColorFormatVersion ? ReadTextureAssetColorFormat(reader) : TextureAssetColorFormat::Rgba32;\nsourceTexture->AlphaPrecision = header->get_Version() >= PaletteTextureMetadataVersion ? ReadTextureAssetAlphaPrecision(reader) : GetDefaultTextureAssetAlphaPrecision(sourceTexture->ColorFormat);\nsourceTexture->PaletteColors = header->get_Version() >= PaletteTextureMetadataVersion ? reader->ReadByteArray() : Array<uint8_t>::Empty();\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ReadSourceTextureColors\");\nsourceTexture->Colors = reader->ReadByteArray();\n}\n"
+            + normalizedContents[fontDeserializerEndIndex..];
+
+        const string fontTextureBuildStartMarker = "FontAssetBinarySerializer::set_LastDeserializeStage(\"BuildRuntimeTexture\");";
+        const string fontTextureBuildEndMarker = "FontAssetBinarySerializer::set_LastDeserializeStage(\"Complete\");";
+        int fontTextureBuildStartIndex = normalizedContents.IndexOf(fontTextureBuildStartMarker, StringComparison.Ordinal);
+        int fontTextureBuildEndIndex = normalizedContents.IndexOf(fontTextureBuildEndMarker, StringComparison.Ordinal);
+        if (fontTextureBuildStartIndex < 0 || fontTextureBuildEndIndex <= fontTextureBuildStartIndex) {
+            throw new InvalidOperationException("GameCube generated FontAssetBinarySerializer.cpp should only build runtime font textures when embedded atlas bytes are present.");
+        }
+        normalizedContents =
+            normalizedContents[..fontTextureBuildStartIndex]
+            + "FontAssetBinarySerializer::set_LastDeserializeStage(\"BuildRuntimeTexture\");\n::RuntimeTexture *texture = nullptr;\n::TextureAsset *storedSourceTextureAsset = nullptr;\nif (sourceTexture->Width > 0 && sourceTexture->Height > 0 && sourceTexture->Colors != nullptr && sourceTexture->Colors->get_Length() > 0)\n{\ntexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(sourceTexture);\nstoredSourceTextureAsset = sourceTexture;\n}\nFontAssetBinarySerializer::set_LastDeserializeStage(\"ConstructFontAsset\");\n::FontAsset *asset = ([&]() {\nauto __object_000000C6 = new ::FontAsset(fontInfo, texture, characters, lineHeight, atlasWidth, atlasHeight);\n__object_000000C6->set_SourceTextureAsset(storedSourceTextureAsset);\nreturn __object_000000C6;\n})();\n"
+            + normalizedContents[fontTextureBuildEndIndex..];
+
+        return normalizedContents;
+    }
+
+    /// <summary>
+    /// Returns true when the shared generated font reader already uses the current cooked-atlas payload layout.
+    /// </summary>
+    /// <param name="contents">Generated packaged font reader source.</param>
+    /// <returns>True when the source already matches the current shared cooked-atlas font layout.</returns>
+    static bool UsesCurrentCookedAtlasFontDeserializer(string contents) {
+        if (contents == null) {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        return contents.Contains("std::string cookedAtlasTextureRelativePath = String::Empty;", StringComparison.Ordinal)
+            && contents.Contains("if (header->get_Version() >= ExternalCookedAtlasPathVersion)", StringComparison.Ordinal)
+            && contents.Contains("cookedAtlasTextureRelativePath = reader->ReadString();", StringComparison.Ordinal)
+            && contents.Contains("set_CookedAtlasTextureRelativePath(cookedAtlasTextureRelativePath);", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Normalizes the current shared cooked-atlas font reader shape for GameCube by avoiding runtime texture creation when the cooked payload omits embedded atlas bytes.
+    /// </summary>
+    /// <param name="contents">Generated packaged font reader source that already matches the current cooked-atlas layout.</param>
+    /// <returns>Normalized packaged font reader source.</returns>
+    static string NormalizeCurrentCookedAtlasFontDeserializer(string contents) {
+        if (contents == null) {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        if (contents.Contains("::TextureAsset *storedSourceTextureAsset = nullptr;", StringComparison.Ordinal)
+            && contents.Contains("if (sourceTexture->Width > 0 && sourceTexture->Height > 0 && sourceTexture->Colors != nullptr && sourceTexture->Colors->get_Length() > 0)", StringComparison.Ordinal)) {
+            return contents;
+        }
+
+        global::System.Text.RegularExpressions.Match textureBuildMatch = global::System.Text.RegularExpressions.Regex.Match(
+            contents,
+            """::RuntimeTexture \*texture = Core::get_Instance\(\)->get_RenderManager2D\(\)->BuildTextureFromRaw\(sourceTexture\);\n::FontAsset \*asset = \(\[&\]\(\) \{\nauto (?<assetVariable>__object_[A-F0-9]+) = new ::FontAsset\(fontInfo, texture, characters, lineHeight, atlasWidth, atlasHeight\);\n\k<assetVariable>->set_SourceTextureAsset\(sourceTexture\);\n\k<assetVariable>->set_CookedAtlasTextureRelativePath\(cookedAtlasTextureRelativePath\);\nreturn \k<assetVariable>;\n\}\)\(\);""",
+            global::System.Text.RegularExpressions.RegexOptions.Multiline);
+        if (!textureBuildMatch.Success) {
+            throw new InvalidOperationException("GameCube generated FontAssetBinarySerializer.cpp should build cooked-atlas font assets through the current shared texture-construction block.");
+        }
+
+        string assetVariableName = textureBuildMatch.Groups["assetVariable"].Value;
+        string replacementBlock =
+            "::RuntimeTexture *texture = nullptr;\n"
+            + "::TextureAsset *storedSourceTextureAsset = nullptr;\n"
+            + "if (sourceTexture->Width > 0 && sourceTexture->Height > 0 && sourceTexture->Colors != nullptr && sourceTexture->Colors->get_Length() > 0)\n"
+            + "{\n"
+            + "texture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(sourceTexture);\n"
+            + "storedSourceTextureAsset = sourceTexture;\n"
+            + "}\n"
+            + "::FontAsset *asset = ([&]() {\n"
+            + $"auto {assetVariableName} = new ::FontAsset(fontInfo, texture, characters, lineHeight, atlasWidth, atlasHeight);\n"
+            + $"{assetVariableName}->set_SourceTextureAsset(storedSourceTextureAsset);\n"
+            + $"{assetVariableName}->set_CookedAtlasTextureRelativePath(cookedAtlasTextureRelativePath);\n"
+            + $"return {assetVariableName};\n"
+            + "})();";
+        return contents[..textureBuildMatch.Index]
+            + replacementBlock
+            + contents[(textureBuildMatch.Index + textureBuildMatch.Length)..];
     }
 
     /// <summary>
@@ -333,7 +528,8 @@ throw new NotSupportedException("This renderer does not support platform-owned c
     /// <param name="contents">Generated FPS component source.</param>
     /// <returns>Normalized generated FPS component source.</returns>
     static string NormalizeFpsComponentSource(string contents) {
-        if (contents.Contains("this->OverlayHost->Dispose();", StringComparison.Ordinal)) {
+        if (contents.Contains("this->OverlayHost->Dispose();", StringComparison.Ordinal)
+            || contents.Contains("overlayHost->Dispose();", StringComparison.Ordinal)) {
             return contents;
         }
 
@@ -412,6 +608,100 @@ throw new NotSupportedException("This renderer does not support platform-owned c
         }
 
         return normalizedContents;
+    }
+
+    /// <summary>
+    /// Rewrites the generated menu-scene resolver so packaged GameCube builds return to the authored packaged main-menu scene id.
+    /// </summary>
+    /// <param name="contents">Generated menu-scene resolver source.</param>
+    /// <returns>Normalized generated menu-scene resolver source.</returns>
+    static string NormalizePlatformMenuSceneResolverSource(string contents) {
+        if (contents.Contains("std::string PlatformMenuSceneResolver::DesktopMainMenuSceneId = \"Scenes/DemoDiscMainMenu.helen\";", StringComparison.Ordinal)) {
+            return contents;
+        }
+
+        return ReplaceRequired(
+            contents,
+            "std::string PlatformMenuSceneResolver::DesktopMainMenuSceneId = \"DemoDiscMainMenu\";\n",
+            "std::string PlatformMenuSceneResolver::DesktopMainMenuSceneId = \"Scenes/DemoDiscMainMenu.helen\";\n",
+            "GameCube generated PlatformMenuSceneResolver.cpp should route return-to-menu requests to the packaged main-menu scene id.");
+    }
+
+    /// <summary>
+    /// Rewrites the generated return-to-menu runtime component so GameCube builds can log whether the component updates and sees the B-button edge.
+    /// </summary>
+    /// <param name="contents">Generated return-to-menu runtime component source.</param>
+    /// <returns>Normalized generated return-to-menu runtime component source.</returns>
+    static string NormalizeDemoDiscReturnToMenuRuntimeComponentSource(string contents) {
+        string normalizedContents = contents;
+        if (!normalizedContents.Contains("#include <ogc/system.h>", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "#include \"system/diagnostics/stopwatch.hpp\"\n",
+                "#include \"system/diagnostics/stopwatch.hpp\"\n#include <ogc/system.h>\n",
+                "GameCube generated DemoDiscReturnToMenuRuntimeComponent.cpp should include SYS_Report support for input diagnostics.");
+        }
+
+        if (normalizedContents.Contains("[GC] ReturnToMenu update alive", StringComparison.Ordinal)) {
+            return normalizedContents;
+        }
+
+        return ReplaceRequired(
+            normalizedContents,
+            "void DemoDiscReturnToMenuRuntimeComponent::Update()\n{\n::InputSystem *inputSystem = Core::get_Instance()->get_Input();\nconst bool wasReturnPressed = this->WasKeyboardReturnPressed(inputSystem) || this->WasGamepadReturnPressed(inputSystem);\n    if (wasReturnPressed)\n    {\nCore::get_Instance()->get_SceneManager()->LoadScene(PlatformMenuSceneResolver::ResolveMainMenuSceneId(), SceneLoadMode::Single);\n    }\n}\n",
+            "void DemoDiscReturnToMenuRuntimeComponent::Update()\n{\nstatic bool hasLoggedAlive = false;\n::InputSystem *inputSystem = Core::get_Instance()->get_Input();\n::InputGamepadState currentState = inputSystem->GetGamepadState(0);\n::InputGamepadState previousState = inputSystem->GetPreviousGamepadState(0);\nconst bool eastDown = currentState.IsButtonDown(InputGamepadButton::East);\nconst bool eastWasDown = previousState.IsButtonDown(InputGamepadButton::East);\nconst bool northDown = currentState.IsButtonDown(InputGamepadButton::North);\nconst bool northWasDown = previousState.IsButtonDown(InputGamepadButton::North);\nconst bool selectDown = currentState.IsButtonDown(InputGamepadButton::Select);\nconst bool selectWasDown = previousState.IsButtonDown(InputGamepadButton::Select);\nif (!hasLoggedAlive) {\nSYS_Report(\"[GC] ReturnToMenu update alive connected=%d eastDown=%d eastWasDown=%d\\n\", currentState.get_Connected() ? 1 : 0, eastDown ? 1 : 0, eastWasDown ? 1 : 0);\nhasLoggedAlive = true;\n}\nconst bool wasReturnPressed = this->WasKeyboardReturnPressed(inputSystem) || this->WasGamepadReturnPressed(inputSystem);\n    if (wasReturnPressed)\n    {\nconst std::string targetSceneId = PlatformMenuSceneResolver::ResolveMainMenuSceneId();\nSYS_Report(\"[GC] ReturnToMenu pressed east=%d/%d north=%d/%d select=%d/%d target=%s\\n\", eastDown ? 1 : 0, eastWasDown ? 1 : 0, northDown ? 1 : 0, northWasDown ? 1 : 0, selectDown ? 1 : 0, selectWasDown ? 1 : 0, targetSceneId.c_str());\nCore::get_Instance()->get_SceneManager()->LoadScene(targetSceneId, SceneLoadMode::Single);\n    }\n}\n",
+            "GameCube generated DemoDiscReturnToMenuRuntimeComponent.cpp should log whether the runtime component updates and sees the return-to-menu input edge.");
+    }
+
+    /// <summary>
+    /// Rewrites the generated texture color-format enum so GameCube builds retain the GxRgb5A3 platform format value.
+    /// </summary>
+    /// <param name="contents">Generated texture color-format enum header source.</param>
+    /// <returns>Normalized generated texture color-format enum header source.</returns>
+    static string NormalizeTextureAssetColorFormatHeaderSource(string contents) {
+        if (contents.Contains("GxRgb5A3 = 4", StringComparison.Ordinal)) {
+            return contents;
+        }
+
+        return ReplaceRequired(
+            contents,
+            "    Indexed8 = 3\n};\n",
+            "    Indexed8 = 3,\n    GxRgb5A3 = 4\n};\n",
+            "GameCube generated TextureAssetColorFormat.hpp should include the GxRgb5A3 platform texture format.");
+    }
+
+    /// <summary>
+    /// Rewrites generated texture color-format readers so GameCube builds can deserialize GxRgb5A3 texture payloads.
+    /// </summary>
+    /// <param name="contents">Generated texture color-format reader source.</param>
+    /// <returns>Normalized generated texture color-format reader source.</returns>
+    static string NormalizeTextureColorFormatReaderSource(string contents) {
+        if (contents.Contains("TextureAssetColorFormat::GxRgb5A3", StringComparison.Ordinal)) {
+            return contents;
+        }
+
+        string normalizedContents = contents
+            .Replace(
+                "else     if (serializedValue == static_cast<uint8_t>(TextureAssetColorFormat::Indexed8))\n    {\nreturn TextureAssetColorFormat::Indexed8;    }\nthrow new InvalidOperationException(std::string(\"Unsupported serialized texture color format '\") + std::to_string(serializedValue) + std::string(\"'.\"));\n}",
+                "else     if (serializedValue == static_cast<uint8_t>(TextureAssetColorFormat::Indexed8))\n    {\nreturn TextureAssetColorFormat::Indexed8;    }\nelse     if (serializedValue == static_cast<uint8_t>(TextureAssetColorFormat::GxRgb5A3))\n    {\nreturn TextureAssetColorFormat::GxRgb5A3;    }\nthrow new InvalidOperationException(std::string(\"Unsupported serialized texture color format '\") + std::to_string(serializedValue) + std::string(\"'.\"));\n}",
+                StringComparison.Ordinal)
+            .Replace(
+                "else     if (serializedValue == static_cast<uint8_t>(TextureAssetColorFormat::Indexed8))\n    {\nreturn TextureAssetColorFormat::Indexed8;    }\nthrow new InvalidOperationException(std::string(\"Unsupported texture color format '\") + std::to_string(serializedValue) + std::string(\"'.\"));\n}",
+                "else     if (serializedValue == static_cast<uint8_t>(TextureAssetColorFormat::Indexed8))\n    {\nreturn TextureAssetColorFormat::Indexed8;    }\nelse     if (serializedValue == static_cast<uint8_t>(TextureAssetColorFormat::GxRgb5A3))\n    {\nreturn TextureAssetColorFormat::GxRgb5A3;    }\nthrow new InvalidOperationException(std::string(\"Unsupported texture color format '\") + std::to_string(serializedValue) + std::string(\"'.\"));\n}",
+                StringComparison.Ordinal)
+            .Replace(
+                "return TextureAssetColorFormat::Indexed8;    }\n}\n}\n}\nthrow new InvalidOperationException(std::string(\"Unsupported serialized texture color format '\") + std::to_string(serializedValue) + std::string(\"'.\"));\n}",
+                "return TextureAssetColorFormat::Indexed8;    }\nelse {\n    if (serializedValue == static_cast<uint8_t>(TextureAssetColorFormat::GxRgb5A3))\n    {\nreturn TextureAssetColorFormat::GxRgb5A3;    }\n}\n}\n}\n}\nthrow new InvalidOperationException(std::string(\"Unsupported serialized texture color format '\") + std::to_string(serializedValue) + std::string(\"'.\"));\n}",
+                StringComparison.Ordinal)
+            .Replace(
+                "return TextureAssetColorFormat::Indexed8;    }\n}\n}\n}\nthrow new InvalidOperationException(std::string(\"Unsupported texture color format '\") + std::to_string(serializedValue) + std::string(\"'.\"));\n}",
+                "return TextureAssetColorFormat::Indexed8;    }\nelse {\n    if (serializedValue == static_cast<uint8_t>(TextureAssetColorFormat::GxRgb5A3))\n    {\nreturn TextureAssetColorFormat::GxRgb5A3;    }\n}\n}\n}\n}\nthrow new InvalidOperationException(std::string(\"Unsupported texture color format '\") + std::to_string(serializedValue) + std::string(\"'.\"));\n}",
+                StringComparison.Ordinal);
+        if (normalizedContents.Contains("TextureAssetColorFormat::GxRgb5A3", StringComparison.Ordinal)) {
+            return normalizedContents;
+        }
+
+        throw new InvalidOperationException("GameCube generated texture color-format readers should recognize the GxRgb5A3 serialized value.");
     }
 
     /// <summary>
