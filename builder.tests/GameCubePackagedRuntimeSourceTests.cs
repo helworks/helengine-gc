@@ -515,6 +515,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         string runtimeModelSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeModel.hpp"));
         string meshCacheHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMeshCache.hpp"));
+        string meshCacheSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMeshCache.cpp"));
         string cachedMeshHeaderPath = Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeCachedMeshData.hpp");
 
         Assert.True(File.Exists(cachedMeshHeaderPath), "Expected GameCubeCachedMeshData.hpp to exist.");
@@ -524,5 +525,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("#include \"platform/gamecube/GameCubeCachedMeshData.hpp\"", runtimeModelSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeCachedMeshData* CachedMeshData;", runtimeModelSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeCachedMeshData", meshCacheHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeCachedMeshData* GameCubeMeshCache::BuildCachedMeshData(GameCubeRuntimeModel* runtimeModel)", meshCacheSource, StringComparison.Ordinal);
+        Assert.Contains("typedRuntimeModel->CachedMeshData = BuildCachedMeshData(typedRuntimeModel);", meshCacheSource, StringComparison.Ordinal);
     }
 }
