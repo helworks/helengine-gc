@@ -1,5 +1,6 @@
 #pragma once
 
+#include "platform/gamecube/GameCubeCachedMeshData.hpp"
 #include "ModelAsset.hpp"
 #include "RuntimeModel.hpp"
 #include "float2.hpp"
@@ -19,6 +20,7 @@ namespace helengine::gamecube {
             , Indices16(nullptr)
             , Indices32(nullptr)
             , Uses32BitIndices(false)
+            , CachedMeshData(nullptr)
             , OwnedSourceModelAsset(nullptr) {
         }
 
@@ -39,6 +41,9 @@ namespace helengine::gamecube {
 
         /// Tracks whether the runtime mesh must read from `Indices32`.
         bool Uses32BitIndices;
+
+        /// Owns the cached GameCube-native draw data built from the authored mesh arrays.
+        GameCubeCachedMeshData* CachedMeshData;
 
         /// Owns one deserialized cooked model asset when the runtime model was created from a packaged payload.
         ModelAsset* OwnedSourceModelAsset;

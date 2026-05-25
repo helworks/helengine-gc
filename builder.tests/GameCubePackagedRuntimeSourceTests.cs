@@ -506,4 +506,23 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("if (shouldAddStartupSceneAlias && StartupSceneId == entries[index].SceneId) {", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("new RuntimeSceneCatalogEntry(startupSceneAliasId, entries[index].CookedRelativePath)", bootstrapSource, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Ensures the runtime model and mesh cache expose the cached mesh ownership contract required by the GX-native mesh path.
+    /// </summary>
+    [Fact]
+    public void CachedMeshOwnershipSource_DefinesRuntimeOwnershipContract() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string runtimeModelSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeModel.hpp"));
+        string meshCacheHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMeshCache.hpp"));
+        string cachedMeshHeaderPath = Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeCachedMeshData.hpp");
+
+        Assert.True(File.Exists(cachedMeshHeaderPath), "Expected GameCubeCachedMeshData.hpp to exist.");
+        string cachedMeshHeaderSource = File.ReadAllText(cachedMeshHeaderPath);
+
+        Assert.Contains("class GameCubeCachedMeshData", cachedMeshHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("#include \"platform/gamecube/GameCubeCachedMeshData.hpp\"", runtimeModelSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeCachedMeshData* CachedMeshData;", runtimeModelSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeCachedMeshData", meshCacheHeaderSource, StringComparison.Ordinal);
+    }
 }
