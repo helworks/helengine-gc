@@ -77,7 +77,14 @@ namespace helengine::gamecube {
         GX_InvalidateTexAll();
 
         Mtx44 projectionMatrix;
-        CopyProjectionMatrixToGx(framePlan->Projection, projectionMatrix);
+        const float viewportHeight = framePlan->Viewport.W > 0.0f ? framePlan->Viewport.W : 1.0f;
+        const float aspectRatio = framePlan->Viewport.Z / viewportHeight;
+        guPerspective(
+            projectionMatrix,
+            45.0f,
+            aspectRatio,
+            framePlan->Camera->get_NearPlaneDistance(),
+            framePlan->Camera->get_FarPlaneDistance());
         GX_LoadProjectionMtx(projectionMatrix, GX_PERSPECTIVE);
 
         if (framePlan->DrawableSubmissions->get_Count() <= 0) {
@@ -176,7 +183,7 @@ namespace helengine::gamecube {
         GX_SetTevOp(GX_TEVSTAGE0, useTexturedBranch ? GX_MODULATE : GX_PASSCLR);
         GX_SetCullMode(GX_CULL_FRONT);
         GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
-        GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
+        GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
         GX_SetZCompLoc(GX_TRUE);
         GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
         GX_SetColorUpdate(GX_TRUE);
@@ -237,37 +244,17 @@ namespace helengine::gamecube {
     /// Copies one generated affine matrix directly into a GX position matrix without runtime reinterpretation.
     void GameCubeRasterRenderer::CopyAffineMatrixToGx(const float4x4& source, Mtx& destination) {
         destination[0][0] = source.M11;
-        destination[0][1] = source.M12;
-        destination[0][2] = source.M13;
-        destination[0][3] = source.M14;
-        destination[1][0] = source.M21;
+        destination[0][1] = source.M21;
+        destination[0][2] = source.M31;
+        destination[0][3] = source.M41;
+        destination[1][0] = source.M12;
         destination[1][1] = source.M22;
-        destination[1][2] = source.M23;
-        destination[1][3] = source.M24;
-        destination[2][0] = source.M31;
-        destination[2][1] = source.M32;
+        destination[1][2] = source.M32;
+        destination[1][3] = source.M42;
+        destination[2][0] = source.M13;
+        destination[2][1] = source.M23;
         destination[2][2] = source.M33;
-        destination[2][3] = source.M34;
-    }
-
-    /// Copies one generated projection matrix directly into a GX projection matrix without runtime reinterpretation.
-    void GameCubeRasterRenderer::CopyProjectionMatrixToGx(const float4x4& source, Mtx44& destination) {
-        destination[0][0] = source.M11;
-        destination[0][1] = source.M12;
-        destination[0][2] = source.M13;
-        destination[0][3] = source.M14;
-        destination[1][0] = source.M21;
-        destination[1][1] = source.M22;
-        destination[1][2] = source.M23;
-        destination[1][3] = source.M24;
-        destination[2][0] = source.M31;
-        destination[2][1] = source.M32;
-        destination[2][2] = source.M33;
-        destination[2][3] = source.M34;
-        destination[3][0] = source.M41;
-        destination[3][1] = source.M42;
-        destination[3][2] = source.M43;
-        destination[3][3] = source.M44;
+        destination[2][3] = source.M43;
     }
 
     /// Resolves whether one submission should use the lit branch for the current checkpoint.
@@ -413,19 +400,52 @@ namespace helengine::gamecube {
         float4 entityOrientation = entity->get_Orientation();
         float3 entityPosition = entity->get_Position();
         entityOrientation.Normalize();
+        const float xx = entityOrientation.X * entityOrientation.X;
+        const float yy = entityOrientation.Y * entityOrientation.Y;
+        const float zz = entityOrientation.Z * entityOrientation.Z;
+        const float xy = entityOrientation.X * entityOrientation.Y;
+        const float xz = entityOrientation.X * entityOrientation.Z;
+        const float yz = entityOrientation.Y * entityOrientation.Z;
+        const float xw = entityOrientation.X * entityOrientation.W;
+        const float yw = entityOrientation.Y * entityOrientation.W;
+        const float zw = entityOrientation.Z * entityOrientation.W;
 
-        float4x4 scaleMatrix;
-        float4x4::CreateScale(entityScale.X, entityScale.Y, entityScale.Z, scaleMatrix);
+        worldMatrix.M11 = (1.0f - (2.0f * (yy + zz))) * entityScale.X;
+        worldMatrix.M12 = (2.0f * (xy + zw)) * entityScale.X;
+        worldMatrix.M13 = (2.0f * (xz - yw)) * entityScale.X;
+        worldMatrix.M14 = 0.0f;
+        worldMatrix.M21 = (2.0f * (xy - zw)) * entityScale.Y;
+        worldMatrix.M22 = (1.0f - (2.0f * (zz + xx))) * entityScale.Y;
+        worldMatrix.M23 = (2.0f * (yz + xw)) * entityScale.Y;
+        worldMatrix.M24 = 0.0f;
+        worldMatrix.M31 = (2.0f * (xz + yw)) * entityScale.Z;
+        worldMatrix.M32 = (2.0f * (yz - xw)) * entityScale.Z;
+        worldMatrix.M33 = (1.0f - (2.0f * (yy + xx))) * entityScale.Z;
+        worldMatrix.M34 = 0.0f;
+        worldMatrix.M41 = entityPosition.X;
+        worldMatrix.M42 = entityPosition.Y;
+        worldMatrix.M43 = entityPosition.Z;
+        worldMatrix.M44 = 1.0f;
+    }
 
-        float4x4 rotationMatrix;
-        float4x4::CreateFromQuaternion(entityOrientation, rotationMatrix);
-
-        float4x4 translationMatrix;
-        float4x4::CreateTranslation(entityPosition, translationMatrix);
-
-        float4x4 scaledRotationMatrix;
-        float4x4::Multiply(scaleMatrix, rotationMatrix, scaledRotationMatrix);
-        float4x4::Multiply(scaledRotationMatrix, translationMatrix, worldMatrix);
+    /// Multiplies two row-vector matrices using the shared engine convention expected by the GameCube raster path.
+    void GameCubeRasterRenderer::MultiplyMatrices(const float4x4& left, const float4x4& right, float4x4& result) {
+        result.M11 = (((left.M11 * right.M11) + (left.M12 * right.M21)) + (left.M13 * right.M31)) + (left.M14 * right.M41);
+        result.M12 = (((left.M11 * right.M12) + (left.M12 * right.M22)) + (left.M13 * right.M32)) + (left.M14 * right.M42);
+        result.M13 = (((left.M11 * right.M13) + (left.M12 * right.M23)) + (left.M13 * right.M33)) + (left.M14 * right.M43);
+        result.M14 = (((left.M11 * right.M14) + (left.M12 * right.M24)) + (left.M13 * right.M34)) + (left.M14 * right.M44);
+        result.M21 = (((left.M21 * right.M11) + (left.M22 * right.M21)) + (left.M23 * right.M31)) + (left.M24 * right.M41);
+        result.M22 = (((left.M21 * right.M12) + (left.M22 * right.M22)) + (left.M23 * right.M32)) + (left.M24 * right.M42);
+        result.M23 = (((left.M21 * right.M13) + (left.M22 * right.M23)) + (left.M23 * right.M33)) + (left.M24 * right.M43);
+        result.M24 = (((left.M21 * right.M14) + (left.M22 * right.M24)) + (left.M23 * right.M34)) + (left.M24 * right.M44);
+        result.M31 = (((left.M31 * right.M11) + (left.M32 * right.M21)) + (left.M33 * right.M31)) + (left.M34 * right.M41);
+        result.M32 = (((left.M31 * right.M12) + (left.M32 * right.M22)) + (left.M33 * right.M32)) + (left.M34 * right.M42);
+        result.M33 = (((left.M31 * right.M13) + (left.M32 * right.M23)) + (left.M33 * right.M33)) + (left.M34 * right.M43);
+        result.M34 = (((left.M31 * right.M14) + (left.M32 * right.M24)) + (left.M33 * right.M34)) + (left.M34 * right.M44);
+        result.M41 = (((left.M41 * right.M11) + (left.M42 * right.M21)) + (left.M43 * right.M31)) + (left.M44 * right.M41);
+        result.M42 = (((left.M41 * right.M12) + (left.M42 * right.M22)) + (left.M43 * right.M32)) + (left.M44 * right.M42);
+        result.M43 = (((left.M41 * right.M13) + (left.M42 * right.M23)) + (left.M43 * right.M33)) + (left.M44 * right.M43);
+        result.M44 = (((left.M41 * right.M14) + (left.M42 * right.M24)) + (left.M43 * right.M34)) + (left.M44 * right.M44);
     }
 
     /// Builds one authored model-view matrix through the generated platform-adapted float4x4 runtime.
@@ -438,7 +458,7 @@ namespace helengine::gamecube {
 
         float4x4 worldMatrix;
         BuildWorldMatrix(entity, worldMatrix);
-        float4x4::Multiply(worldMatrix, framePlan->View, modelViewMatrix);
+        MultiplyMatrices(worldMatrix, framePlan->View, modelViewMatrix);
     }
 
     /// Builds one intentionally wrong model-view matrix used only by the temporary capture simulation.
@@ -451,7 +471,7 @@ namespace helengine::gamecube {
 
         float4x4 worldMatrix;
         BuildWorldMatrix(entity, worldMatrix);
-        float4x4::Multiply(framePlan->View, worldMatrix, modelViewMatrix);
+        MultiplyMatrices(framePlan->View, worldMatrix, modelViewMatrix);
     }
 
     /// Returns whether one of the two simulated capture triangles should be emitted this frame.

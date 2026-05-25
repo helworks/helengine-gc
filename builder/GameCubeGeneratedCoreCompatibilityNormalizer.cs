@@ -31,6 +31,8 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "TextureAssetColorFormat.hpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "EditorAssetBinarySerializer.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "FontAssetBinarySerializer.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "PointerInteractableHitResolver.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "StandardPlatformInputConfiguration.cpp");
     }
 
     /// <summary>
@@ -94,9 +96,37 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
             return NormalizeTextureColorFormatReaderSource(normalizedContents);
         } else if (string.Equals(relativePath, "FontAssetBinarySerializer.cpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeFontAssetBinarySerializerSource(normalizedContents);
+        } else if (string.Equals(relativePath, "PointerInteractableHitResolver.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizePointerInteractableHitResolverSource(normalizedContents);
+        } else if (string.Equals(relativePath, "StandardPlatformInputConfiguration.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeStandardPlatformInputConfigurationSource(normalizedContents);
         }
 
         return normalizedContents;
+    }
+
+    /// <summary>
+    /// Rewrites one generated null-conditional parent access that the current C++ generator still emits into the pointer interactable hit resolver.
+    /// </summary>
+    /// <param name="contents">Generated pointer interactable hit resolver source.</param>
+    /// <returns>Normalized pointer interactable hit resolver source.</returns>
+    static string NormalizePointerInteractableHitResolverSource(string contents) {
+        return contents.Replace(
+            "if (interactable?.Parent == nullptr || camera == nullptr)",
+            "if (interactable == nullptr || interactable->get_Parent() == nullptr || camera == nullptr)",
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Rewrites generated standard platform input configuration binding copies back to a native list so the GameCube generated core compiles against the current binding field type.
+    /// </summary>
+    /// <param name="contents">Generated standard platform input configuration source.</param>
+    /// <returns>Normalized standard platform input configuration source.</returns>
+    static string NormalizeStandardPlatformInputConfigurationSource(string contents) {
+        return contents.Replace(
+            "Array<::StandardPlatformActionBinding*> *copiedBindings = new Array<StandardPlatformActionBinding*>(bindings->get_Count());\nfor (int32_t index = 0; index < bindings->get_Count(); index++) {\n::StandardPlatformActionBinding *binding = (*bindings)[index];\n(*copiedBindings)[index] = (binding != nullptr ? binding : throw new InvalidOperationException(\"Standard platform action bindings cannot contain null entries.\"));\n}\nthis->Bindings = copiedBindings;",
+            "List<::StandardPlatformActionBinding*> *copiedBindings = new List<StandardPlatformActionBinding*>(bindings->get_Count());\nfor (int32_t index = 0; index < bindings->get_Count(); index++) {\n::StandardPlatformActionBinding *binding = (*bindings)[index];\ncopiedBindings->Add(binding != nullptr ? binding : throw new InvalidOperationException(\"Standard platform action bindings cannot contain null entries.\"));\n}\nthis->Bindings = copiedBindings;",
+            StringComparison.Ordinal);
     }
 
     /// <summary>

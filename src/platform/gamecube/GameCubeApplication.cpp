@@ -1002,6 +1002,9 @@ namespace helengine::gamecube {
         }
 #endif
         FrameBufferIndex ^= 1U;
+        GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
+        GX_SetColorUpdate(GX_TRUE);
+        GX_SetAlphaUpdate(GX_TRUE);
         GX_CopyDisp(FrameBuffers[FrameBufferIndex], GX_TRUE);
         GX_DrawDone();
         VIDEO_SetNextFramebuffer(FrameBuffers[FrameBufferIndex]);

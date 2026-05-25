@@ -103,10 +103,12 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("[GC] Packaged manifest entry count:", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("[GC] Packaged manifest entry[%u] scene=%s path=%s", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("GXColor { 0x64, 0x95, 0xED, 0xFF }", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("guPerspective(", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_LoadProjectionMtx(projectionMatrix, GX_PERSPECTIVE);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("EvaluateLitVertexColor(", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("submission->get_Material()", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetCullMode(GX_CULL_FRONT);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("ResolveGxCullMode(", rasterRendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("[GC] 2D queue snapshot", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("[GC] Frame %u extracted.", renderManagerSource, StringComparison.Ordinal);

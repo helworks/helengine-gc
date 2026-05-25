@@ -24,5 +24,11 @@ namespace helengine::gamecube {
 
         /// Builds the authored view matrix from the generated entity transform.
         float4x4 BuildViewMatrix(CameraComponent* camera);
+
+        /// Builds the authored perspective projection matrix using the shared row-vector convention expected by the GameCube raster path.
+        float4x4 BuildProjectionMatrix(CameraComponent* camera, float aspectRatio);
+
+        /// Multiplies two row-vector matrices using the shared engine convention expected by the GameCube frame plan.
+        void MultiplyMatrices(const float4x4& left, const float4x4& right, float4x4& result);
     };
 }

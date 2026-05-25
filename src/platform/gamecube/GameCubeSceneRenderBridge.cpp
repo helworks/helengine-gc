@@ -1,8 +1,9 @@
 #include "platform/gamecube/GameCubeSceneRenderBridge.hpp"
 
+#include <cmath>
+
 #include "AmbientLightComponent.hpp"
 #include "CameraComponent.hpp"
-#include "CameraProjectionUtils.hpp"
 #include "CameraViewportResolver.hpp"
 #include "Core.hpp"
 #include "DirectionalLightComponent.hpp"
@@ -60,9 +61,9 @@ namespace helengine::gamecube {
 
         float4 viewport = CameraViewportResolver::ResolveViewport(camera->get_Viewport(), targetWidth, targetHeight);
         float4x4 view = BuildViewMatrix(camera);
-        float4x4 projection = CameraProjectionUtils::CreatePerspectiveProjection(camera, static_cast<float>(3.14159265358979323846 / 4.0), viewport.Z / viewport.W);
+        float4x4 projection = BuildProjectionMatrix(camera, viewport.Z / viewport.W);
         float4x4 viewProjection;
-        float4x4::Multiply(view, projection, viewProjection);
+        MultiplyMatrices(view, projection, viewProjection);
         return new GameCubeFramePlan(
             camera,
             frame->get_DrawableSubmissions(),
@@ -112,8 +113,81 @@ namespace helengine::gamecube {
         float3 cameraForward = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), cameraOrientation);
         float3 cameraUp = float4::RotateVector(float3(0.0f, 1.0f, 0.0f), cameraOrientation);
         float3 cameraTarget = cameraPosition + cameraForward;
+        float3 backward = float3::Normalize(cameraPosition - cameraTarget);
+        float3 right = float3::Normalize(float3::Cross(cameraUp, backward));
+        float3 up = float3::Cross(backward, right);
         float4x4 view;
-        float4x4::CreateLookAt(cameraPosition, cameraTarget, cameraUp, view);
+        view.M11 = right.X;
+        view.M12 = up.X;
+        view.M13 = backward.X;
+        view.M14 = 0.0f;
+        view.M21 = right.Y;
+        view.M22 = up.Y;
+        view.M23 = backward.Y;
+        view.M24 = 0.0f;
+        view.M31 = right.Z;
+        view.M32 = up.Z;
+        view.M33 = backward.Z;
+        view.M34 = 0.0f;
+        view.M41 = -float3::Dot(right, cameraPosition);
+        view.M42 = -float3::Dot(up, cameraPosition);
+        view.M43 = -float3::Dot(backward, cameraPosition);
+        view.M44 = 1.0f;
         return view;
+    }
+
+    /// Builds the authored perspective projection matrix using the shared row-vector convention expected by the GameCube raster path.
+    float4x4 GameCubeSceneRenderBridge::BuildProjectionMatrix(CameraComponent* camera, float aspectRatio) {
+        if (camera == nullptr) {
+            throw new ArgumentNullException("camera");
+        } else if (aspectRatio <= 0.0f) {
+            throw new ArgumentOutOfRangeException("aspectRatio");
+        }
+
+        const float fieldOfView = static_cast<float>(3.14159265358979323846 / 4.0);
+        const float nearPlaneDistance = camera->get_NearPlaneDistance();
+        const float farPlaneDistance = camera->get_FarPlaneDistance();
+        const float yScale = 1.0f / static_cast<float>(std::tan(static_cast<double>(fieldOfView) * 0.5));
+        const float xScale = yScale / aspectRatio;
+        const float negFarRange = farPlaneDistance / (nearPlaneDistance - farPlaneDistance);
+
+        float4x4 projection;
+        projection.M11 = xScale;
+        projection.M12 = 0.0f;
+        projection.M13 = 0.0f;
+        projection.M14 = 0.0f;
+        projection.M21 = 0.0f;
+        projection.M22 = yScale;
+        projection.M23 = 0.0f;
+        projection.M24 = 0.0f;
+        projection.M31 = 0.0f;
+        projection.M32 = 0.0f;
+        projection.M33 = negFarRange;
+        projection.M34 = -1.0f;
+        projection.M41 = 0.0f;
+        projection.M42 = 0.0f;
+        projection.M43 = nearPlaneDistance * negFarRange;
+        projection.M44 = 0.0f;
+        return projection;
+    }
+
+    /// Multiplies two row-vector matrices using the shared engine convention expected by the GameCube frame plan.
+    void GameCubeSceneRenderBridge::MultiplyMatrices(const float4x4& left, const float4x4& right, float4x4& result) {
+        result.M11 = (((left.M11 * right.M11) + (left.M12 * right.M21)) + (left.M13 * right.M31)) + (left.M14 * right.M41);
+        result.M12 = (((left.M11 * right.M12) + (left.M12 * right.M22)) + (left.M13 * right.M32)) + (left.M14 * right.M42);
+        result.M13 = (((left.M11 * right.M13) + (left.M12 * right.M23)) + (left.M13 * right.M33)) + (left.M14 * right.M43);
+        result.M14 = (((left.M11 * right.M14) + (left.M12 * right.M24)) + (left.M13 * right.M34)) + (left.M14 * right.M44);
+        result.M21 = (((left.M21 * right.M11) + (left.M22 * right.M21)) + (left.M23 * right.M31)) + (left.M24 * right.M41);
+        result.M22 = (((left.M21 * right.M12) + (left.M22 * right.M22)) + (left.M23 * right.M32)) + (left.M24 * right.M42);
+        result.M23 = (((left.M21 * right.M13) + (left.M22 * right.M23)) + (left.M23 * right.M33)) + (left.M24 * right.M43);
+        result.M24 = (((left.M21 * right.M14) + (left.M22 * right.M24)) + (left.M23 * right.M34)) + (left.M24 * right.M44);
+        result.M31 = (((left.M31 * right.M11) + (left.M32 * right.M21)) + (left.M33 * right.M31)) + (left.M34 * right.M41);
+        result.M32 = (((left.M31 * right.M12) + (left.M32 * right.M22)) + (left.M33 * right.M32)) + (left.M34 * right.M42);
+        result.M33 = (((left.M31 * right.M13) + (left.M32 * right.M23)) + (left.M33 * right.M33)) + (left.M34 * right.M43);
+        result.M34 = (((left.M31 * right.M14) + (left.M32 * right.M24)) + (left.M33 * right.M34)) + (left.M34 * right.M44);
+        result.M41 = (((left.M41 * right.M11) + (left.M42 * right.M21)) + (left.M43 * right.M31)) + (left.M44 * right.M41);
+        result.M42 = (((left.M41 * right.M12) + (left.M42 * right.M22)) + (left.M43 * right.M32)) + (left.M44 * right.M42);
+        result.M43 = (((left.M41 * right.M13) + (left.M42 * right.M23)) + (left.M43 * right.M33)) + (left.M44 * right.M43);
+        result.M44 = (((left.M41 * right.M14) + (left.M42 * right.M24)) + (left.M43 * right.M34)) + (left.M44 * right.M44);
     }
 }

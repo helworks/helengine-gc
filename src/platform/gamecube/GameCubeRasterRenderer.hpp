@@ -61,9 +61,6 @@ namespace helengine::gamecube {
         /// Copies one generated affine matrix directly into a GX position matrix without runtime reinterpretation.
         void CopyAffineMatrixToGx(const float4x4& source, Mtx& destination);
 
-        /// Copies one generated projection matrix directly into a GX projection matrix without runtime reinterpretation.
-        void CopyProjectionMatrixToGx(const float4x4& source, Mtx44& destination);
-
         /// Resolves whether one submission should use the lit branch for the current checkpoint.
         bool UsesLitBranch(RenderFrameDrawableSubmission* submission);
 
@@ -87,6 +84,9 @@ namespace helengine::gamecube {
 
         /// Builds one authored world matrix through the generated platform-adapted float4x4 runtime.
         void BuildWorldMatrix(Entity* entity, float4x4& worldMatrix);
+
+        /// Multiplies two row-vector matrices using the shared engine convention expected by the GameCube raster path.
+        void MultiplyMatrices(const float4x4& left, const float4x4& right, float4x4& result);
 
         /// Builds one authored model-view matrix through the generated platform-adapted float4x4 runtime.
         void BuildModelViewMatrix(GameCubeFramePlan* framePlan, Entity* entity, float4x4& modelViewMatrix);
