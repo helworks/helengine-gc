@@ -21,6 +21,7 @@ class float4;
 class float4x4;
 
 namespace helengine::gamecube {
+    class GameCubeCachedMeshData;
     class GameCubeFramePlan;
     class GameCubeMeshCache;
     class GameCubeRenderManager2D;
@@ -47,7 +48,10 @@ namespace helengine::gamecube {
         GameCubeMeshCache* MeshCache;
 
         /// Configures the GX state used by the current opaque mesh path.
-        void ConfigurePipeline(bool useTexturedBranch);
+        void ConfigurePipeline(bool useTexturedBranch, bool useIndexedGeometry);
+
+        /// Binds the cached mesh arrays used by the indexed GameCube draw path.
+        void BindCachedMeshArrays(GameCubeCachedMeshData* cachedMeshData, bool useTexturedBranch);
 
         /// Converts the authored runtime clear settings into the presented GX clear color.
         GXColor ResolveClearColor(CameraClearSettings clearSettings);
@@ -102,6 +106,9 @@ namespace helengine::gamecube {
 
         /// Emits one temporary capture triangle through the intentionally bad transform path.
         void DrawCaptureTriangle(GameCubeFramePlan* framePlan, Entity* entity, const float3& localA, const float3& localB, const float3& localC, uint32_t frameIndex, int32_t triangleIndex);
+
+        /// Draws one unlit or textured cached submesh through indexed GX array submission.
+        void DrawCachedSubmesh(GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch);
 
         /// Draws one authored runtime submesh through immediate GX triangle submission and the active entity transform.
         void DrawSubmesh(GameCubeFramePlan* framePlan, RenderFrameDrawableSubmission* submission, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity);

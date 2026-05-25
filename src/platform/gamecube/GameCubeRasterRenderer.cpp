@@ -164,11 +164,11 @@ namespace helengine::gamecube {
     }
 
     /// Configures the GX state used by the current opaque mesh path.
-    void GameCubeRasterRenderer::ConfigurePipeline(bool useTexturedBranch) {
+    void GameCubeRasterRenderer::ConfigurePipeline(bool useTexturedBranch, bool useIndexedGeometry) {
         GX_ClearVtxDesc();
-        GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+        GX_SetVtxDesc(GX_VA_POS, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);
         GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
-        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? GX_DIRECT : GX_NONE);
+        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? (useIndexedGeometry ? GX_INDEX16 : GX_DIRECT) : GX_NONE);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
@@ -188,6 +188,24 @@ namespace helengine::gamecube {
         GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
         GX_SetColorUpdate(GX_TRUE);
         GX_SetAlphaUpdate(GX_FALSE);
+    }
+
+    /// Binds the cached mesh arrays used by the indexed GameCube draw path.
+    void GameCubeRasterRenderer::BindCachedMeshArrays(GameCubeCachedMeshData* cachedMeshData, bool useTexturedBranch) {
+        if (cachedMeshData == nullptr) {
+            throw new ArgumentNullException("cachedMeshData");
+        } else if (cachedMeshData->Positions == nullptr || cachedMeshData->Positions == Array<float3>::Empty() || cachedMeshData->Positions->Length == 0) {
+            throw new InvalidOperationException("GameCube cached mesh arrays must contain cached positions.");
+        }
+
+        GX_SetArray(GX_VA_POS, &(*cachedMeshData->Positions)[0], sizeof(float3));
+        if (useTexturedBranch) {
+            if (!cachedMeshData->HasTexCoords || cachedMeshData->TexCoords == nullptr || cachedMeshData->TexCoords == Array<float2>::Empty() || cachedMeshData->TexCoords->Length == 0) {
+                throw new InvalidOperationException("GameCube textured cached mesh arrays require cached texture coordinates.");
+            }
+
+            GX_SetArray(GX_VA_TEX0, &(*cachedMeshData->TexCoords)[0], sizeof(float2));
+        }
     }
 
     /// Configures the GX state used by the current 2D overlay path.
@@ -540,7 +558,7 @@ namespace helengine::gamecube {
         GX_LoadPosMtxImm(nativeModelViewMatrix, GX_PNMTX0);
         GX_SetCurrentMtx(GX_PNMTX0);
 
-        ConfigurePipeline(false);
+        ConfigurePipeline(false, false);
         GX_SetCullMode(GX_CULL_NONE);
 
         GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
@@ -593,14 +611,27 @@ namespace helengine::gamecube {
             throw new InvalidOperationException("GameCube textured material requires one resolved runtime texture.");
         }
 
+        GameCubeCachedMeshData* cachedMeshData = runtimeModel->CachedMeshData;
+        if (cachedMeshData == nullptr) {
+            throw new InvalidOperationException("GameCube drawable submission requires cached mesh data.");
+        }
+
         const bool useTexturedBranch = boundTexture != nullptr;
-        ConfigurePipeline(useTexturedBranch);
-        GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
         if (useTexturedBranch) {
             GX_LoadTexObj(boundTexture->GetNativeTextureObject(), GX_TEXMAP0);
         }
 
         const bool useLitBranch = UsesLitBranch(submission);
+        if (!useLitBranch) {
+            ConfigurePipeline(useTexturedBranch, true);
+            GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
+            BindCachedMeshArrays(cachedMeshData, useTexturedBranch);
+            DrawCachedSubmesh(cachedMeshData, runtimeSubmesh, useTexturedBranch);
+            return;
+        }
+
+        ConfigurePipeline(useTexturedBranch, false);
+        GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
         GX_Begin(GX_TRIANGLES, GX_VTXFMT0, runtimeSubmesh->get_IndexCount());
         for (int32_t indexOffset = 0; indexOffset < runtimeSubmesh->get_IndexCount(); indexOffset++) {
             const uint32_t positionIndex = runtimeModel->Uses32BitIndices
@@ -627,6 +658,34 @@ namespace helengine::gamecube {
 
                 const float2 textureCoordinate = (*runtimeModel->TexCoords)[positionIndex];
                 GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);
+            }
+        }
+        GX_End();
+    }
+
+    /// Draws one unlit or textured cached submesh through indexed GX array submission.
+    void GameCubeRasterRenderer::DrawCachedSubmesh(GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch) {
+        if (cachedMeshData == nullptr) {
+            throw new ArgumentNullException("cachedMeshData");
+        } else if (runtimeSubmesh == nullptr) {
+            throw new ArgumentNullException("runtimeSubmesh");
+        } else if (cachedMeshData->Indices16 == nullptr || cachedMeshData->Indices16 == Array<uint16_t>::Empty() || cachedMeshData->Indices16->Length == 0) {
+            throw new InvalidOperationException("GameCube cached mesh arrays must contain cached 16-bit indices.");
+        }
+
+        const int32_t indexStart = runtimeSubmesh->get_IndexStart();
+        const int32_t indexCount = runtimeSubmesh->get_IndexCount();
+        if (indexStart < 0 || indexCount <= 0 || indexStart + indexCount > cachedMeshData->Indices16->Length) {
+            throw new InvalidOperationException("GameCube cached submesh ranges must stay within the cached index buffer.");
+        }
+
+        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, indexCount);
+        for (int32_t indexOffset = 0; indexOffset < indexCount; indexOffset++) {
+            const uint16_t cachedIndex = (*cachedMeshData->Indices16)[indexStart + indexOffset];
+            GX_Position1x16(cachedIndex);
+            GX_Color4u8(OpaqueMeshColorRed, OpaqueMeshColorGreen, OpaqueMeshColorBlue, OpaqueMeshColorAlpha);
+            if (useTexturedBranch) {
+                GX_TexCoord1x16(cachedIndex);
             }
         }
         GX_End();

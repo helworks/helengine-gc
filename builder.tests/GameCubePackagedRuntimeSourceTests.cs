@@ -528,4 +528,21 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GameCubeCachedMeshData* GameCubeMeshCache::BuildCachedMeshData(GameCubeRuntimeModel* runtimeModel)", meshCacheSource, StringComparison.Ordinal);
         Assert.Contains("typedRuntimeModel->CachedMeshData = BuildCachedMeshData(typedRuntimeModel);", meshCacheSource, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Ensures the unlit and textured GameCube 3D path uses cached indexed GX arrays instead of walking authored geometry arrays directly.
+    /// </summary>
+    [Fact]
+    public void CachedMeshRenderSource_UsesIndexedGeometryForUnlitAndTexturedSubmeshes() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+
+        Assert.Contains("BindCachedMeshArrays", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("DrawCachedSubmesh", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("runtimeModel->CachedMeshData", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetArray(GX_VA_POS", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_Position1x16(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_TexCoord1x16(", rasterRendererSource, StringComparison.Ordinal);
+    }
 }
