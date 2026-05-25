@@ -622,45 +622,14 @@ namespace helengine::gamecube {
         }
 
         const bool useLitBranch = UsesLitBranch(submission);
-        if (!useLitBranch) {
-            ConfigurePipeline(useTexturedBranch, true);
-            GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
-            BindCachedMeshArrays(cachedMeshData, useTexturedBranch);
-            DrawCachedSubmesh(cachedMeshData, runtimeSubmesh, useTexturedBranch);
-            return;
-        }
-
-        ConfigurePipeline(useTexturedBranch, false);
+        ConfigurePipeline(useTexturedBranch, true);
         GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
-        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, runtimeSubmesh->get_IndexCount());
-        for (int32_t indexOffset = 0; indexOffset < runtimeSubmesh->get_IndexCount(); indexOffset++) {
-            const uint32_t positionIndex = runtimeModel->Uses32BitIndices
-                ? (*runtimeModel->Indices32)[runtimeSubmesh->get_IndexStart() + indexOffset]
-                : (*runtimeModel->Indices16)[runtimeSubmesh->get_IndexStart() + indexOffset];
-            const float3 localPosition = (*runtimeModel->Positions)[positionIndex];
-            GX_Position3f32(localPosition.X, localPosition.Y, localPosition.Z);
-
-            if (useLitBranch) {
-                if (runtimeModel->Normals == nullptr) {
-                    throw new InvalidOperationException("GameCube lit rendering requires authored mesh normals.");
-                }
-
-                GXColor litColor = EvaluateLitVertexColor(framePlan, entity, gameCubeRuntimeMaterial, (*runtimeModel->Normals)[positionIndex]);
-                GX_Color4u8(litColor.r, litColor.g, litColor.b, litColor.a);
-            } else {
-                GX_Color4u8(OpaqueMeshColorRed, OpaqueMeshColorGreen, OpaqueMeshColorBlue, OpaqueMeshColorAlpha);
-            }
-
-            if (useTexturedBranch) {
-                if (runtimeModel->TexCoords == nullptr) {
-                    throw new InvalidOperationException("GameCube textured rendering requires authored mesh texture coordinates.");
-                }
-
-                const float2 textureCoordinate = (*runtimeModel->TexCoords)[positionIndex];
-                GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);
-            }
+        BindCachedMeshArrays(cachedMeshData, useTexturedBranch);
+        if (useLitBranch) {
+            DrawCachedLitSubmesh(framePlan, entity, gameCubeRuntimeMaterial, cachedMeshData, runtimeSubmesh, useTexturedBranch);
+        } else {
+            DrawCachedSubmesh(cachedMeshData, runtimeSubmesh, useTexturedBranch);
         }
-        GX_End();
     }
 
     /// Draws one unlit or textured cached submesh through indexed GX array submission.
@@ -684,6 +653,43 @@ namespace helengine::gamecube {
             const uint16_t cachedIndex = (*cachedMeshData->Indices16)[indexStart + indexOffset];
             GX_Position1x16(cachedIndex);
             GX_Color4u8(OpaqueMeshColorRed, OpaqueMeshColorGreen, OpaqueMeshColorBlue, OpaqueMeshColorAlpha);
+            if (useTexturedBranch) {
+                GX_TexCoord1x16(cachedIndex);
+            }
+        }
+        GX_End();
+    }
+
+    /// Draws one lit cached submesh while keeping only vertex-color evaluation dynamic.
+    void GameCubeRasterRenderer::DrawCachedLitSubmesh(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        } else if (entity == nullptr) {
+            throw new ArgumentNullException("entity");
+        } else if (material == nullptr) {
+            throw new ArgumentNullException("material");
+        } else if (cachedMeshData == nullptr) {
+            throw new ArgumentNullException("cachedMeshData");
+        } else if (runtimeSubmesh == nullptr) {
+            throw new ArgumentNullException("runtimeSubmesh");
+        } else if (!cachedMeshData->HasNormals || cachedMeshData->Normals == nullptr || cachedMeshData->Normals == Array<float3>::Empty() || cachedMeshData->Normals->Length == 0) {
+            throw new InvalidOperationException("GameCube lit rendering requires cached mesh normals.");
+        } else if (cachedMeshData->Indices16 == nullptr || cachedMeshData->Indices16 == Array<uint16_t>::Empty() || cachedMeshData->Indices16->Length == 0) {
+            throw new InvalidOperationException("GameCube cached lit meshes must contain cached 16-bit indices.");
+        }
+
+        const int32_t indexStart = runtimeSubmesh->get_IndexStart();
+        const int32_t indexCount = runtimeSubmesh->get_IndexCount();
+        if (indexStart < 0 || indexCount <= 0 || indexStart + indexCount > cachedMeshData->Indices16->Length) {
+            throw new InvalidOperationException("GameCube cached lit submesh ranges must stay within the cached index buffer.");
+        }
+
+        GX_Begin(GX_TRIANGLES, GX_VTXFMT0, indexCount);
+        for (int32_t indexOffset = 0; indexOffset < indexCount; indexOffset++) {
+            const uint16_t cachedIndex = (*cachedMeshData->Indices16)[indexStart + indexOffset];
+            GX_Position1x16(cachedIndex);
+            GXColor litColor = EvaluateLitVertexColor(framePlan, entity, material, (*cachedMeshData->Normals)[cachedIndex]);
+            GX_Color4u8(litColor.r, litColor.g, litColor.b, litColor.a);
             if (useTexturedBranch) {
                 GX_TexCoord1x16(cachedIndex);
             }

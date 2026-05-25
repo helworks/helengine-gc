@@ -545,4 +545,18 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GX_Position1x16(", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_TexCoord1x16(", rasterRendererSource, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Ensures the lit GameCube mesh path keeps cached indexed geometry and limits dynamic work to per-vertex color evaluation.
+    /// </summary>
+    [Fact]
+    public void CachedMeshRenderSource_UsesCachedNormalsForLitGeometry() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+
+        Assert.Contains("DrawCachedLitSubmesh", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("cachedMeshData->Normals", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("EvaluateLitVertexColor(framePlan, entity, material, (*cachedMeshData->Normals)[cachedIndex])", rasterRendererSource, StringComparison.Ordinal);
+    }
 }

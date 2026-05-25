@@ -110,6 +110,9 @@ namespace helengine::gamecube {
         /// Draws one unlit or textured cached submesh through indexed GX array submission.
         void DrawCachedSubmesh(GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch);
 
+        /// Draws one lit cached submesh while keeping only vertex-color evaluation dynamic.
+        void DrawCachedLitSubmesh(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch);
+
         /// Draws one authored runtime submesh through immediate GX triangle submission and the active entity transform.
         void DrawSubmesh(GameCubeFramePlan* framePlan, RenderFrameDrawableSubmission* submission, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity);
 
