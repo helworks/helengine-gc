@@ -559,9 +559,14 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
         string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
+        Assert.Contains("void ConfigureLitPipeline(bool useTexturedBranch, bool useIndexedGeometry);", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("void ConfigureDirectionalLight(", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("DrawCachedLitSubmesh", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("cachedMeshData->PackedNormals", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetArray(GX_VA_NRM", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_Normal1x16(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetVtxDesc(GX_VA_NRM, GX_INDEX16);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetChanCtrl(GX_COLOR0A0", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_InitLightDir(", rasterRendererSource, StringComparison.Ordinal);
     }
 }

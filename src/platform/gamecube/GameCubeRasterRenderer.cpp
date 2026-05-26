@@ -190,6 +190,35 @@ namespace helengine::gamecube {
         GX_SetAlphaUpdate(GX_FALSE);
     }
 
+    /// Configures the GX state used by the indexed lit mesh path with GX fixed-function lighting enabled.
+    void GameCubeRasterRenderer::ConfigureLitPipeline(bool useTexturedBranch, bool useIndexedGeometry) {
+        GX_ClearVtxDesc();
+        GX_SetVtxDesc(GX_VA_POS, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);
+        GX_SetVtxDesc(GX_VA_NRM, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);
+        GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? (useIndexedGeometry ? GX_INDEX16 : GX_DIRECT) : GX_NONE);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+        GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+        GX_SetNumChans(1);
+        GX_SetChanCtrl(GX_COLOR0A0, GX_ENABLE, GX_SRC_REG, GX_SRC_VTX, GX_LIGHT0, GX_DF_CLAMP, GX_AF_NONE);
+        GX_SetNumTexGens(useTexturedBranch ? 1 : 0);
+        if (useTexturedBranch) {
+            GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+        }
+        GX_SetNumTevStages(1);
+        GX_SetTevOrder(GX_TEVSTAGE0, useTexturedBranch ? GX_TEXCOORD0 : GX_TEXCOORDNULL, useTexturedBranch ? GX_TEXMAP0 : GX_TEXMAP_NULL, GX_COLOR0A0);
+        GX_SetTevOp(GX_TEVSTAGE0, useTexturedBranch ? GX_MODULATE : GX_PASSCLR);
+        GX_SetCullMode(GX_CULL_FRONT);
+        GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
+        GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
+        GX_SetZCompLoc(GX_TRUE);
+        GX_SetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
+        GX_SetColorUpdate(GX_TRUE);
+        GX_SetAlphaUpdate(GX_FALSE);
+    }
+
     /// Binds the cached mesh arrays used by the indexed GameCube draw path.
     void GameCubeRasterRenderer::BindCachedMeshArrays(GameCubeCachedMeshData* cachedMeshData, bool useTexturedBranch) {
         if (cachedMeshData == nullptr) {
@@ -206,6 +235,66 @@ namespace helengine::gamecube {
 
             GX_SetArray(GX_VA_TEX0, &(*cachedMeshData->PackedTexCoords)[0], sizeof(GameCubePackedTexCoord2));
         }
+    }
+
+    /// Configures one GX directional-light state block from the extracted render-frame lighting inputs.
+    void GameCubeRasterRenderer::ConfigureDirectionalLight(GameCubeFramePlan* framePlan, GXLightObj& lightObject, GXColor& ambientColor, bool& hasDirectionalLight) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        }
+
+        float3 ambientRgb(0.0f, 0.0f, 0.0f);
+        float3 directionalRgb(0.0f, 0.0f, 0.0f);
+        float3 directionalDirection(0.0f, 0.0f, -1.0f);
+        hasDirectionalLight = false;
+
+        for (int32_t lightIndex = 0; lightIndex < framePlan->LightSubmissions->get_Count(); lightIndex++) {
+            RenderFrameLightSubmission* submission = (*framePlan->LightSubmissions)[lightIndex];
+            if (submission == nullptr) {
+                continue;
+            }
+
+            LightComponent* light = submission->get_Light();
+            if (light == nullptr) {
+                continue;
+            }
+
+            float4 lightColor = light->get_Color();
+            float3 rgb = float3(lightColor.X, lightColor.Y, lightColor.Z) * light->get_Intensity();
+            if (submission->get_LightType() == LightType::Ambient) {
+                ambientRgb = ambientRgb + rgb;
+                continue;
+            } else if (submission->get_LightType() != LightType::Directional || hasDirectionalLight) {
+                continue;
+            }
+
+            Entity* lightEntity = light->get_Parent();
+            if (lightEntity == nullptr) {
+                continue;
+            }
+
+            float4 lightOrientation = lightEntity->get_Orientation();
+            lightOrientation.Normalize();
+            directionalDirection = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), lightOrientation) * -1.0f;
+            directionalDirection = float3::Normalize(directionalDirection);
+            directionalRgb = rgb;
+            hasDirectionalLight = true;
+        }
+
+        ambientColor = ConvertLightingColorToGx(ambientRgb);
+        GX_SetChanAmbColor(GX_COLOR0A0, ambientColor);
+        GX_SetChanMatColor(GX_COLOR0A0, GXColor { 0xFF, 0xFF, 0xFF, 0xFF });
+
+        if (!hasDirectionalLight) {
+            GX_InitLightDir(&lightObject, 0.0f, 0.0f, -1.0f);
+            GX_InitLightColor(&lightObject, GXColor { 0x00, 0x00, 0x00, 0xFF });
+            GX_LoadLightObjImm(&lightObject, GX_LIGHT0);
+            return;
+        }
+
+        GX_InitLightDir(&lightObject, directionalDirection.X, directionalDirection.Y, directionalDirection.Z);
+        GX_InitLightColor(&lightObject, ConvertLightingColorToGx(directionalRgb));
+        GX_LoadLightObjImm(&lightObject, GX_LIGHT0);
     }
 
     /// Configures the GX state used by the current 2D overlay path.

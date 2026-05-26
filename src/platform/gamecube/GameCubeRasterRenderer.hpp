@@ -50,8 +50,14 @@ namespace helengine::gamecube {
         /// Configures the GX state used by the current opaque mesh path.
         void ConfigurePipeline(bool useTexturedBranch, bool useIndexedGeometry);
 
+        /// Configures the GX state used by the indexed lit mesh path with GX fixed-function lighting enabled.
+        void ConfigureLitPipeline(bool useTexturedBranch, bool useIndexedGeometry);
+
         /// Binds the cached mesh arrays used by the indexed GameCube draw path.
         void BindCachedMeshArrays(GameCubeCachedMeshData* cachedMeshData, bool useTexturedBranch);
+
+        /// Configures one GX directional-light state block from the extracted render-frame lighting inputs.
+        void ConfigureDirectionalLight(GameCubeFramePlan* framePlan, GXLightObj& lightObject, GXColor& ambientColor, bool& hasDirectionalLight);
 
         /// Converts the authored runtime clear settings into the presented GX clear color.
         GXColor ResolveClearColor(CameraClearSettings clearSettings);
