@@ -401,6 +401,14 @@ namespace helengine::gamecube {
         GX_SetColorUpdate(GX_TRUE);
         GX_SetAlphaUpdate(GX_TRUE);
         GX_SetViewport(0.0F, 0.0F, static_cast<f32>(RenderMode->fbWidth), static_cast<f32>(RenderMode->efbHeight), 0.0F, 1.0F);
+        SYS_Report(
+            "[GC] Video mode fb=%ux%u efbHeight=%u xfbHeight=%u vi=%ux%u\n",
+            static_cast<unsigned>(RenderMode->fbWidth),
+            static_cast<unsigned>(RenderMode->efbHeight),
+            static_cast<unsigned>(RenderMode->efbHeight),
+            static_cast<unsigned>(xfbHeight),
+            static_cast<unsigned>(RenderMode->viWidth),
+            static_cast<unsigned>(RenderMode->viHeight));
         GX_InvVtxCache();
         GX_InvalidateTexAll();
         GX_SetCopyClear(GXColor { 0x00, 0x00, 0x00, 0xFF }, 0x00FFFFFF);

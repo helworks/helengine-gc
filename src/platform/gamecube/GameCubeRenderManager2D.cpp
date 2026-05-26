@@ -1,7 +1,11 @@
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 
+#include <ogc/system.h>
+
+#include "Asset.hpp"
 #include "CameraComponent.hpp"
 #include "Core.hpp"
+#include "EditorAssetBinarySerializer.hpp"
 #include "FontAsset.hpp"
 #include "FontInfo.hpp"
 #include "ICamera.hpp"
@@ -28,7 +32,57 @@ namespace helengine::gamecube {
         GameCubeRuntimeTexture* runtimeTexture = new GameCubeRuntimeTexture();
         runtimeTexture->set_Id(data->get_Id());
         runtimeTexture->LoadFromRaw(data);
+        SYS_Report(
+            "[GC] RM2D build raw texture id=%s size=%ux%u ptr=%p\n",
+            data->get_Id().c_str(),
+            static_cast<unsigned>(data->Width),
+            static_cast<unsigned>(data->Height),
+            runtimeTexture);
         return runtimeTexture;
+    }
+
+    /// Builds one GameCube-native runtime texture from one packaged cooked texture asset path.
+    RuntimeTexture* GameCubeRenderManager2D::BuildTextureFromCooked(std::string cookedAssetPath) {
+        if (cookedAssetPath.empty()) {
+            throw new ArgumentException("GameCube cooked texture path is required.", "cookedAssetPath");
+        }
+
+        ::FileStream* textureStream = ::File::OpenRead(cookedAssetPath);
+        try {
+            ::Asset* textureAssetPayload = ::EditorAssetBinarySerializer::Deserialize(textureStream);
+            ::TextureAsset* textureAsset = he_cpp_try_cast<::TextureAsset>(textureAssetPayload);
+            if (textureAsset == nullptr) {
+                throw new InvalidOperationException("GameCube cooked texture payload did not deserialize as TextureAsset.");
+            }
+
+            textureStream->Dispose();
+            RuntimeTexture* runtimeTexture = BuildTextureFromRaw(textureAsset);
+            SYS_Report(
+                "[GC] RM2D build cooked texture path=%s id=%s size=%ux%u ptr=%p\n",
+                cookedAssetPath.c_str(),
+                textureAsset->get_Id().c_str(),
+                static_cast<unsigned>(textureAsset->Width),
+                static_cast<unsigned>(textureAsset->Height),
+                runtimeTexture);
+            if (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {
+                delete textureAsset->Colors;
+                textureAsset->Colors = Array<uint8_t>::Empty();
+            }
+
+            if (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {
+                delete textureAsset->PaletteColors;
+                textureAsset->PaletteColors = Array<uint8_t>::Empty();
+            }
+
+            delete textureAsset;
+            return runtimeTexture;
+        } catch (...) {
+            if (textureStream != nullptr) {
+                textureStream->Dispose();
+            }
+
+            throw;
+        }
     }
 
     /// Releases one GameCube runtime texture previously created for one packaged scene asset.
@@ -39,6 +93,10 @@ namespace helengine::gamecube {
             return;
         }
 
+        SYS_Report(
+            "[GC] RM2D release texture queued id=%s ptr=%p\n",
+            texture->get_Id().c_str(),
+            texture);
         ReleasedTextures.push_back(texture);
     }
 
@@ -48,6 +106,11 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("font");
         }
 
+        SYS_Report(
+            "[GC] RM2D release font ptr=%p texture=%p atlasPath=%s\n",
+            font,
+            font->get_Texture(),
+            font->get_CookedAtlasTextureRelativePath().c_str());
         TextureAsset* sourceTextureAsset = font->get_SourceTextureAsset();
         if (sourceTextureAsset != nullptr) {
             if (sourceTextureAsset->Colors != nullptr && sourceTextureAsset->Colors != Array<uint8_t>::Empty()) {

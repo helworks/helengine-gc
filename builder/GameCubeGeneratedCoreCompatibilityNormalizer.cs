@@ -161,7 +161,7 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
     /// <returns>Normalized runtime scene resolver source.</returns>
     static string NormalizeRuntimeSceneAssetReferenceResolverSource(string contents) {
         if (UsesPointerBasedCookedPlatformMaterialContract(contents) || UsesPathBasedCookedPlatformMaterialContract(contents)) {
-            return contents;
+            return NormalizeRuntimeSceneAssetReferenceResolverLoggingSource(contents);
         }
 
         string normalizedContents = contents;
@@ -184,7 +184,7 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         if (normalizedContents.Contains("materialAsset->TextureRelativePath", StringComparison.Ordinal)
             && normalizedContents.Contains("delete textureAsset;", StringComparison.Ordinal)
             && normalizedContents.Contains("generatedPlatformMaterialAsset->TextureRelativePath", StringComparison.Ordinal)) {
-            return normalizedContents;
+            return NormalizeRuntimeSceneAssetReferenceResolverLoggingSource(normalizedContents);
         }
 
         if (!normalizedContents.Contains("#include \"PlatformMaterialAsset.hpp\"", StringComparison.Ordinal)) {
@@ -196,18 +196,18 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
 
         const string cookedMaterialBlockWithoutTextureBinding = "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nreturn runtimeMaterial;}";
         if (normalizedContents.Contains(cookedMaterialBlockWithoutTextureBinding, StringComparison.Ordinal)) {
-            return normalizedContents.Replace(
+            return NormalizeRuntimeSceneAssetReferenceResolverLoggingSource(normalizedContents.Replace(
                 cookedMaterialBlockWithoutTextureBinding,
                 "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
-                StringComparison.Ordinal);
+                StringComparison.Ordinal));
         }
 
         string modernRawMaterialBlock = "::MaterialAsset *materialAsset = this->AssetContentManager->Load<MaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::ShaderAsset *shaderAsset = this->AssetContentManager->Load<ShaderAsset*>(this->ResolveShaderPackagePath(materialAsset->ShaderAssetId), RuntimeContentProcessorIds::ShaderAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromRaw(materialAsset, shaderAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nthis->ApplyMaterialDiffuseTexture(runtimeMaterial, materialAsset, fullPath);\nreturn runtimeMaterial;}";
         if (normalizedContents.Contains(modernRawMaterialBlock, StringComparison.Ordinal)) {
-            return normalizedContents.Replace(
+            return NormalizeRuntimeSceneAssetReferenceResolverLoggingSource(normalizedContents.Replace(
                 modernRawMaterialBlock,
                 "::PlatformMaterialAsset *materialAsset = this->AssetContentManager->Load<PlatformMaterialAsset*>(fullPath, RuntimeContentProcessorIds::MaterialAsset);\n::RuntimeMaterial *runtimeMaterial = Core::get_Instance()->get_RenderManager3D()->BuildMaterialFromCooked(materialAsset);\nthis->TrackOwnedMaterial(runtimeMaterial);\nif (!String::IsNullOrWhiteSpace(materialAsset->TextureRelativePath)) {\n::TextureAsset *textureAsset = this->AssetContentManager->Load<TextureAsset*>(materialAsset->TextureRelativePath, RuntimeContentProcessorIds::TextureAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);\nif (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {\ndelete textureAsset->Colors;\ntextureAsset->Colors = Array<uint8_t>::Empty();\n}\nif (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {\ndelete textureAsset->PaletteColors;\ntextureAsset->PaletteColors = Array<uint8_t>::Empty();\n}\ndelete textureAsset;\nthis->TrackOwnedTexture(runtimeTexture);\nruntimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);\n}\nreturn runtimeMaterial;}",
-                StringComparison.Ordinal);
+                StringComparison.Ordinal));
         }
 
         string fallbackNormalizedContents = normalizedContents
@@ -246,7 +246,7 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
                 StringComparison.Ordinal);
         if (string.Equals(fallbackNormalizedContents, contents, StringComparison.Ordinal)) {
             if (UsesCookedPlatformMaterialContract(fallbackNormalizedContents)) {
-                return fallbackNormalizedContents;
+                return NormalizeRuntimeSceneAssetReferenceResolverLoggingSource(fallbackNormalizedContents);
             }
 
             throw new InvalidOperationException(
@@ -255,7 +255,121 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
                 + $"PathBased={UsesPathBasedCookedPlatformMaterialContract(fallbackNormalizedContents)}.");
         }
 
-        return fallbackNormalizedContents;
+        return NormalizeRuntimeSceneAssetReferenceResolverLoggingSource(fallbackNormalizedContents);
+    }
+
+    /// <summary>
+    /// Rewrites generated runtime scene asset resolver paths so GameCube builds log runtime asset resolution, cache hits, and owned-asset tracking summaries.
+    /// </summary>
+    /// <param name="contents">Generated runtime scene resolver source.</param>
+    /// <returns>Generated runtime scene resolver source with GameCube resolver diagnostics injected.</returns>
+    static string NormalizeRuntimeSceneAssetReferenceResolverLoggingSource(string contents) {
+        if (contents == null) {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        string normalizedContents = contents;
+        if (!normalizedContents.Contains("#include <ogc/system.h>", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "#include \"RuntimeSceneAssetReferenceResolver.hpp\"\n",
+                "#include \"RuntimeSceneAssetReferenceResolver.hpp\"\n#include <ogc/system.h>\n",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should include SYS_Report support for runtime asset diagnostics.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver begin owned asset tracking", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "this->ActiveOwnedMaterials = new List<::RuntimeMaterial*>();\n}",
+                "this->ActiveOwnedMaterials = new List<::RuntimeMaterial*>();\nSYS_Report(\"[GC] Resolver begin owned asset tracking\\n\");\n}",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log owned-asset tracking start.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver complete owned asset tracking", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "delete resolvedFontsByPath;\nreturn new ::RuntimeSceneOwnedAssetSet(ownedTextures, ownedFonts, ownedModels, ownedMaterials);}",
+                "delete resolvedFontsByPath;\nSYS_Report(\"[GC] Resolver complete owned asset tracking textures=%u fonts=%u models=%u materials=%u\\n\", static_cast<unsigned>(ownedTextures != nullptr ? ownedTextures->get_Count() : 0), static_cast<unsigned>(ownedFonts != nullptr ? ownedFonts->get_Count() : 0), static_cast<unsigned>(ownedModels != nullptr ? ownedModels->get_Count() : 0), static_cast<unsigned>(ownedMaterials != nullptr ? ownedMaterials->get_Count() : 0));\nreturn new ::RuntimeSceneOwnedAssetSet(ownedTextures, ownedFonts, ownedModels, ownedMaterials);}",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log owned-asset tracking completion.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver font cache-hit path=%s ptr=%p", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "return cachedFontAsset;    }",
+                "SYS_Report(\"[GC] Resolver font cache-hit path=%s ptr=%p\\n\", fullPath.c_str(), cachedFontAsset);\nreturn cachedFontAsset;    }",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log runtime font cache hits.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver font load path=%s ptr=%p", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "this->TrackOwnedFont(fontAsset);\nreturn fontAsset;}",
+                "this->TrackOwnedFont(fontAsset);\nSYS_Report(\"[GC] Resolver font load path=%s ptr=%p\\n\", fullPath.c_str(), fontAsset);\nreturn fontAsset;}",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log runtime font loads.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver material generated cache-hit key=%s ptr=%p", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "this->TrackOwnedMaterial(generatedRuntimeMaterial);\nreturn generatedRuntimeMaterial;    }",
+                "this->TrackOwnedMaterial(generatedRuntimeMaterial);\nSYS_Report(\"[GC] Resolver material generated cache-hit key=%s ptr=%p\\n\", generatedAssetKey.c_str(), generatedRuntimeMaterial);\nreturn generatedRuntimeMaterial;    }",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log generated material cache hits.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver material load path=%s ptr=%p", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "this->TrackOwnedMaterial(generatedCookedRuntimeMaterial);\nreturn generatedCookedRuntimeMaterial;    }",
+                "this->TrackOwnedMaterial(generatedCookedRuntimeMaterial);\nSYS_Report(\"[GC] Resolver material load path=%s ptr=%p\\n\", generatedFullPath.c_str(), generatedCookedRuntimeMaterial);\nreturn generatedCookedRuntimeMaterial;    }",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log generated material loads.");
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "this->TrackOwnedMaterial(runtimeMaterial);\nreturn runtimeMaterial;}",
+                "this->TrackOwnedMaterial(runtimeMaterial);\nSYS_Report(\"[GC] Resolver material load path=%s ptr=%p\\n\", fullPath.c_str(), runtimeMaterial);\nreturn runtimeMaterial;}",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log file-backed material loads.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver model generated cache-hit key=%s ptr=%p", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "this->TrackOwnedModel(generatedRuntimeModel);\nreturn generatedRuntimeModel;    }",
+                "this->TrackOwnedModel(generatedRuntimeModel);\nSYS_Report(\"[GC] Resolver model generated cache-hit key=%s ptr=%p\\n\", generatedAssetKey.c_str(), generatedRuntimeModel);\nreturn generatedRuntimeModel;    }",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log generated model cache hits.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver model load path=%s ptr=%p", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "this->TrackOwnedModel(generatedModel);\nreturn generatedModel;    }",
+                "this->TrackOwnedModel(generatedModel);\nSYS_Report(\"[GC] Resolver model load path=%s ptr=%p\\n\", generatedFullPath.c_str(), generatedModel);\nreturn generatedModel;    }",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log generated model loads.");
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "this->TrackOwnedModel(runtimeModel);\nreturn runtimeModel;}",
+                "this->TrackOwnedModel(runtimeModel);\nSYS_Report(\"[GC] Resolver model load path=%s ptr=%p\\n\", fullPath.c_str(), runtimeModel);\nreturn runtimeModel;}",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log file-backed model loads.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver texture build path=%s ptr=%p", StringComparison.Ordinal)) {
+            const string trackedTextureBlockWithStage = "this->TrackOwnedTexture(runtimeTexture);\nthis->set_LastTextureLoadStage(\"ResolveTextureTracked\");\nreturn runtimeTexture;}";
+            const string trackedTextureBlockWithoutStage = "this->TrackOwnedTexture(runtimeTexture);\nreturn runtimeTexture;}";
+            if (normalizedContents.Contains(trackedTextureBlockWithStage, StringComparison.Ordinal)) {
+                normalizedContents = ReplaceRequired(
+                    normalizedContents,
+                    trackedTextureBlockWithStage,
+                    "this->TrackOwnedTexture(runtimeTexture);\nSYS_Report(\"[GC] Resolver texture build path=%s ptr=%p\\n\", fullPath.c_str(), runtimeTexture);\nthis->set_LastTextureLoadStage(\"ResolveTextureTracked\");\nreturn runtimeTexture;}",
+                    "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log file-backed texture builds.");
+            } else {
+                normalizedContents = ReplaceRequired(
+                    normalizedContents,
+                    trackedTextureBlockWithoutStage,
+                    "this->TrackOwnedTexture(runtimeTexture);\nSYS_Report(\"[GC] Resolver texture build path=%s ptr=%p\\n\", fullPath.c_str(), runtimeTexture);\nreturn runtimeTexture;}",
+                    "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log file-backed texture builds.");
+            }
+        }
+
+        return normalizedContents;
     }
 
     /// <summary>

@@ -81,8 +81,7 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
 
         GameCubeTextureCookSettings settings = GameCubeTextureCookSettings.Parse(workItem.SerializedPlatformSettings);
         TextureAsset cookedTexture = TextureCooker.CookTexture(sourceFont.SourceTextureAsset, settings);
-        sourceFont.ApplyProcessedSourceTextureAsset(cookedTexture);
-        WriteFontAsset(Path.Combine(stagingRootPath, NormalizePath(workItem.OutputRelativePath)), sourceFont);
+        WriteTextureAsset(Path.Combine(stagingRootPath, NormalizePath(workItem.OutputRelativePath)), cookedTexture);
     }
 
     /// <summary>

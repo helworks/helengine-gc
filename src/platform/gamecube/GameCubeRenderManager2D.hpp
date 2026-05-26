@@ -36,6 +36,9 @@ namespace helengine::gamecube {
         /// Builds one GameCube-native runtime texture from generated texture asset metadata.
         RuntimeTexture* BuildTextureFromRaw(TextureAsset* data) override;
 
+        /// Builds one GameCube-native runtime texture from one packaged cooked texture payload.
+        RuntimeTexture* BuildTextureFromCooked(std::string cookedAssetPath) override;
+
         /// Releases one GameCube runtime texture previously created for one packaged scene asset.
         void ReleaseTexture(RuntimeTexture* texture) override;
 

@@ -80,6 +80,12 @@ namespace helengine::gamecube {
             runtimeMaterial->get_RenderState()->set_CullMode(MaterialCullMode::None);
         }
 
+        SYS_Report(
+            "[GC] RM3D build cooked material id=%s texturePath=%s lit=%d ptr=%p\n",
+            materialAsset->get_Id().c_str(),
+            materialAsset->TextureRelativePath.c_str(),
+            materialAsset->Lit ? 1 : 0,
+            runtimeMaterial);
         return runtimeMaterial;
     }
 
@@ -100,6 +106,11 @@ namespace helengine::gamecube {
             stream->Dispose();
             GameCubeRuntimeMaterial* runtimeMaterial = static_cast<GameCubeRuntimeMaterial*>(BuildMaterialFromCooked(cookedMaterialAsset));
             AttachCookedDiffuseTexture(runtimeMaterial, cookedMaterialAsset, cookedAssetPath);
+            SYS_Report(
+                "[GC] RM3D build cooked material path=%s id=%s ptr=%p\n",
+                cookedAssetPath.c_str(),
+                cookedMaterialAsset->get_Id().c_str(),
+                runtimeMaterial);
             delete cookedMaterialAsset;
             return runtimeMaterial;
         } catch (...) {
@@ -128,6 +139,12 @@ namespace helengine::gamecube {
         runtimeModel->Indices16 = indexData->get_Indices16();
         runtimeModel->Indices32 = indexData->get_Indices32();
         runtimeModel->Uses32BitIndices = indexData->get_Uses32BitIndices();
+        SYS_Report(
+            "[GC] RM3D build raw model id=%s positions=%u submeshes=%u ptr=%p\n",
+            data->get_Id().c_str(),
+            static_cast<unsigned>(runtimeModel->Positions != nullptr ? runtimeModel->Positions->get_Length() : 0),
+            static_cast<unsigned>(runtimeModel->get_Submeshes() != nullptr ? runtimeModel->get_Submeshes()->get_Length() : 0),
+            runtimeModel);
         delete indexData;
         return runtimeModel;
     }
@@ -149,6 +166,11 @@ namespace helengine::gamecube {
             stream->Dispose();
             GameCubeRuntimeModel* runtimeModel = static_cast<GameCubeRuntimeModel*>(BuildModelFromRaw(cookedModelAsset));
             runtimeModel->OwnedSourceModelAsset = cookedModelAsset;
+            SYS_Report(
+                "[GC] RM3D build cooked model path=%s id=%s ptr=%p\n",
+                cookedAssetPath.c_str(),
+                cookedModelAsset->get_Id().c_str(),
+                runtimeModel);
             return runtimeModel;
         } catch (...) {
             if (stream != nullptr) {
@@ -165,6 +187,10 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("material");
         }
 
+        SYS_Report(
+            "[GC] RM3D release material queued id=%s ptr=%p\n",
+            material->get_Id().c_str(),
+            material);
         ReleasedMaterials.push_back(material);
     }
 
@@ -303,6 +329,10 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("model");
         }
 
+        SYS_Report(
+            "[GC] RM3D release model queued id=%s ptr=%p\n",
+            model->get_Id().c_str(),
+            model);
         ReleasedModels.push_back(model);
     }
 
@@ -410,6 +440,11 @@ namespace helengine::gamecube {
             RuntimeTexture* runtimeTexture = core->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);
             runtimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);
             runtimeMaterial->SetOwnedDiffuseTexture(runtimeTexture);
+            SYS_Report(
+                "[GC] RM3D attach cooked diffuse texture material=%s texturePath=%s texturePtr=%p\n",
+                runtimeMaterial->get_Id().c_str(),
+                cookedTextureAssetPath.c_str(),
+                runtimeTexture);
             if (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {
                 delete textureAsset->Colors;
                 textureAsset->Colors = Array<uint8_t>::Empty();
