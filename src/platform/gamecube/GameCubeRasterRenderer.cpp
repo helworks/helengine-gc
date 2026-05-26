@@ -295,13 +295,13 @@ namespace helengine::gamecube {
         if (!hasDirectionalLight) {
             GX_InitLightDir(&lightObject, 0.0f, 0.0f, -1.0f);
             GX_InitLightColor(&lightObject, GXColor { 0x00, 0x00, 0x00, 0xFF });
-            GX_LoadLightObjImm(&lightObject, GX_LIGHT0);
+            GX_LoadLightObj(&lightObject, GX_LIGHT0);
             return;
         }
 
         GX_InitLightDir(&lightObject, directionalDirection.X, directionalDirection.Y, directionalDirection.Z);
         GX_InitLightColor(&lightObject, ConvertLightingColorToGx(directionalRgb));
-        GX_LoadLightObjImm(&lightObject, GX_LIGHT0);
+        GX_LoadLightObj(&lightObject, GX_LIGHT0);
     }
 
     /// Configures the GX state used by the current 2D overlay path.
