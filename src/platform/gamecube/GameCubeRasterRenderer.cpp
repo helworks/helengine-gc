@@ -194,17 +194,17 @@ namespace helengine::gamecube {
     void GameCubeRasterRenderer::BindCachedMeshArrays(GameCubeCachedMeshData* cachedMeshData, bool useTexturedBranch) {
         if (cachedMeshData == nullptr) {
             throw new ArgumentNullException("cachedMeshData");
-        } else if (cachedMeshData->Positions == nullptr || cachedMeshData->Positions == Array<float3>::Empty() || cachedMeshData->Positions->Length == 0) {
+        } else if (cachedMeshData->PackedPositions == nullptr || cachedMeshData->PackedPositions == Array<GameCubePackedPosition3>::Empty() || cachedMeshData->PackedPositions->Length == 0) {
             throw new InvalidOperationException("GameCube cached mesh arrays must contain cached positions.");
         }
 
-        GX_SetArray(GX_VA_POS, &(*cachedMeshData->Positions)[0], sizeof(float3));
+        GX_SetArray(GX_VA_POS, &(*cachedMeshData->PackedPositions)[0], sizeof(GameCubePackedPosition3));
         if (useTexturedBranch) {
-            if (!cachedMeshData->HasTexCoords || cachedMeshData->TexCoords == nullptr || cachedMeshData->TexCoords == Array<float2>::Empty() || cachedMeshData->TexCoords->Length == 0) {
+            if (!cachedMeshData->HasTexCoords || cachedMeshData->PackedTexCoords == nullptr || cachedMeshData->PackedTexCoords == Array<GameCubePackedTexCoord2>::Empty() || cachedMeshData->PackedTexCoords->Length == 0) {
                 throw new InvalidOperationException("GameCube textured cached mesh arrays require cached texture coordinates.");
             }
 
-            GX_SetArray(GX_VA_TEX0, &(*cachedMeshData->TexCoords)[0], sizeof(float2));
+            GX_SetArray(GX_VA_TEX0, &(*cachedMeshData->PackedTexCoords)[0], sizeof(GameCubePackedTexCoord2));
         }
     }
 

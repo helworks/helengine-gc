@@ -228,6 +228,30 @@ namespace helengine::gamecube {
                 delete submeshes;
             }
 
+            if (runtimeModel->CachedMeshData != nullptr) {
+                if (runtimeModel->CachedMeshData->PackedPositions != nullptr && runtimeModel->CachedMeshData->PackedPositions != Array<GameCubePackedPosition3>::Empty()) {
+                    delete runtimeModel->CachedMeshData->PackedPositions;
+                }
+
+                if (runtimeModel->CachedMeshData->PackedTexCoords != nullptr && runtimeModel->CachedMeshData->PackedTexCoords != Array<GameCubePackedTexCoord2>::Empty()) {
+                    delete runtimeModel->CachedMeshData->PackedTexCoords;
+                }
+
+                if (runtimeModel->CachedMeshData->Indices16 != nullptr && runtimeModel->CachedMeshData->Indices16 != Array<uint16_t>::Empty()) {
+                    delete runtimeModel->CachedMeshData->Indices16;
+                }
+
+                if (runtimeModel->CachedMeshData->SubmeshIndexStarts != nullptr && runtimeModel->CachedMeshData->SubmeshIndexStarts != Array<int32_t>::Empty()) {
+                    delete runtimeModel->CachedMeshData->SubmeshIndexStarts;
+                }
+
+                if (runtimeModel->CachedMeshData->SubmeshIndexCounts != nullptr && runtimeModel->CachedMeshData->SubmeshIndexCounts != Array<int32_t>::Empty()) {
+                    delete runtimeModel->CachedMeshData->SubmeshIndexCounts;
+                }
+
+                delete runtimeModel->CachedMeshData;
+            }
+
             if (runtimeModel->Positions != nullptr && runtimeModel->Positions != Array<float3>::Empty()) {
                 delete runtimeModel->Positions;
             }

@@ -2,6 +2,8 @@
 
 #include <limits>
 
+#include <ogc/cache.h>
+
 #include "RuntimeModel.hpp"
 #include "RuntimeSubmesh.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
@@ -60,7 +62,15 @@ namespace helengine::gamecube {
         }
 
         GameCubeCachedMeshData* cachedMeshData = new GameCubeCachedMeshData();
-        cachedMeshData->Positions = runtimeModel->Positions;
+        cachedMeshData->PackedPositions = new Array<GameCubePackedPosition3>(runtimeModel->Positions->Length);
+        for (int32_t positionIndex = 0; positionIndex < runtimeModel->Positions->Length; positionIndex++) {
+            const float3 position = (*runtimeModel->Positions)[positionIndex];
+            (*cachedMeshData->PackedPositions)[positionIndex] = GameCubePackedPosition3 {
+                position.X,
+                position.Y,
+                position.Z
+            };
+        }
 
         if (runtimeModel->Normals != nullptr && runtimeModel->Normals != Array<float3>::Empty()) {
             if (runtimeModel->Normals->Length != runtimeModel->Positions->Length) {
@@ -76,7 +86,15 @@ namespace helengine::gamecube {
                 throw new InvalidOperationException("GameCube cached mesh texture coordinates must match the authored position count.");
             }
 
-            cachedMeshData->TexCoords = runtimeModel->TexCoords;
+            cachedMeshData->PackedTexCoords = new Array<GameCubePackedTexCoord2>(runtimeModel->TexCoords->Length);
+            for (int32_t texCoordIndex = 0; texCoordIndex < runtimeModel->TexCoords->Length; texCoordIndex++) {
+                const float2 texCoord = (*runtimeModel->TexCoords)[texCoordIndex];
+                (*cachedMeshData->PackedTexCoords)[texCoordIndex] = GameCubePackedTexCoord2 {
+                    texCoord.X,
+                    texCoord.Y
+                };
+            }
+
             cachedMeshData->HasTexCoords = true;
         }
 
@@ -125,6 +143,17 @@ namespace helengine::gamecube {
                 throw new InvalidOperationException("GameCube cached mesh submesh ranges must stay within the authored index buffer.");
             }
         }
+
+        DCFlushRange(&(*cachedMeshData->PackedPositions)[0], static_cast<u32>(cachedMeshData->PackedPositions->Length * sizeof(GameCubePackedPosition3)));
+        if (cachedMeshData->HasNormals) {
+            DCFlushRange(&(*cachedMeshData->Normals)[0], static_cast<u32>(cachedMeshData->Normals->Length * sizeof(float3)));
+        }
+
+        if (cachedMeshData->HasTexCoords) {
+            DCFlushRange(&(*cachedMeshData->PackedTexCoords)[0], static_cast<u32>(cachedMeshData->PackedTexCoords->Length * sizeof(GameCubePackedTexCoord2)));
+        }
+
+        DCFlushRange(&(*cachedMeshData->Indices16)[0], static_cast<u32>(cachedMeshData->Indices16->Length * sizeof(uint16_t)));
 
         return cachedMeshData;
     }

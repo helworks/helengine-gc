@@ -7,14 +7,27 @@
 #include "runtime/array.hpp"
 
 namespace helengine::gamecube {
+    /// Stores one tightly packed GX position entry without managed-runtime object overhead.
+    struct GameCubePackedPosition3 {
+        float X;
+        float Y;
+        float Z;
+    };
+
+    /// Stores one tightly packed GX texture-coordinate entry without managed-runtime object overhead.
+    struct GameCubePackedTexCoord2 {
+        float U;
+        float V;
+    };
+
     /// Owns the cached GameCube-native mesh data that the GX renderer can reuse across frames.
     class GameCubeCachedMeshData {
     public:
         /// Creates an empty cached mesh container before cached arrays are attached.
         GameCubeCachedMeshData()
-            : Positions(nullptr)
+            : PackedPositions(nullptr)
             , Normals(nullptr)
-            , TexCoords(nullptr)
+            , PackedTexCoords(nullptr)
             , Indices16(nullptr)
             , SubmeshIndexStarts(nullptr)
             , SubmeshIndexCounts(nullptr)
@@ -22,14 +35,14 @@ namespace helengine::gamecube {
             , HasTexCoords(false) {
         }
 
-        /// Cached positions stored for the default GameCube draw path.
-        Array<float3>* Positions;
+        /// Packed positions stored for the default GameCube indexed draw path.
+        Array<GameCubePackedPosition3>* PackedPositions;
 
         /// Cached normals stored when the source mesh supports lit rendering.
         Array<float3>* Normals;
 
-        /// Cached texture coordinates stored when the source mesh supports textured rendering.
-        Array<float2>* TexCoords;
+        /// Packed texture coordinates stored when the source mesh supports textured rendering.
+        Array<GameCubePackedTexCoord2>* PackedTexCoords;
 
         /// Cached 16-bit indices used by the GameCube draw path.
         Array<uint16_t>* Indices16;
