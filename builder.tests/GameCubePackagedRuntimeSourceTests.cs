@@ -522,11 +522,15 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string cachedMeshHeaderSource = File.ReadAllText(cachedMeshHeaderPath);
 
         Assert.Contains("class GameCubeCachedMeshData", cachedMeshHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("struct GameCubePackedNormal3", cachedMeshHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("Array<GameCubePackedNormal3>* PackedNormals;", cachedMeshHeaderSource, StringComparison.Ordinal);
         Assert.Contains("#include \"platform/gamecube/GameCubeCachedMeshData.hpp\"", runtimeModelSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeCachedMeshData* CachedMeshData;", runtimeModelSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeCachedMeshData", meshCacheHeaderSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeCachedMeshData* GameCubeMeshCache::BuildCachedMeshData(GameCubeRuntimeModel* runtimeModel)", meshCacheSource, StringComparison.Ordinal);
         Assert.Contains("typedRuntimeModel->CachedMeshData = BuildCachedMeshData(typedRuntimeModel);", meshCacheSource, StringComparison.Ordinal);
+        Assert.Contains("cachedMeshData->PackedNormals", meshCacheSource, StringComparison.Ordinal);
+        Assert.Contains("DCFlushRange(&(*cachedMeshData->PackedNormals)[0]", meshCacheSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -556,7 +560,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("DrawCachedLitSubmesh", rasterRendererHeaderSource, StringComparison.Ordinal);
-        Assert.Contains("cachedMeshData->Normals", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("EvaluateLitVertexColor(framePlan, entity, material, (*cachedMeshData->Normals)[cachedIndex])", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("cachedMeshData->PackedNormals", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetArray(GX_VA_NRM", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_Normal1x16(", rasterRendererSource, StringComparison.Ordinal);
     }
 }

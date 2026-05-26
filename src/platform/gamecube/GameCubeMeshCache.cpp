@@ -77,6 +77,16 @@ namespace helengine::gamecube {
                 throw new InvalidOperationException("GameCube cached mesh normals must match the authored position count.");
             }
 
+            cachedMeshData->PackedNormals = new Array<GameCubePackedNormal3>(runtimeModel->Normals->Length);
+            for (int32_t normalIndex = 0; normalIndex < runtimeModel->Normals->Length; normalIndex++) {
+                const float3 normal = (*runtimeModel->Normals)[normalIndex];
+                (*cachedMeshData->PackedNormals)[normalIndex] = GameCubePackedNormal3 {
+                    normal.X,
+                    normal.Y,
+                    normal.Z
+                };
+            }
+
             cachedMeshData->Normals = runtimeModel->Normals;
             cachedMeshData->HasNormals = true;
         }
@@ -146,6 +156,7 @@ namespace helengine::gamecube {
 
         DCFlushRange(&(*cachedMeshData->PackedPositions)[0], static_cast<u32>(cachedMeshData->PackedPositions->Length * sizeof(GameCubePackedPosition3)));
         if (cachedMeshData->HasNormals) {
+            DCFlushRange(&(*cachedMeshData->PackedNormals)[0], static_cast<u32>(cachedMeshData->PackedNormals->Length * sizeof(GameCubePackedNormal3)));
             DCFlushRange(&(*cachedMeshData->Normals)[0], static_cast<u32>(cachedMeshData->Normals->Length * sizeof(float3)));
         }
 

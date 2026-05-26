@@ -14,6 +14,13 @@ namespace helengine::gamecube {
         float Z;
     };
 
+    /// Stores one tightly packed GX normal entry without managed-runtime object overhead.
+    struct GameCubePackedNormal3 {
+        float X;
+        float Y;
+        float Z;
+    };
+
     /// Stores one tightly packed GX texture-coordinate entry without managed-runtime object overhead.
     struct GameCubePackedTexCoord2 {
         float U;
@@ -26,6 +33,7 @@ namespace helengine::gamecube {
         /// Creates an empty cached mesh container before cached arrays are attached.
         GameCubeCachedMeshData()
             : PackedPositions(nullptr)
+            , PackedNormals(nullptr)
             , Normals(nullptr)
             , PackedTexCoords(nullptr)
             , Indices16(nullptr)
@@ -37,6 +45,9 @@ namespace helengine::gamecube {
 
         /// Packed positions stored for the default GameCube indexed draw path.
         Array<GameCubePackedPosition3>* PackedPositions;
+
+        /// Packed normals stored for the default GameCube indexed lit draw path.
+        Array<GameCubePackedNormal3>* PackedNormals;
 
         /// Cached normals stored when the source mesh supports lit rendering.
         Array<float3>* Normals;
