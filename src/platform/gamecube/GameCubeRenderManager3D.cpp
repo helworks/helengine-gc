@@ -1,8 +1,11 @@
 #include "platform/gamecube/GameCubeRenderManager3D.hpp"
 
+#include <algorithm>
+
 #include <ogc/system.h>
 
 #include "Asset.hpp"
+#include "Core.hpp"
 #include "EditorAssetBinarySerializer.hpp"
 #include "Entity.hpp"
 #include "float2.hpp"
@@ -13,6 +16,7 @@
 #include "MaterialRenderState.hpp"
 #include "PlatformMaterialAsset.hpp"
 #include "RendererBackendCapabilityProfile.hpp"
+#include "RenderManager2D.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeMeshCache.hpp"
 #include "platform/gamecube/GameCubeRasterRenderer.hpp"
@@ -32,6 +36,7 @@
 #include "runtime/native_cast.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "system/io/file.hpp"
+#include "system/io/path.hpp"
 
 namespace helengine::gamecube {
     /// Creates the GameCube 3D backend and its owned bridge/cache/raster collaborators.
@@ -93,7 +98,10 @@ namespace helengine::gamecube {
             }
 
             stream->Dispose();
-            return BuildMaterialFromCooked(cookedMaterialAsset);
+            GameCubeRuntimeMaterial* runtimeMaterial = static_cast<GameCubeRuntimeMaterial*>(BuildMaterialFromCooked(cookedMaterialAsset));
+            AttachCookedDiffuseTexture(runtimeMaterial, cookedMaterialAsset, cookedAssetPath);
+            delete cookedMaterialAsset;
+            return runtimeMaterial;
         } catch (...) {
             if (stream != nullptr) {
                 stream->Dispose();
@@ -168,6 +176,17 @@ namespace helengine::gamecube {
             }
 
             GameCubeRuntimeMaterial* runtimeMaterial = static_cast<GameCubeRuntimeMaterial*>(material);
+            RuntimeTexture* ownedDiffuseTexture = runtimeMaterial->GetOwnedDiffuseTexture();
+            if (ownedDiffuseTexture != nullptr) {
+                Core* core = Core::get_Instance();
+                if (core == nullptr || core->get_RenderManager2D() == nullptr) {
+                    throw new InvalidOperationException("GameCube material release requires an active RenderManager2D to release material-owned diffuse textures.");
+                }
+
+                core->get_RenderManager2D()->ReleaseTexture(ownedDiffuseTexture);
+                runtimeMaterial->SetOwnedDiffuseTexture(nullptr);
+            }
+
             MaterialPropertyBlock* properties = runtimeMaterial->get_Properties();
             MaterialRenderState* renderState = runtimeMaterial->get_RenderState();
             MaterialLayout* layout = runtimeMaterial->get_Layout();
@@ -338,6 +357,77 @@ namespace helengine::gamecube {
             }),
             Array<MaterialLayoutBinding*>::Empty(),
             Array<MaterialLayoutBinding*>::Empty());
+    }
+
+    /// Resolves one packaged content-relative asset path against the absolute cooked material path that referenced it.
+    std::string GameCubeRenderManager3D::ResolvePackagedContentAssetPath(const std::string& cookedMaterialAssetPath, const std::string& contentRelativePath) {
+        if (cookedMaterialAssetPath.empty()) {
+            throw new ArgumentException("GameCube cooked material path is required.", "cookedMaterialAssetPath");
+        } else if (contentRelativePath.empty()) {
+            throw new ArgumentException("GameCube content-relative asset path is required.", "contentRelativePath");
+        }
+
+        std::string normalizedMaterialAssetPath = cookedMaterialAssetPath;
+        std::replace(normalizedMaterialAssetPath.begin(), normalizedMaterialAssetPath.end(), '\\', '/');
+        const std::size_t cookedMarkerIndex = normalizedMaterialAssetPath.find("/cooked/");
+        if (cookedMarkerIndex == std::string::npos) {
+            throw new InvalidOperationException("GameCube cooked material path must contain the packaged '/cooked/' root segment.");
+        }
+
+        const std::string contentRootPath = cookedMaterialAssetPath.substr(0, cookedMarkerIndex);
+        return Path::GetFullPath(Path::Combine(contentRootPath, contentRelativePath));
+    }
+
+    /// Loads and attaches one cooked diffuse texture when the path-based GameCube cooked-material contract references one.
+    void GameCubeRenderManager3D::AttachCookedDiffuseTexture(GameCubeRuntimeMaterial* runtimeMaterial, PlatformMaterialAsset* materialAsset, const std::string& cookedMaterialAssetPath) {
+        if (runtimeMaterial == nullptr) {
+            throw new ArgumentNullException("runtimeMaterial");
+        } else if (materialAsset == nullptr) {
+            throw new ArgumentNullException("materialAsset");
+        } else if (cookedMaterialAssetPath.empty()) {
+            throw new ArgumentException("GameCube cooked material path is required.", "cookedMaterialAssetPath");
+        }
+
+        if (materialAsset->TextureRelativePath.empty()) {
+            return;
+        }
+
+        const std::string cookedTextureAssetPath = ResolvePackagedContentAssetPath(cookedMaterialAssetPath, materialAsset->TextureRelativePath);
+        ::FileStream* textureStream = ::File::OpenRead(cookedTextureAssetPath);
+        try {
+            ::Asset* textureAssetPayload = ::EditorAssetBinarySerializer::Deserialize(textureStream);
+            ::TextureAsset* textureAsset = he_cpp_try_cast<::TextureAsset>(textureAssetPayload);
+            if (textureAsset == nullptr) {
+                throw new InvalidOperationException("GameCube cooked diffuse texture payload did not deserialize as TextureAsset.");
+            }
+
+            Core* core = Core::get_Instance();
+            if (core == nullptr || core->get_RenderManager2D() == nullptr) {
+                throw new InvalidOperationException("GameCube cooked diffuse texture attachment requires an active RenderManager2D.");
+            }
+
+            textureStream->Dispose();
+            RuntimeTexture* runtimeTexture = core->get_RenderManager2D()->BuildTextureFromRaw(textureAsset);
+            runtimeMaterial->get_Properties()->SetTexture(StandardMaterialTextureBindingDefaults::DiffuseTextureBindingName, runtimeTexture);
+            runtimeMaterial->SetOwnedDiffuseTexture(runtimeTexture);
+            if (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {
+                delete textureAsset->Colors;
+                textureAsset->Colors = Array<uint8_t>::Empty();
+            }
+
+            if (textureAsset->PaletteColors != nullptr && textureAsset->PaletteColors != Array<uint8_t>::Empty()) {
+                delete textureAsset->PaletteColors;
+                textureAsset->PaletteColors = Array<uint8_t>::Empty();
+            }
+
+            delete textureAsset;
+        } catch (...) {
+            if (textureStream != nullptr) {
+                textureStream->Dispose();
+            }
+
+            throw;
+        }
     }
 
     /// Releases one owned deserialized cooked model payload attached to a GameCube runtime model.

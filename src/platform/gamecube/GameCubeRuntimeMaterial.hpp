@@ -5,6 +5,8 @@
 #include "ShaderRuntimeMaterial.hpp"
 #include "float3.hpp"
 
+class RuntimeTexture;
+
 namespace helengine::gamecube {
     /// Carries the minimal GameCube-owned material state required by the fixed-function GX raster path.
     class GameCubeRuntimeMaterial final : public ShaderRuntimeMaterial {
@@ -24,11 +26,20 @@ namespace helengine::gamecube {
         /// Replaces the cooked diffuse-texture path used to validate authored textured submissions.
         void SetTextureRelativePath(std::string value);
 
+        /// Gets the runtime diffuse texture owned directly by this material when the path-based cooked-material contract loads one internally.
+        RuntimeTexture* GetOwnedDiffuseTexture() const;
+
+        /// Replaces the runtime diffuse texture owned directly by this material when the path-based cooked-material contract loads one internally.
+        void SetOwnedDiffuseTexture(RuntimeTexture* value);
+
     private:
         /// Normalized authored base RGB color copied from the cooked platform material payload.
         float3 BaseColorValue;
 
         /// Cooked diffuse-texture path copied from the packaged platform material payload.
         std::string TextureRelativePathValue;
+
+        /// Runtime diffuse texture owned by this material when it was loaded through the path-based cooked-material contract.
+        RuntimeTexture* OwnedDiffuseTextureValue;
     };
 }

@@ -87,6 +87,12 @@ namespace helengine::gamecube {
         /// Builds the minimal shared-engine material layout needed for one diffuse texture binding.
         MaterialLayout* CreateCookedMaterialLayout();
 
+        /// Resolves one packaged content-relative asset path against the absolute cooked material path that referenced it.
+        std::string ResolvePackagedContentAssetPath(const std::string& cookedMaterialAssetPath, const std::string& contentRelativePath);
+
+        /// Loads and attaches one cooked diffuse texture when the path-based GameCube cooked-material contract references one.
+        void AttachCookedDiffuseTexture(GameCubeRuntimeMaterial* runtimeMaterial, PlatformMaterialAsset* materialAsset, const std::string& cookedMaterialAssetPath);
+
         /// Releases one owned deserialized cooked model payload attached to a GameCube runtime model.
         void ReleaseOwnedSourceModelAsset(GameCubeRuntimeModel* runtimeModel);
     };

@@ -6,7 +6,8 @@ namespace helengine::gamecube {
     /// Creates one GameCube runtime material with authored-color defaults that remain visible when cooking is incomplete.
     GameCubeRuntimeMaterial::GameCubeRuntimeMaterial()
         : BaseColorValue(1.0f, 1.0f, 1.0f)
-        , TextureRelativePathValue() {
+        , TextureRelativePathValue()
+        , OwnedDiffuseTextureValue(nullptr) {
     }
 
     /// Gets the normalized authored base RGB color resolved from the cooked platform material.
@@ -27,5 +28,15 @@ namespace helengine::gamecube {
     /// Replaces the cooked diffuse-texture path used to validate authored textured submissions.
     void GameCubeRuntimeMaterial::SetTextureRelativePath(std::string value) {
         TextureRelativePathValue = std::move(value);
+    }
+
+    /// Gets the runtime diffuse texture owned directly by this material when the path-based cooked-material contract loads one internally.
+    RuntimeTexture* GameCubeRuntimeMaterial::GetOwnedDiffuseTexture() const {
+        return OwnedDiffuseTextureValue;
+    }
+
+    /// Replaces the runtime diffuse texture owned directly by this material when the path-based cooked-material contract loads one internally.
+    void GameCubeRuntimeMaterial::SetOwnedDiffuseTexture(RuntimeTexture* value) {
+        OwnedDiffuseTextureValue = value;
     }
 }

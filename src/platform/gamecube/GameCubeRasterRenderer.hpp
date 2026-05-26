@@ -47,6 +47,9 @@ namespace helengine::gamecube {
         /// Shared runtime-model cache used by the draw path.
         GameCubeMeshCache* MeshCache;
 
+        /// Tracks whether the renderer already logged the first textured 3D draw for runtime diagnosis.
+        bool HasLoggedFirstTexturedDraw;
+
         /// Configures the GX state used by the current opaque mesh path.
         void ConfigurePipeline(bool useTexturedBranch, bool useIndexedGeometry);
 
@@ -71,6 +74,9 @@ namespace helengine::gamecube {
         /// Copies one generated affine matrix directly into a GX position matrix without runtime reinterpretation.
         void CopyAffineMatrixToGx(const float4x4& source, Mtx& destination);
 
+        /// Loads one GX normal matrix derived from the current authored model-view transform so fixed-function lighting stays in view space.
+        void LoadNormalMatrix(const Mtx& modelViewMatrix);
+
         /// Resolves whether one submission should use the lit branch for the current checkpoint.
         bool UsesLitBranch(RenderFrameDrawableSubmission* submission);
 
@@ -85,6 +91,9 @@ namespace helengine::gamecube {
 
         /// Converts one shared-engine byte color into a GX color.
         GXColor ConvertByteColorToGx(const byte4& color);
+
+        /// Transforms one world-space direction through the frame-plan view rotation so GX lighting receives a view-space light direction.
+        float3 TransformDirectionToViewSpace(const float3& direction, const float4x4& viewMatrix);
 
         /// Builds one authored world matrix through the generated platform-adapted float4x4 runtime.
         void BuildWorldMatrix(Entity* entity, float4x4& worldMatrix);

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <vector>
 
 #include <ogc/system.h>
@@ -53,7 +54,8 @@ namespace {
 namespace helengine::gamecube {
     /// Creates the raster renderer with a shared runtime-model cache.
     GameCubeRasterRenderer::GameCubeRasterRenderer(GameCubeMeshCache* meshCache)
-        : MeshCache(meshCache) {
+        : MeshCache(meshCache)
+        , HasLoggedFirstTexturedDraw(false) {
         if (MeshCache == nullptr) {
             throw new ArgumentNullException("meshCache");
         }
@@ -284,7 +286,7 @@ namespace helengine::gamecube {
             float4 lightOrientation = lightEntity->get_Orientation();
             lightOrientation.Normalize();
             directionalDirection = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), lightOrientation) * -1.0f;
-            directionalDirection = float3::Normalize(directionalDirection);
+            directionalDirection = TransformDirectionToViewSpace(float3::Normalize(directionalDirection), framePlan->View);
             directionalRgb = rgb;
             hasDirectionalLight = true;
         }
@@ -371,6 +373,20 @@ namespace helengine::gamecube {
         destination[2][3] = source.M43;
     }
 
+    /// Loads one GX normal matrix derived from the current authored model-view transform so fixed-function lighting stays in view space.
+    void GameCubeRasterRenderer::LoadNormalMatrix(const Mtx& modelViewMatrix) {
+        Mtx sourceModelViewMatrix;
+        std::memcpy(sourceModelViewMatrix, modelViewMatrix, sizeof(Mtx));
+        Mtx inverseModelViewMatrix;
+        if (guMtxInverse(sourceModelViewMatrix, inverseModelViewMatrix) == 0U) {
+            throw new InvalidOperationException("GameCube lit rendering requires an invertible model-view matrix.");
+        }
+
+        Mtx normalMatrix;
+        guMtxTranspose(inverseModelViewMatrix, normalMatrix);
+        GX_LoadNrmMtxImm(normalMatrix, GX_PNMTX0);
+    }
+
     /// Resolves whether one submission should use the lit branch for the current checkpoint.
     bool GameCubeRasterRenderer::UsesLitBranch(RenderFrameDrawableSubmission* submission) {
         if (submission == nullptr) {
@@ -442,6 +458,15 @@ namespace helengine::gamecube {
             color.Z,
             color.W
         };
+    }
+
+    /// Transforms one world-space direction through the frame-plan view rotation so GX lighting receives a view-space light direction.
+    float3 GameCubeRasterRenderer::TransformDirectionToViewSpace(const float3& direction, const float4x4& viewMatrix) {
+        float3 transformedDirection;
+        transformedDirection.X = (direction.X * viewMatrix.M11) + (direction.Y * viewMatrix.M21) + (direction.Z * viewMatrix.M31);
+        transformedDirection.Y = (direction.X * viewMatrix.M12) + (direction.Y * viewMatrix.M22) + (direction.Z * viewMatrix.M32);
+        transformedDirection.Z = (direction.X * viewMatrix.M13) + (direction.Y * viewMatrix.M23) + (direction.Z * viewMatrix.M33);
+        return float3::Normalize(transformedDirection);
     }
 
     /// Builds one authored world matrix through the generated platform-adapted float4x4 runtime.
@@ -658,8 +683,21 @@ namespace helengine::gamecube {
         }
 
         const bool useLitBranch = UsesLitBranch(submission);
+        if (useTexturedBranch && !HasLoggedFirstTexturedDraw) {
+            HasLoggedFirstTexturedDraw = true;
+            SYS_Report(
+                "[GC] First textured draw material=%s texturePath=%s textureSize=%dx%d lit=%d cachedTexCoords=%d\n",
+                material->get_Id().c_str(),
+                gameCubeRuntimeMaterial->GetTextureRelativePath().c_str(),
+                boundTexture->get_Width(),
+                boundTexture->get_Height(),
+                useLitBranch ? 1 : 0,
+                cachedMeshData->HasTexCoords ? 1 : 0);
+        }
+
         GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
         if (useLitBranch) {
+            LoadNormalMatrix(nativeModelViewMatrix);
             ConfigureLitPipeline(useTexturedBranch, true);
             DrawCachedLitSubmesh(framePlan, entity, gameCubeRuntimeMaterial, cachedMeshData, runtimeSubmesh, useTexturedBranch);
         } else {
