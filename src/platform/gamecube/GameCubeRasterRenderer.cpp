@@ -195,14 +195,14 @@ namespace helengine::gamecube {
         GX_ClearVtxDesc();
         GX_SetVtxDesc(GX_VA_POS, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);
         GX_SetVtxDesc(GX_VA_NRM, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);
-        GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+        GX_SetVtxDesc(GX_VA_CLR0, GX_NONE);
         GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? (useIndexedGeometry ? GX_INDEX16 : GX_DIRECT) : GX_NONE);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
         GX_SetNumChans(1);
-        GX_SetChanCtrl(GX_COLOR0A0, GX_ENABLE, GX_SRC_REG, GX_SRC_VTX, GX_LIGHT0, GX_DF_CLAMP, GX_AF_NONE);
+        GX_SetChanCtrl(GX_COLOR0A0, GX_ENABLE, GX_SRC_REG, GX_SRC_REG, GX_LIGHT0, GX_DF_CLAMP, GX_AF_NONE);
         GX_SetNumTexGens(useTexturedBranch ? 1 : 0);
         if (useTexturedBranch) {
             GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
@@ -228,6 +228,14 @@ namespace helengine::gamecube {
         }
 
         GX_SetArray(GX_VA_POS, &(*cachedMeshData->PackedPositions)[0], sizeof(GameCubePackedPosition3));
+        if (cachedMeshData->HasNormals) {
+            if (cachedMeshData->PackedNormals == nullptr || cachedMeshData->PackedNormals == Array<GameCubePackedNormal3>::Empty() || cachedMeshData->PackedNormals->Length == 0) {
+                throw new InvalidOperationException("GameCube lit cached mesh arrays require packed normals.");
+            }
+
+            GX_SetArray(GX_VA_NRM, &(*cachedMeshData->PackedNormals)[0], sizeof(GameCubePackedNormal3));
+        }
+
         if (useTexturedBranch) {
             if (!cachedMeshData->HasTexCoords || cachedMeshData->PackedTexCoords == nullptr || cachedMeshData->PackedTexCoords == Array<GameCubePackedTexCoord2>::Empty() || cachedMeshData->PackedTexCoords->Length == 0) {
                 throw new InvalidOperationException("GameCube textured cached mesh arrays require cached texture coordinates.");
@@ -283,7 +291,6 @@ namespace helengine::gamecube {
 
         ambientColor = ConvertLightingColorToGx(ambientRgb);
         GX_SetChanAmbColor(GX_COLOR0A0, ambientColor);
-        GX_SetChanMatColor(GX_COLOR0A0, GXColor { 0xFF, 0xFF, 0xFF, 0xFF });
 
         if (!hasDirectionalLight) {
             GX_InitLightDir(&lightObject, 0.0f, 0.0f, -1.0f);
@@ -415,66 +422,6 @@ namespace helengine::gamecube {
         }
 
         throw new InvalidOperationException("Unsupported material cull mode for GameCube GX submission.");
-    }
-
-    /// Accumulates ambient plus directional light into a white diffuse lighting result.
-    float3 GameCubeRasterRenderer::AccumulateAmbientAndDirectionalLight(GameCubeFramePlan* framePlan, Entity* entity, float3 normal) {
-        if (framePlan == nullptr) {
-            throw new ArgumentNullException("framePlan");
-        } else if (entity == nullptr) {
-            throw new ArgumentNullException("entity");
-        }
-
-        float4 entityOrientation = entity->get_Orientation();
-        entityOrientation.Normalize();
-        float3 worldNormal = float4::RotateVector(normal, entityOrientation);
-        float3 normalizedNormal = float3::Normalize(worldNormal);
-        float3 accumulated(0.0f, 0.0f, 0.0f);
-
-        for (int32_t lightIndex = 0; lightIndex < framePlan->LightSubmissions->get_Count(); lightIndex++) {
-            RenderFrameLightSubmission* submission = (*framePlan->LightSubmissions)[lightIndex];
-            LightComponent* light = submission->get_Light();
-            if (light == nullptr) {
-                continue;
-            }
-
-            float4 lightColor = light->get_Color();
-            float3 rgb = float3(lightColor.X, lightColor.Y, lightColor.Z) * light->get_Intensity();
-            if (submission->get_LightType() == LightType::Ambient) {
-                accumulated = accumulated + rgb;
-                continue;
-            } else if (submission->get_LightType() != LightType::Directional) {
-                continue;
-            }
-
-            Entity* lightEntity = light->get_Parent();
-            if (lightEntity == nullptr) {
-                continue;
-            }
-
-            float4 lightOrientation = lightEntity->get_Orientation();
-            lightOrientation.Normalize();
-            float3 lightDirection = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), lightOrientation) * -1.0f;
-            lightDirection = float3::Normalize(lightDirection);
-            float diffuse = std::max(0.0f, float3::Dot(normalizedNormal, lightDirection));
-            accumulated = accumulated + (rgb * diffuse);
-        }
-
-        return accumulated;
-    }
-
-    /// Evaluates one final GX vertex color for the first lit branch.
-    GXColor GameCubeRasterRenderer::EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, float3 normal) {
-        if (material == nullptr) {
-            throw new ArgumentNullException("material");
-        }
-
-        const float3 lighting = AccumulateAmbientAndDirectionalLight(framePlan, entity, normal);
-        const float3 baseColor = material->GetBaseColor();
-        return ConvertLightingColorToGx(float3(
-            std::min(1.0f, lighting.X * baseColor.X),
-            std::min(1.0f, lighting.Y * baseColor.Y),
-            std::min(1.0f, lighting.Z * baseColor.Z)));
     }
 
     /// Converts a normalized RGB lighting value into a GX color with full alpha.
@@ -711,12 +658,13 @@ namespace helengine::gamecube {
         }
 
         const bool useLitBranch = UsesLitBranch(submission);
-        ConfigurePipeline(useTexturedBranch, true);
         GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
-        BindCachedMeshArrays(cachedMeshData, useTexturedBranch);
         if (useLitBranch) {
+            ConfigureLitPipeline(useTexturedBranch, true);
             DrawCachedLitSubmesh(framePlan, entity, gameCubeRuntimeMaterial, cachedMeshData, runtimeSubmesh, useTexturedBranch);
         } else {
+            ConfigurePipeline(useTexturedBranch, true);
+            BindCachedMeshArrays(cachedMeshData, useTexturedBranch);
             DrawCachedSubmesh(cachedMeshData, runtimeSubmesh, useTexturedBranch);
         }
     }
@@ -749,7 +697,7 @@ namespace helengine::gamecube {
         GX_End();
     }
 
-    /// Draws one lit cached submesh while keeping only vertex-color evaluation dynamic.
+    /// Draws one lit cached submesh through the indexed GX lighting path.
     void GameCubeRasterRenderer::DrawCachedLitSubmesh(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
@@ -761,8 +709,8 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("cachedMeshData");
         } else if (runtimeSubmesh == nullptr) {
             throw new ArgumentNullException("runtimeSubmesh");
-        } else if (!cachedMeshData->HasNormals || cachedMeshData->Normals == nullptr || cachedMeshData->Normals == Array<float3>::Empty() || cachedMeshData->Normals->Length == 0) {
-            throw new InvalidOperationException("GameCube lit rendering requires cached mesh normals.");
+        } else if (!cachedMeshData->HasNormals || cachedMeshData->PackedNormals == nullptr || cachedMeshData->PackedNormals == Array<GameCubePackedNormal3>::Empty() || cachedMeshData->PackedNormals->Length == 0) {
+            throw new InvalidOperationException("GameCube lit rendering requires cached packed mesh normals.");
         } else if (cachedMeshData->Indices16 == nullptr || cachedMeshData->Indices16 == Array<uint16_t>::Empty() || cachedMeshData->Indices16->Length == 0) {
             throw new InvalidOperationException("GameCube cached lit meshes must contain cached 16-bit indices.");
         }
@@ -773,12 +721,19 @@ namespace helengine::gamecube {
             throw new InvalidOperationException("GameCube cached lit submesh ranges must stay within the cached index buffer.");
         }
 
+        BindCachedMeshArrays(cachedMeshData, useTexturedBranch);
+        GXLightObj lightObject;
+        GXColor ambientColor;
+        bool hasDirectionalLight = false;
+        ConfigureDirectionalLight(framePlan, lightObject, ambientColor, hasDirectionalLight);
+        const float3 baseColor = material->GetBaseColor();
+        GX_SetChanMatColor(GX_COLOR0A0, ConvertLightingColorToGx(baseColor));
+
         GX_Begin(GX_TRIANGLES, GX_VTXFMT0, indexCount);
         for (int32_t indexOffset = 0; indexOffset < indexCount; indexOffset++) {
             const uint16_t cachedIndex = (*cachedMeshData->Indices16)[indexStart + indexOffset];
             GX_Position1x16(cachedIndex);
-            GXColor litColor = EvaluateLitVertexColor(framePlan, entity, material, (*cachedMeshData->Normals)[cachedIndex]);
-            GX_Color4u8(litColor.r, litColor.g, litColor.b, litColor.a);
+            GX_Normal1x16(cachedIndex);
             if (useTexturedBranch) {
                 GX_TexCoord1x16(cachedIndex);
             }

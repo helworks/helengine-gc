@@ -105,7 +105,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GXColor { 0x64, 0x95, 0xED, 0xFF }", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("guPerspective(", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_LoadProjectionMtx(projectionMatrix, GX_PERSPECTIVE);", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("EvaluateLitVertexColor(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("ConfigureDirectionalLight(", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("submission->get_Material()", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetCullMode(GX_CULL_FRONT);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);", rasterRendererSource, StringComparison.Ordinal);
@@ -305,14 +305,13 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("void SetBaseColor(float3 value);", runtimeMaterialHeaderSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRuntimeMaterial::GameCubeRuntimeMaterial()", runtimeMaterialSource, StringComparison.Ordinal);
         Assert.Contains("RuntimeMaterialLightingModel", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, float3 normal);", rasterRendererHeaderSource, StringComparison.Ordinal);
-        Assert.Contains("AccumulateAmbientAndDirectionalLight(", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("void ConfigureLitPipeline(bool useTexturedBranch, bool useIndexedGeometry);", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("void ConfigureDirectionalLight(GameCubeFramePlan* framePlan, GXLightObj& lightObject, GXColor& ambientColor, bool& hasDirectionalLight);", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("submission->get_Material()", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRuntimeMaterial* gameCubeRuntimeMaterial = static_cast<GameCubeRuntimeMaterial*>(material);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("const float3 baseColor = material->GetBaseColor();", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("lighting.X * baseColor.X", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("lighting.Y * baseColor.Y", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("lighting.Z * baseColor.Z", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetChanMatColor(GX_COLOR0A0, ConvertLightingColorToGx(baseColor));", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_Normal1x16(", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("RuntimeMaterialLightingModel::Unlit", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("RuntimeMaterialLightingModel::MetalRoughPbr", rasterRendererSource, StringComparison.Ordinal);
     }
@@ -568,5 +567,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GX_SetVtxDesc(GX_VA_NRM, GX_INDEX16);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetChanCtrl(GX_COLOR0A0", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_InitLightDir(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("EvaluateLitVertexColor(framePlan, entity, material", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("GX_Color4u8(litColor.r, litColor.g, litColor.b, litColor.a);", rasterRendererSource, StringComparison.Ordinal);
     }
 }

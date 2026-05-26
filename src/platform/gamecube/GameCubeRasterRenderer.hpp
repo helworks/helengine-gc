@@ -80,12 +80,6 @@ namespace helengine::gamecube {
         /// Maps the shared material cull-mode contract onto the reversed GX face-culling convention.
         u8 ResolveGxCullMode(MaterialCullMode cullMode);
 
-        /// Accumulates ambient plus directional light into a white diffuse lighting result.
-        float3 AccumulateAmbientAndDirectionalLight(GameCubeFramePlan* framePlan, Entity* entity, float3 normal);
-
-        /// Evaluates one final GX vertex color for the first lit branch.
-        GXColor EvaluateLitVertexColor(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, float3 normal);
-
         /// Converts a normalized RGB lighting value into a GX color with full alpha.
         GXColor ConvertLightingColorToGx(float3 color);
 
@@ -116,7 +110,7 @@ namespace helengine::gamecube {
         /// Draws one unlit or textured cached submesh through indexed GX array submission.
         void DrawCachedSubmesh(GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch);
 
-        /// Draws one lit cached submesh while keeping only vertex-color evaluation dynamic.
+        /// Draws one lit cached submesh through the indexed GX lighting path.
         void DrawCachedLitSubmesh(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch);
 
         /// Draws one authored runtime submesh through immediate GX triangle submission and the active entity transform.
