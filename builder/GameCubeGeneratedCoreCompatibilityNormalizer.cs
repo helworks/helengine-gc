@@ -20,7 +20,6 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "RuntimeContentManagerConfiguration.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "RuntimeSceneAssetReferenceResolver.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "ContentManager.cpp");
-        NormalizeGeneratedCoreFile(generatedCoreRootPath, "SceneManager.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "RenderManager3D.hpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "RenderManager3D.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "FPSComponent.cpp");
@@ -31,6 +30,7 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "TextureAssetColorFormat.hpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "EditorAssetBinarySerializer.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "FontAssetBinarySerializer.cpp");
+        NormalizeGeneratedCoreFile(generatedCoreRootPath, "FontAsset.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "PointerInteractableHitResolver.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "StandardPlatformInputConfiguration.cpp");
     }
@@ -74,8 +74,6 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
             return NormalizeRuntimeSceneAssetReferenceResolverSource(normalizedContents);
         } else if (string.Equals(relativePath, "ContentManager.cpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeContentManagerSource(normalizedContents);
-        } else if (string.Equals(relativePath, "SceneManager.cpp", StringComparison.OrdinalIgnoreCase)) {
-            return NormalizeSceneManagerSource(normalizedContents);
         } else if (string.Equals(relativePath, "RenderManager3D.hpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeRenderManager3DHeaderSource(normalizedContents);
         } else if (string.Equals(relativePath, "RenderManager3D.cpp", StringComparison.OrdinalIgnoreCase)) {
@@ -96,10 +94,58 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
             return NormalizeTextureColorFormatReaderSource(normalizedContents);
         } else if (string.Equals(relativePath, "FontAssetBinarySerializer.cpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeFontAssetBinarySerializerSource(normalizedContents);
+        } else if (string.Equals(relativePath, "FontAsset.cpp", StringComparison.OrdinalIgnoreCase)) {
+            return NormalizeFontAssetSource(normalizedContents);
         } else if (string.Equals(relativePath, "PointerInteractableHitResolver.cpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizePointerInteractableHitResolverSource(normalizedContents);
         } else if (string.Equals(relativePath, "StandardPlatformInputConfiguration.cpp", StringComparison.OrdinalIgnoreCase)) {
             return NormalizeStandardPlatformInputConfigurationSource(normalizedContents);
+        }
+
+        return normalizedContents;
+    }
+
+    /// <summary>
+    /// Rewrites generated font disposal so GameCube runtime logs each owned pointer before deletion.
+    /// </summary>
+    /// <param name="contents">Generated font asset source.</param>
+    /// <returns>Normalized generated font asset source.</returns>
+    static string NormalizeFontAssetSource(string contents) {
+        if (contents == null) {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        string normalizedContents = contents;
+        if (!normalizedContents.Contains("#include <ogc/system.h>", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "#include \"FontAsset.hpp\"\n",
+                "#include \"FontAsset.hpp\"\n#include <ogc/system.h>\n",
+                "GameCube generated FontAsset.cpp should include SYS_Report support for font disposal diagnostics.");
+        }
+
+        if (!normalizedContents.Contains("[GC] FontAsset dispose begin", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "const bool sourceTexturePaletteColorsUsesSharedEmptyArray = (sourceTexturePaletteColors == Array<uint8_t>::Empty());\n",
+                "const bool sourceTexturePaletteColorsUsesSharedEmptyArray = (sourceTexturePaletteColors == Array<uint8_t>::Empty());\nSYS_Report(\"[GC] FontAsset dispose begin font=%p characters=%p fontInfo=%p sourceTextureAsset=%p sourceColors=%p sourcePalette=%p texture=%p atlasPath=%s\\n\", this, characters, fontInfo, sourceTextureAsset, sourceTextureColors, sourceTexturePaletteColors, this->get_Texture(), this->get_CookedAtlasTextureRelativePath().c_str());\n",
+                "GameCube generated FontAsset.cpp should log font disposal begin state.");
+        }
+
+        if (!normalizedContents.Contains("[GC] FontAsset delete characters", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "delete characters;\ndelete fontInfo;\n",
+                "SYS_Report(\"[GC] FontAsset delete characters=%p\\n\", characters);\ndelete characters;\nSYS_Report(\"[GC] FontAsset delete fontInfo=%p\\n\", fontInfo);\ndelete fontInfo;\n",
+                "GameCube generated FontAsset.cpp should log font character and font-info deletes.");
+        }
+
+        if (!normalizedContents.Contains("[GC] FontAsset delete source colors", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "    if (!sourceTextureColorsUsesSharedEmptyArray)\n    {\ndelete sourceTextureColors;\n    }\n    if (!sourceTexturePaletteColorsUsesSharedEmptyArray)\n    {\ndelete sourceTexturePaletteColors;\n    }\ndelete sourceTextureAsset;\n",
+                "    if (!sourceTextureColorsUsesSharedEmptyArray)\n    {\nSYS_Report(\"[GC] FontAsset delete source colors=%p\\n\", sourceTextureColors);\ndelete sourceTextureColors;\n    }\n    if (!sourceTexturePaletteColorsUsesSharedEmptyArray)\n    {\nSYS_Report(\"[GC] FontAsset delete source palette=%p\\n\", sourceTexturePaletteColors);\ndelete sourceTexturePaletteColors;\n    }\nSYS_Report(\"[GC] FontAsset delete source texture asset=%p\\n\", sourceTextureAsset);\ndelete sourceTextureAsset;\n",
+                "GameCube generated FontAsset.cpp should log font source texture deletes.");
         }
 
         return normalizedContents;
@@ -307,6 +353,14 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
                 "this->TrackOwnedFont(fontAsset);\nreturn fontAsset;}",
                 "this->TrackOwnedFont(fontAsset);\nSYS_Report(\"[GC] Resolver font load path=%s ptr=%p\\n\", fullPath.c_str(), fontAsset);\nreturn fontAsset;}",
                 "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log runtime font loads.");
+        }
+
+        if (!normalizedContents.Contains("[GC] Resolver font atlas attach begin path=%s font=%p", StringComparison.Ordinal)) {
+            normalizedContents = ReplaceRequired(
+                normalizedContents,
+                "const std::string atlasFullPath = this->ResolvePackagedContentPath(fontAsset->get_CookedAtlasTextureRelativePath());\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromCooked(atlasFullPath);\nfontAsset->AttachCookedRuntimeTexture(runtimeTexture);",
+                "const std::string atlasFullPath = this->ResolvePackagedContentPath(fontAsset->get_CookedAtlasTextureRelativePath());\nSYS_Report(\"[GC] Resolver font atlas attach begin path=%s font=%p\\n\", atlasFullPath.c_str(), fontAsset);\n::RuntimeTexture *runtimeTexture = Core::get_Instance()->get_RenderManager2D()->BuildTextureFromCooked(atlasFullPath);\nfontAsset->AttachCookedRuntimeTexture(runtimeTexture);\nSYS_Report(\"[GC] Resolver font atlas attach complete path=%s font=%p texture=%p\\n\", atlasFullPath.c_str(), fontAsset, runtimeTexture);",
+                "GameCube generated RuntimeSceneAssetReferenceResolver.cpp should log external cooked font atlas attachment.");
         }
 
         if (!normalizedContents.Contains("[GC] Resolver material generated cache-hit key=%s ptr=%p", StringComparison.Ordinal)) {
@@ -572,48 +626,6 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         return contents[..textureBuildMatch.Index]
             + replacementBlock
             + contents[(textureBuildMatch.Index + textureBuildMatch.Length)..];
-    }
-
-    /// <summary>
-    /// Rewrites generated scene-manager loads so GameCube packaged builds record scene-load start times for first-draw timing logs.
-    /// </summary>
-    /// <param name="contents">Generated scene-manager source.</param>
-    /// <returns>Normalized generated scene-manager source.</returns>
-    static string NormalizeSceneManagerSource(string contents) {
-        string normalizedContents = contents;
-        if (!normalizedContents.Contains("extern \"C\" void GameCubeRecordSceneLoadRequest(const char* sceneId);", StringComparison.Ordinal)) {
-            if (normalizedContents.Contains("#include \"SceneManager.hpp\"\n", StringComparison.Ordinal)) {
-                normalizedContents = normalizedContents.Replace(
-                    "#include \"SceneManager.hpp\"\n",
-                    "#include \"SceneManager.hpp\"\nextern \"C\" void GameCubeRecordSceneLoadRequest(const char* sceneId);\n",
-                    StringComparison.Ordinal);
-            } else if (normalizedContents.Contains("#include <ogc/system.h>\n", StringComparison.Ordinal)) {
-                normalizedContents = ReplaceRequired(
-                    normalizedContents,
-                    "#include <ogc/system.h>\n",
-                    "#include <ogc/system.h>\nextern \"C\" void GameCubeRecordSceneLoadRequest(const char* sceneId);\n",
-                    "GameCube generated SceneManager.cpp should declare the native scene-load timing hook.");
-            } else {
-                throw new InvalidOperationException("GameCube generated SceneManager.cpp should declare the native scene-load timing hook.");
-            }
-        }
-
-        if (normalizedContents.Contains("GameCubeRecordSceneLoadRequest(sceneId.c_str());", StringComparison.Ordinal)) {
-            return normalizedContents;
-        }
-
-        if (normalizedContents.Contains("this->RecordTraceState(\"LoadSceneImmediateBegin\", sceneId);\n", StringComparison.Ordinal)) {
-            return normalizedContents.Replace(
-                "this->RecordTraceState(\"LoadSceneImmediateBegin\", sceneId);\n",
-                "this->RecordTraceState(\"LoadSceneImmediateBegin\", sceneId);\nGameCubeRecordSceneLoadRequest(sceneId.c_str());\n",
-                StringComparison.Ordinal);
-        }
-
-        return ReplaceRequired(
-            normalizedContents,
-            "        ? static_cast<long>(this->SceneCatalog->get_Entries()->get_Length())\n        : -1L);\n",
-            "        ? static_cast<long>(this->SceneCatalog->get_Entries()->get_Length())\n        : -1L);\nGameCubeRecordSceneLoadRequest(sceneId.c_str());\n",
-            "GameCube generated SceneManager.cpp should record scene-load start times immediately after scene-load requests are logged.");
     }
 
     /// <summary>

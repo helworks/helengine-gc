@@ -114,7 +114,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.DoesNotContain("[GC] Frame %u extracted.", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("RecordTraceState(\"LoadSceneImmediateBeforeContentLoad\"", sceneManagerSource, StringComparison.Ordinal);
         Assert.Contains("RecordTraceState(\"LoadSceneImmediateBeforeSceneLoadServiceLoad\"", sceneManagerSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeRecordSceneLoadRequest(sceneId.c_str());", sceneManagerSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("GameCubeRecordSceneLoadRequest(sceneId.c_str());", sceneManagerSource, StringComparison.Ordinal);
         Assert.Contains("[GC] ContentManager opening asset:", contentManagerSource, StringComparison.Ordinal);
         Assert.Contains("std::string PlatformMenuSceneResolver::DesktopMainMenuSceneId = \"Scenes/DemoDiscMainMenu.helen\";", platformMenuSceneResolverSource, StringComparison.Ordinal);
         Assert.Contains("uint8_t FontAssetBinarySerializer::CurrentVersion = 5;", fontAssetBinarySerializerSource, StringComparison.Ordinal);
@@ -128,7 +128,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("delete static_cast<GameCubeRuntimeMaterial*>(material);", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("delete runtimeModel;", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("delete textureAsset->Colors;", generatedCoreNormalizerSource, StringComparison.Ordinal);
-        Assert.Contains("NormalizeGeneratedCoreFile(generatedCoreRootPath, \"SceneManager.cpp\");", generatedCoreNormalizerSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("NormalizeGeneratedCoreFile(generatedCoreRootPath, \"SceneManager.cpp\");", generatedCoreNormalizerSource, StringComparison.Ordinal);
         Assert.Contains("NormalizeGeneratedCoreFile(generatedCoreRootPath, \"PlatformMenuSceneResolver.cpp\");", generatedCoreNormalizerSource, StringComparison.Ordinal);
         Assert.Contains("NormalizePlatformMenuSceneResolverSource", generatedCoreNormalizerSource, StringComparison.Ordinal);
     }
