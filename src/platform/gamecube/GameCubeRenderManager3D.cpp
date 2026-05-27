@@ -46,6 +46,7 @@ namespace helengine::gamecube {
         , SceneRenderBridge(new GameCubeSceneRenderBridge())
         , MeshCache(new GameCubeMeshCache())
         , RasterRenderer(new GameCubeRasterRenderer(MeshCache))
+        , OverlayRenderManager2D(nullptr)
         , HasRenderedSceneValue(false)
         , ExtractedFrameCount(0U) {
     }
@@ -213,45 +214,7 @@ namespace helengine::gamecube {
                 runtimeMaterial->SetOwnedDiffuseTexture(nullptr);
             }
 
-            MaterialPropertyBlock* properties = runtimeMaterial->get_Properties();
-            MaterialRenderState* renderState = runtimeMaterial->get_RenderState();
-            MaterialLayout* layout = runtimeMaterial->get_Layout();
-
-            delete properties;
-            delete renderState;
-
-            if (layout != nullptr && layout != MaterialLayout::get_Empty()) {
-                Array<MaterialLayoutBinding*>* textureBindings = layout->get_TextureBindings();
-                if (textureBindings != nullptr && textureBindings != Array<MaterialLayoutBinding*>::Empty()) {
-                    for (int32_t bindingIndex = 0; bindingIndex < textureBindings->get_Length(); bindingIndex++) {
-                        delete (*textureBindings)[bindingIndex];
-                    }
-
-                    delete textureBindings;
-                }
-
-                Array<MaterialLayoutBinding*>* constantBufferBindings = layout->get_ConstantBufferBindings();
-                if (constantBufferBindings != nullptr && constantBufferBindings != Array<MaterialLayoutBinding*>::Empty()) {
-                    for (int32_t bindingIndex = 0; bindingIndex < constantBufferBindings->get_Length(); bindingIndex++) {
-                        delete (*constantBufferBindings)[bindingIndex];
-                    }
-
-                    delete constantBufferBindings;
-                }
-
-                Array<MaterialLayoutBinding*>* samplerBindings = layout->get_SamplerBindings();
-                if (samplerBindings != nullptr && samplerBindings != Array<MaterialLayoutBinding*>::Empty()) {
-                    for (int32_t bindingIndex = 0; bindingIndex < samplerBindings->get_Length(); bindingIndex++) {
-                        delete (*samplerBindings)[bindingIndex];
-                    }
-
-                    delete samplerBindings;
-                }
-
-                delete layout->get_RenderState();
-                delete layout;
-            }
-
+            runtimeMaterial->Dispose();
             delete runtimeMaterial;
         }
 
@@ -263,10 +226,24 @@ namespace helengine::gamecube {
             }
 
             GameCubeRuntimeModel* runtimeModel = static_cast<GameCubeRuntimeModel*>(model);
+            SYS_Report(
+                "[GC] RM3D flush model begin id=%s ptr=%p ownedModel=%p positions=%p normals=%p texCoords=%p indices16=%p indices32=%p cached=%p submeshes=%p\n",
+                runtimeModel->get_Id().c_str(),
+                runtimeModel,
+                runtimeModel->OwnedSourceModelAsset,
+                runtimeModel->Positions,
+                runtimeModel->Normals,
+                runtimeModel->TexCoords,
+                runtimeModel->Indices16,
+                runtimeModel->Indices32,
+                runtimeModel->CachedMeshData,
+                runtimeModel->get_Submeshes());
             ReleaseOwnedSourceModelAsset(runtimeModel);
             Array<RuntimeSubmesh*>* submeshes = runtimeModel->get_Submeshes();
             if (submeshes != nullptr && submeshes != Array<RuntimeSubmesh*>::Empty()) {
+                SYS_Report("[GC] RM3D flush model delete runtime submeshes array=%p count=%ld\n", submeshes, static_cast<long>(submeshes->get_Length()));
                 for (int32_t submeshIndex = 0; submeshIndex < submeshes->get_Length(); submeshIndex++) {
+                    SYS_Report("[GC] RM3D flush model delete runtime submesh[%ld]=%p\n", static_cast<long>(submeshIndex), (*submeshes)[submeshIndex]);
                     delete (*submeshes)[submeshIndex];
                 }
 
@@ -274,23 +251,29 @@ namespace helengine::gamecube {
             }
 
             if (runtimeModel->CachedMeshData != nullptr) {
+                SYS_Report("[GC] RM3D flush model delete cached mesh=%p\n", runtimeModel->CachedMeshData);
                 if (runtimeModel->CachedMeshData->PackedPositions != nullptr && runtimeModel->CachedMeshData->PackedPositions != Array<GameCubePackedPosition3>::Empty()) {
+                    SYS_Report("[GC] RM3D flush model delete packed positions=%p\n", runtimeModel->CachedMeshData->PackedPositions);
                     delete runtimeModel->CachedMeshData->PackedPositions;
                 }
 
                 if (runtimeModel->CachedMeshData->PackedTexCoords != nullptr && runtimeModel->CachedMeshData->PackedTexCoords != Array<GameCubePackedTexCoord2>::Empty()) {
+                    SYS_Report("[GC] RM3D flush model delete packed texcoords=%p\n", runtimeModel->CachedMeshData->PackedTexCoords);
                     delete runtimeModel->CachedMeshData->PackedTexCoords;
                 }
 
                 if (runtimeModel->CachedMeshData->Indices16 != nullptr && runtimeModel->CachedMeshData->Indices16 != Array<uint16_t>::Empty()) {
+                    SYS_Report("[GC] RM3D flush model delete cached indices16=%p\n", runtimeModel->CachedMeshData->Indices16);
                     delete runtimeModel->CachedMeshData->Indices16;
                 }
 
                 if (runtimeModel->CachedMeshData->SubmeshIndexStarts != nullptr && runtimeModel->CachedMeshData->SubmeshIndexStarts != Array<int32_t>::Empty()) {
+                    SYS_Report("[GC] RM3D flush model delete submesh index starts=%p\n", runtimeModel->CachedMeshData->SubmeshIndexStarts);
                     delete runtimeModel->CachedMeshData->SubmeshIndexStarts;
                 }
 
                 if (runtimeModel->CachedMeshData->SubmeshIndexCounts != nullptr && runtimeModel->CachedMeshData->SubmeshIndexCounts != Array<int32_t>::Empty()) {
+                    SYS_Report("[GC] RM3D flush model delete submesh index counts=%p\n", runtimeModel->CachedMeshData->SubmeshIndexCounts);
                     delete runtimeModel->CachedMeshData->SubmeshIndexCounts;
                 }
 
@@ -298,25 +281,31 @@ namespace helengine::gamecube {
             }
 
             if (runtimeModel->Positions != nullptr && runtimeModel->Positions != Array<float3>::Empty()) {
+                SYS_Report("[GC] RM3D flush model delete positions=%p\n", runtimeModel->Positions);
                 delete runtimeModel->Positions;
             }
 
             if (runtimeModel->Normals != nullptr && runtimeModel->Normals != Array<float3>::Empty()) {
+                SYS_Report("[GC] RM3D flush model delete normals=%p\n", runtimeModel->Normals);
                 delete runtimeModel->Normals;
             }
 
             if (runtimeModel->TexCoords != nullptr && runtimeModel->TexCoords != Array<float2>::Empty()) {
+                SYS_Report("[GC] RM3D flush model delete texcoords=%p\n", runtimeModel->TexCoords);
                 delete runtimeModel->TexCoords;
             }
 
             if (runtimeModel->Indices16 != nullptr && runtimeModel->Indices16 != Array<uint16_t>::Empty()) {
+                SYS_Report("[GC] RM3D flush model delete indices16=%p\n", runtimeModel->Indices16);
                 delete runtimeModel->Indices16;
             }
 
             if (runtimeModel->Indices32 != nullptr && runtimeModel->Indices32 != Array<uint32_t>::Empty()) {
+                SYS_Report("[GC] RM3D flush model delete indices32=%p\n", runtimeModel->Indices32);
                 delete runtimeModel->Indices32;
             }
 
+            SYS_Report("[GC] RM3D flush model delete runtime model=%p\n", runtimeModel);
             delete runtimeModel;
         }
 
@@ -338,25 +327,57 @@ namespace helengine::gamecube {
 
     /// Extracts the current frame and renders it through GX.
     void GameCubeRenderManager3D::Draw() {
+        if (OverlayRenderManager2D == nullptr) {
+            throw new InvalidOperationException("GameCubeRenderManager3D requires an overlay GameCubeRenderManager2D before Draw().");
+        }
+
+        SYS_Report("[GC] RM3D integrated draw begin.\n");
+        OverlayRenderManager2D->Draw();
+        const bool has2DDrawables = OverlayRenderManager2D->HasCapturedDrawables();
+        SYS_Report("[GC] RM3D integrated draw overlay captured has2D=%d\n", has2DDrawables ? 1 : 0);
         GameCubeFramePlan* framePlan = SceneRenderBridge->BuildFramePlan(CapabilityProfile, MainWindowSize.X, MainWindowSize.Y);
-        if (framePlan->DrawableSubmissions->get_Count() <= 0) {
+        if (framePlan == nullptr) {
+            HasRenderedSceneValue = false;
+            SYS_Report("[GC] RM3D integrated draw skipped: no active camera yet.\n");
+            return;
+        }
+
+        const bool has3DDrawables = framePlan->DrawableSubmissions->get_Count() > 0;
+        SYS_Report(
+            "[GC] RM3D integrated draw frame plan has3D=%d has2D=%d camera=%p\n",
+            has3DDrawables ? 1 : 0,
+            has2DDrawables ? 1 : 0,
+            framePlan->Camera);
+        if (!has3DDrawables && !has2DDrawables) {
             HasRenderedSceneValue = false;
             delete framePlan;
             return;
         }
 
-        ExtractedFrameCount++;
-        HasRenderedSceneValue = RasterRenderer->DrawFrame(framePlan);
+        if (has3DDrawables) {
+            ExtractedFrameCount++;
+            HasRenderedSceneValue = RasterRenderer->DrawFrame(framePlan);
+        } else {
+            HasRenderedSceneValue = false;
+        }
+
+        if (has2DDrawables) {
+            SYS_Report("[GC] RM3D integrated draw render2d begin.\n");
+            RasterRenderer->Render2D(framePlan, *OverlayRenderManager2D, MainWindowSize.X, MainWindowSize.Y);
+            SYS_Report("[GC] RM3D integrated draw render2d end.\n");
+        }
+
         delete framePlan;
+        SYS_Report("[GC] RM3D integrated draw end.\n");
     }
 
-    /// Draws the captured 2D overlay for the current frame through the shared GX raster path.
-    void GameCubeRenderManager3D::Draw2D(GameCubeRenderManager2D* renderManager2D, uint16_t frameWidth, uint16_t frameHeight) {
+    /// Registers the 2D overlay render manager that should be captured and rasterized inside the shared 3D draw call.
+    void GameCubeRenderManager3D::SetOverlayRenderManager2D(GameCubeRenderManager2D* renderManager2D) {
         if (renderManager2D == nullptr) {
             throw new ArgumentNullException("renderManager2D");
         }
 
-        RasterRenderer->Render2D(*renderManager2D, frameWidth, frameHeight);
+        OverlayRenderManager2D = renderManager2D;
     }
 
     /// Returns the strict backend capability surface exposed by the first GameCube tier.
@@ -473,6 +494,15 @@ namespace helengine::gamecube {
 
         ModelAsset* ownedSourceModelAsset = runtimeModel->OwnedSourceModelAsset;
         Array<ModelSubmeshAsset*>* submeshes = ownedSourceModelAsset->Submeshes;
+        SYS_Report(
+            "[GC] RM3D release owned source model asset=%p submeshes=%p positions=%p normals=%p texCoords=%p indices16=%p indices32=%p\n",
+            ownedSourceModelAsset,
+            submeshes,
+            ownedSourceModelAsset->Positions,
+            ownedSourceModelAsset->Normals,
+            ownedSourceModelAsset->TexCoords,
+            ownedSourceModelAsset->Indices16,
+            ownedSourceModelAsset->Indices32);
         ownedSourceModelAsset->Positions = nullptr;
         ownedSourceModelAsset->Normals = nullptr;
         ownedSourceModelAsset->TexCoords = nullptr;
@@ -483,12 +513,15 @@ namespace helengine::gamecube {
 
         if (submeshes != nullptr) {
             for (int32_t submeshIndex = 0; submeshIndex < submeshes->get_Length(); submeshIndex++) {
+                SYS_Report("[GC] RM3D release owned source model delete submesh[%ld]=%p\n", static_cast<long>(submeshIndex), (*submeshes)[submeshIndex]);
                 delete (*submeshes)[submeshIndex];
             }
 
+            SYS_Report("[GC] RM3D release owned source model delete submesh array=%p\n", submeshes);
             delete submeshes;
         }
 
+        SYS_Report("[GC] RM3D release owned source model delete model asset=%p\n", ownedSourceModelAsset);
         delete ownedSourceModelAsset;
     }
 }

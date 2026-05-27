@@ -125,11 +125,22 @@ namespace helengine::gamecube {
         return true;
     }
 
-    /// Draws the captured 2D overlay drawables for the current frame through GX.
-    void GameCubeRasterRenderer::Render2D(const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight) {
-        if (!renderManager2D.HasCapturedDrawables()) {
+    /// Draws the captured 2D overlay drawables for the current frame through GX using the active frame-plan camera to resolve 2D-only background clears.
+    void GameCubeRasterRenderer::Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        } else if (!renderManager2D.HasCapturedDrawables()) {
             return;
         }
+
+        SYS_Report(
+            "[GC] Raster Render2D begin frameWidth=%u frameHeight=%u has3D=%d rounded=%u sprites=%u text=%u\n",
+            static_cast<unsigned>(frameWidth),
+            static_cast<unsigned>(frameHeight),
+            framePlan->DrawableSubmissions->get_Count() > 0 ? 1 : 0,
+            static_cast<unsigned>(renderManager2D.GetRoundedRectQueue().size()),
+            static_cast<unsigned>(renderManager2D.GetSpriteQueue().size()),
+            static_cast<unsigned>(renderManager2D.GetTextQueue().size()));
 
         Mtx44 projectionMatrix;
         guOrtho(
@@ -150,6 +161,20 @@ namespace helengine::gamecube {
         GX_LoadPosMtxImm(identityMatrix, GX_PNMTX0);
         GX_SetCurrentMtx(GX_PNMTX0);
 
+        if (framePlan->DrawableSubmissions->get_Count() <= 0) {
+            CameraClearSettings clearSettings = framePlan->Camera->get_ClearSettings();
+            GXColor clearColor = ResolveClearColor(clearSettings);
+            SYS_Report(
+                "[GC] Raster Render2D clear fill color=(%u,%u,%u,%u)\n",
+                static_cast<unsigned>(clearColor.r),
+                static_cast<unsigned>(clearColor.g),
+                static_cast<unsigned>(clearColor.b),
+                static_cast<unsigned>(clearColor.a));
+            Configure2DPipeline(false);
+            GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+            DrawSolidQuad2D(0.0f, 0.0f, static_cast<float>(frameWidth), static_cast<float>(frameHeight), clearColor);
+        }
+
         for (const GameCubeRoundedRectDrawCommand& command : renderManager2D.GetRoundedRectQueue()) {
             RenderRoundedRect2D(command, frameWidth, frameHeight);
         }
@@ -163,6 +188,7 @@ namespace helengine::gamecube {
         }
 
         GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+        SYS_Report("[GC] Raster Render2D end.\n");
     }
 
     /// Configures the GX state used by the current opaque mesh path.

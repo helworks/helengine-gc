@@ -3,11 +3,19 @@
 #include <ogc/dvd.h>
 #include <ogc/system.h>
 
+#include "InputControlId.hpp"
+#include "InputControlKind.hpp"
+#include "InputDeviceKind.hpp"
 #include "RuntimeSceneCatalog.hpp"
 #include "RuntimeSceneCatalogEntry.hpp"
 #include "runtime/gamecube_runtime_scene_manifest.hpp"
+#include "runtime/runtime_standard_platform_input_manifest.hpp"
 #include "runtime/array.hpp"
+#include "runtime/native_list.hpp"
 #include "runtime/native_exceptions.hpp"
+#include "StandardPlatformAction.hpp"
+#include "StandardPlatformActionBinding.hpp"
+#include "StandardPlatformInputConfiguration.hpp"
 #include "system/io/file.hpp"
 #include "system/io/path.hpp"
 
@@ -101,6 +109,35 @@ namespace helengine::gamecube {
         }
 
         return new RuntimeSceneCatalog(runtimeEntries);
+    }
+
+    /// Creates the packaged standard platform input configuration emitted by the GameCube builder.
+    StandardPlatformInputConfiguration* GameCubeSceneBootstrap::CreatePackagedStandardPlatformInputConfiguration() {
+        std::size_t entryCount = 0;
+        const HERuntimeStandardPlatformActionEntry* entries = he_runtime_standard_platform_action_entries(&entryCount);
+        SYS_Report("[GC] Packaged standard action entry count: %u\n", static_cast<unsigned int>(entryCount));
+
+        List<StandardPlatformActionBinding*>* bindings = new List<StandardPlatformActionBinding*>(static_cast<int32_t>(entryCount));
+        for (std::size_t index = 0; index < entryCount; index++) {
+            SYS_Report(
+                "[GC] Packaged standard action entry[%u] action=%d deviceKind=%d controlKind=%d deviceIndex=%d controlIndex=%d\n",
+                static_cast<unsigned int>(index),
+                entries[index].ActionId,
+                entries[index].DeviceKind,
+                entries[index].ControlKind,
+                entries[index].DeviceIndex,
+                entries[index].ControlIndex);
+
+            bindings->Add(new StandardPlatformActionBinding(
+                static_cast<StandardPlatformAction>(entries[index].ActionId),
+                InputControlId(
+                    static_cast<InputDeviceKind>(entries[index].DeviceKind),
+                    static_cast<InputControlKind>(entries[index].ControlKind),
+                    entries[index].DeviceIndex,
+                    entries[index].ControlIndex)));
+        }
+
+        return new StandardPlatformInputConfiguration(bindings);
     }
 
     /// Returns the packaged startup scene id emitted by the GameCube builder.

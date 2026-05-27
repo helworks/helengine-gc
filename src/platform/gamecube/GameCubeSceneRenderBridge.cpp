@@ -26,7 +26,7 @@
 #include "runtime/native_exceptions.hpp"
 
 namespace helengine::gamecube {
-    /// Builds one strict frame plan for the active camera and visible opaque drawables.
+    /// Builds one strict frame plan for the active camera and visible opaque drawables, or returns null when no active camera is available yet.
     GameCubeFramePlan* GameCubeSceneRenderBridge::BuildFramePlan(RendererBackendCapabilityProfile* capabilities, int32_t targetWidth, int32_t targetHeight) {
         if (capabilities == nullptr) {
             throw new ArgumentNullException("capabilities");
@@ -34,6 +34,10 @@ namespace helengine::gamecube {
             throw new ArgumentOutOfRangeException("targetWidth");
         } else if (targetHeight < 1) {
             throw new ArgumentOutOfRangeException("targetHeight");
+        }
+
+        if (!HasActiveCamera()) {
+            return nullptr;
         }
 
         CameraComponent* camera = ResolveActiveCamera();
@@ -72,6 +76,21 @@ namespace helengine::gamecube {
             view,
             projection,
             viewProjection);
+    }
+
+    /// Returns whether the current runtime state exposes at least one enabled camera the GameCube backend can render.
+    bool GameCubeSceneRenderBridge::HasActiveCamera() {
+        List<ICamera*>* cameras = Core::get_Instance()->get_ObjectManager()->get_Cameras();
+        for (int32_t index = 0; index < cameras->get_Count(); index++) {
+            CameraComponent* camera = he_cpp_try_cast<CameraComponent>((*cameras)[index]);
+            if (camera == nullptr || camera->get_Parent() == nullptr || !camera->get_Parent()->get_IsHierarchyEnabled()) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     /// Resolves the first enabled runtime camera the GameCube backend is willing to render.

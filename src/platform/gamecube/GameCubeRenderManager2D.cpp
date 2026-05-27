@@ -47,6 +47,7 @@ namespace helengine::gamecube {
             throw new ArgumentException("GameCube cooked texture path is required.", "cookedAssetPath");
         }
 
+        SYS_Report("[GC] RM2D build cooked texture begin path=%s\n", cookedAssetPath.c_str());
         ::FileStream* textureStream = ::File::OpenRead(cookedAssetPath);
         try {
             ::Asset* textureAssetPayload = ::EditorAssetBinarySerializer::Deserialize(textureStream);
@@ -55,6 +56,15 @@ namespace helengine::gamecube {
                 throw new InvalidOperationException("GameCube cooked texture payload did not deserialize as TextureAsset.");
             }
 
+            SYS_Report(
+                "[GC] RM2D build cooked texture decoded path=%s id=%s format=%d size=%ux%u colors=%d palette=%d\n",
+                cookedAssetPath.c_str(),
+                textureAsset->get_Id().c_str(),
+                static_cast<int>(textureAsset->ColorFormat),
+                static_cast<unsigned>(textureAsset->Width),
+                static_cast<unsigned>(textureAsset->Height),
+                textureAsset->Colors != nullptr ? textureAsset->Colors->get_Length() : -1,
+                textureAsset->PaletteColors != nullptr ? textureAsset->PaletteColors->get_Length() : -1);
             textureStream->Dispose();
             RuntimeTexture* runtimeTexture = BuildTextureFromRaw(textureAsset);
             SYS_Report(
@@ -75,6 +85,7 @@ namespace helengine::gamecube {
             }
 
             delete textureAsset;
+            SYS_Report("[GC] RM2D build cooked texture complete path=%s ptr=%p\n", cookedAssetPath.c_str(), runtimeTexture);
             return runtimeTexture;
         } catch (...) {
             if (textureStream != nullptr) {
@@ -106,30 +117,25 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("font");
         }
 
+        RuntimeTexture* texture = font->get_Texture();
         SYS_Report(
             "[GC] RM2D release font ptr=%p texture=%p atlasPath=%s\n",
             font,
-            font->get_Texture(),
+            texture,
             font->get_CookedAtlasTextureRelativePath().c_str());
-        TextureAsset* sourceTextureAsset = font->get_SourceTextureAsset();
-        if (sourceTextureAsset != nullptr) {
-            if (sourceTextureAsset->Colors != nullptr && sourceTextureAsset->Colors != Array<uint8_t>::Empty()) {
-                delete sourceTextureAsset->Colors;
-                sourceTextureAsset->Colors = Array<uint8_t>::Empty();
-            }
 
-            if (sourceTextureAsset->PaletteColors != nullptr && sourceTextureAsset->PaletteColors != Array<uint8_t>::Empty()) {
-                delete sourceTextureAsset->PaletteColors;
-                sourceTextureAsset->PaletteColors = Array<uint8_t>::Empty();
-            }
-
-            delete sourceTextureAsset;
+        if (texture != nullptr && !texture->get_IsDisposed()) {
+            SYS_Report("[GC] RM2D release font texture dispose begin ptr=%p\n", texture);
+            texture->Dispose();
+            delete static_cast<GameCubeRuntimeTexture*>(texture);
+            SYS_Report("[GC] RM2D release font texture dispose complete ptr=%p\n", texture);
         }
 
-        delete font->get_FontInfo();
-        delete font->get_Characters();
+        SYS_Report("[GC] RM2D release font dispose begin ptr=%p\n", font);
         font->Dispose();
+        SYS_Report("[GC] RM2D release font dispose complete ptr=%p\n", font);
         delete font;
+        SYS_Report("[GC] RM2D release font delete complete ptr=%p\n", font);
     }
 
     /// Walks the active camera 2D queue and lets each drawable submit itself into this frame capture.

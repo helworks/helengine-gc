@@ -1,8 +1,6 @@
 #pragma once
 
 #include "platform/gamecube/GameCubeCachedMeshData.hpp"
-#include "runtime/native_dictionary.hpp"
-#include "runtime/native_string.hpp"
 
 class RuntimeModel;
 
@@ -12,16 +10,14 @@ namespace helengine::gamecube {
     /// Validates authored runtime models once and reuses the backend-local geometry view across frames.
     class GameCubeMeshCache {
     public:
-        /// Creates an empty runtime-model cache keyed by authored runtime id.
+        /// Creates one GameCube mesh cache that keeps cached data on each runtime-model instance.
         GameCubeMeshCache();
 
         /// Resolves a runtime model into a validated GameCube runtime model or fails loudly.
         GameCubeRuntimeModel* Resolve(RuntimeModel* runtimeModel);
+
     private:
         /// Builds one cached GameCube mesh representation from the authored runtime-model arrays.
         GameCubeCachedMeshData* BuildCachedMeshData(GameCubeRuntimeModel* runtimeModel);
-
-        /// Cache of runtime models already validated for GX drawing.
-        Dictionary<std::string, GameCubeRuntimeModel*>* CachedModelsById;
     };
 }

@@ -4,6 +4,8 @@ using helengine.baseplatform.Reporting;
 using helengine.baseplatform.Requests;
 using helengine.baseplatform.Targets;
 using helengine.gamecube.builder.tests.Builders;
+using FilesAssetSerializer = helengine.files.AssetSerializer;
+using FilesFontAssetBinarySerializer = helengine.files.FontAssetBinarySerializer;
 
 namespace helengine.gamecube.builder.tests;
 
@@ -33,8 +35,8 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
             Directory.CreateDirectory(generatedCoreRootPath);
             Directory.CreateDirectory(Path.GetDirectoryName(apploaderImagePath) ?? throw new InvalidOperationException("Apploader directory path could not be resolved."));
             await File.WriteAllTextAsync(sceneSourcePath, "scene");
-            await File.WriteAllTextAsync(fontSourcePath, "font");
-            await File.WriteAllTextAsync(defaultFontSourcePath, "default-font");
+            WriteFontAsset(fontSourcePath, CreateExternalCookedAtlasFontAsset("Fonts/DemoDiscBody", "cooked/fonts/DemoDiscBody.ps2tex"));
+            WriteFontAsset(defaultFontSourcePath, CreateEmbeddedAtlasFontAsset("fonts/default.hefont"));
             await File.WriteAllTextAsync(apploaderImagePath, "apploader");
             Directory.SetCurrentDirectory(sourceRootPath);
 
@@ -110,8 +112,18 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "scenes", "DemoDiscMainMenu.hasset")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "DemoDiscBody.hefont")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.hefont")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.ps2tex")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "game.gcm")));
             Assert.True(File.Exists(Path.Combine(generatedCoreRootPath, "runtime", "gamecube_runtime_scene_manifest.hpp")));
+
+            using FileStream defaultFontStream = new FileStream(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.hefont"), FileMode.Open, FileAccess.Read, FileShare.Read);
+            FontAsset stagedDefaultFont = FilesFontAssetBinarySerializer.Deserialize(defaultFontStream);
+            Assert.Null(stagedDefaultFont.SourceTextureAsset);
+            Assert.Equal("cooked/fonts/default.ps2tex", stagedDefaultFont.CookedAtlasTextureRelativePath);
+
+            using FileStream defaultAtlasStream = new FileStream(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.ps2tex"), FileMode.Open, FileAccess.Read, FileShare.Read);
+            TextureAsset stagedDefaultAtlasTexture = Assert.IsType<TextureAsset>(FilesAssetSerializer.Deserialize(defaultAtlasStream));
+            Assert.Equal(TextureAssetColorFormat.GxRgb5A3, stagedDefaultAtlasTexture.ColorFormat);
         } finally {
             Directory.SetCurrentDirectory(previousDirectory);
             if (Directory.Exists(workingRootPath)) {
@@ -216,6 +228,72 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 Directory.Delete(workingRootPath, recursive: true);
             }
         }
+    }
+
+    /// <summary>
+    /// Creates one packaged font asset that still embeds one RGBA32 atlas texture.
+    /// </summary>
+    /// <param name="fontAssetId">Identifier assigned to the embedded source texture.</param>
+    /// <returns>Packaged font asset with one embedded atlas payload.</returns>
+    static FontAsset CreateEmbeddedAtlasFontAsset(string fontAssetId) {
+        return new FontAsset(
+            new FontInfo("Default", 16, 8),
+            null,
+            new Dictionary<char, FontChar>(),
+            16,
+            1,
+            1) {
+            SourceTextureAsset = new TextureAsset {
+                Id = fontAssetId,
+                Width = 1,
+                Height = 1,
+                ColorFormat = TextureAssetColorFormat.Rgba32,
+                AlphaPrecision = TextureAssetAlphaPrecision.A8,
+                Colors = [0xFF, 0x00, 0x00, 0xFF],
+                PaletteColors = Array.Empty<byte>()
+            }
+        };
+    }
+
+    /// <summary>
+    /// Creates one packaged font asset that already resolves its atlas through one external cooked texture path.
+    /// </summary>
+    /// <param name="fontAssetId">Identifier assigned to the source font.</param>
+    /// <param name="cookedAtlasTextureRelativePath">Cooked atlas texture path stored on the packaged font.</param>
+    /// <returns>Packaged font asset that does not embed raw atlas bytes.</returns>
+    static FontAsset CreateExternalCookedAtlasFontAsset(string fontAssetId, string cookedAtlasTextureRelativePath) {
+        if (string.IsNullOrWhiteSpace(fontAssetId)) {
+            throw new ArgumentException("Font asset id must be provided.", nameof(fontAssetId));
+        } else if (string.IsNullOrWhiteSpace(cookedAtlasTextureRelativePath)) {
+            throw new ArgumentException("Cooked atlas texture relative path must be provided.", nameof(cookedAtlasTextureRelativePath));
+        }
+
+        return new FontAsset(
+            new FontInfo("Body", 16, 8),
+            null,
+            new Dictionary<char, FontChar>(),
+            16,
+            1,
+            1) {
+            CookedAtlasTextureRelativePath = cookedAtlasTextureRelativePath,
+            SourceTextureAsset = null
+        };
+    }
+
+    /// <summary>
+    /// Writes one packaged font asset to disk for packaged workspace testing.
+    /// </summary>
+    /// <param name="fontPath">Absolute packaged font path.</param>
+    /// <param name="fontAsset">Packaged font asset to serialize.</param>
+    static void WriteFontAsset(string fontPath, FontAsset fontAsset) {
+        if (string.IsNullOrWhiteSpace(fontPath)) {
+            throw new ArgumentException("Font path must be provided.", nameof(fontPath));
+        } else if (fontAsset == null) {
+            throw new ArgumentNullException(nameof(fontAsset));
+        }
+
+        using FileStream stream = new FileStream(fontPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        FilesFontAssetBinarySerializer.Serialize(stream, fontAsset);
     }
 
     /// <summary>

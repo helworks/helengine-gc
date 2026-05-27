@@ -3,6 +3,7 @@
 #include "runtime/native_string.hpp"
 
 class RuntimeSceneCatalog;
+class StandardPlatformInputConfiguration;
 
 namespace helengine::gamecube {
     /// Declares the authored startup scene and content-root helpers used by direct-DOL and packaged GameCube boot flows.
@@ -34,6 +35,9 @@ namespace helengine::gamecube {
 
         /// Creates the packaged runtime scene catalog emitted by the GameCube builder.
         static RuntimeSceneCatalog* CreatePackagedSceneCatalog();
+
+        /// Creates the packaged standard platform input configuration emitted by the GameCube builder.
+        static StandardPlatformInputConfiguration* CreatePackagedStandardPlatformInputConfiguration();
 
         /// Returns the packaged startup scene id emitted by the GameCube builder.
         static std::string GetPackagedStartupSceneId();

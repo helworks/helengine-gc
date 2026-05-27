@@ -10,23 +10,17 @@
 #include "runtime/array.hpp"
 #include "runtime/native_cast.hpp"
 #include "runtime/native_exceptions.hpp"
-#include "system/string_comparer.hpp"
 
 namespace helengine::gamecube {
-    /// Creates an empty runtime-model cache keyed by authored runtime id.
+    /// Creates one GameCube mesh cache that keeps cached data on each runtime-model instance.
     GameCubeMeshCache::GameCubeMeshCache()
-        : CachedModelsById(new Dictionary<std::string, GameCubeRuntimeModel*>(StringComparer::OrdinalIgnoreCase)) {
+    {
     }
 
     /// Resolves a runtime model into a validated GameCube runtime model or fails loudly.
     GameCubeRuntimeModel* GameCubeMeshCache::Resolve(RuntimeModel* runtimeModel) {
         if (runtimeModel == nullptr) {
             throw new ArgumentNullException("runtimeModel");
-        }
-
-        GameCubeRuntimeModel* cachedRuntimeModel;
-        if (CachedModelsById->TryGetValue(runtimeModel->get_Id(), cachedRuntimeModel)) {
-            return cachedRuntimeModel;
         }
 
         GameCubeRuntimeModel* typedRuntimeModel = he_cpp_try_cast<GameCubeRuntimeModel>(runtimeModel);
@@ -44,7 +38,6 @@ namespace helengine::gamecube {
             typedRuntimeModel->CachedMeshData = BuildCachedMeshData(typedRuntimeModel);
         }
 
-        CachedModelsById->Add(runtimeModel->get_Id(), typedRuntimeModel);
         return typedRuntimeModel;
     }
 

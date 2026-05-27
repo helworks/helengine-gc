@@ -41,8 +41,8 @@ namespace helengine::gamecube {
         /// Draws one extracted camera frame through GX and reports whether this frame claimed scene presentation ownership.
         bool DrawFrame(GameCubeFramePlan* framePlan);
 
-        /// Draws the captured 2D overlay drawables for the current frame through GX.
-        void Render2D(const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight);
+        /// Draws the captured 2D overlay drawables for the current frame through GX using the active frame-plan camera to resolve 2D-only background clears.
+        void Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight);
     private:
         /// Shared runtime-model cache used by the draw path.
         GameCubeMeshCache* MeshCache;

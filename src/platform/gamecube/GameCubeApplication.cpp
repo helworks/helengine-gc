@@ -685,6 +685,7 @@ namespace helengine::gamecube {
             SYS_Report("[GC] Packaged content root: %s\n", packagedContentRootPath.c_str());
             options->ContentRootPath = packagedContentRootPath;
             options->SceneCatalog = GameCubeSceneBootstrap::CreatePackagedSceneCatalog();
+            options->StandardPlatformInputConfiguration = GameCubeSceneBootstrap::CreatePackagedStandardPlatformInputConfiguration();
             const std::string packagedStartupSceneId = GameCubeSceneBootstrap::GetPackagedStartupSceneId();
             SYS_Report("[GC] Packaged startup scene id: %s\n", packagedStartupSceneId.c_str());
             SYS_Report("[GC] Runtime build stamp: %s\n", BuildStamp);
@@ -702,6 +703,7 @@ namespace helengine::gamecube {
             SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x00, 0xFF, 0xFF, 0xFF });
             EngineRenderManager3D = new GameCubeRenderManager3D();
             EngineRenderManager2D = new GameCubeRenderManager2D();
+            EngineRenderManager3D->SetOverlayRenderManager2D(EngineRenderManager2D);
             EngineInputManager = new GameCubeInputManager();
             EnginePlatformInfo = new PlatformInfo("gamecube", "gc-headless");
 
@@ -930,8 +932,6 @@ namespace helengine::gamecube {
             DrawCompletedSincePresent = true;
 #else
             EngineCore->Draw();
-            EngineRenderManager2D->Draw();
-            EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);
             DrawCompletedSincePresent = true;
 #endif
             if (!FirstDrawCompletedReported) {

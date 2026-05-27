@@ -6,6 +6,7 @@
 
 #include <malloc.h>
 #include <ogc/cache.h>
+#include <ogc/system.h>
 
 #include "TextureAsset.hpp"
 #include "TextureAssetColorFormat.hpp"
@@ -66,16 +67,28 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("data");
         }
 
+        SYS_Report(
+            "[GC] GCRT load raw begin id=%s format=%d size=%ux%u colors=%d palette=%d\n",
+            data->get_Id().c_str(),
+            static_cast<int>(data->ColorFormat),
+            static_cast<unsigned>(data->Width),
+            static_cast<unsigned>(data->Height),
+            data->Colors != nullptr ? data->Colors->get_Length() : -1,
+            data->PaletteColors != nullptr ? data->PaletteColors->get_Length() : -1);
         ResetNativeTextureData();
 
         if (data->ColorFormat == TextureAssetColorFormat::GxRgb5A3) {
+            SYS_Report("[GC] GCRT load raw branch=prepacked\n");
             LoadPrepackedRgb5A3(data);
+            SYS_Report("[GC] GCRT load raw complete id=%s width=%d height=%d\n", data->get_Id().c_str(), this->get_Width(), this->get_Height());
             return;
         } else if (data->ColorFormat != TextureAssetColorFormat::Rgba32) {
             throw new InvalidOperationException("GameCube runtime textures require either GxRgb5A3 or RGBA32 texture assets.");
         }
 
+        SYS_Report("[GC] GCRT load raw branch=encode-rgba32\n");
         EncodeRgba32ToRgb5A3(data);
+        SYS_Report("[GC] GCRT load raw complete id=%s width=%d height=%d\n", data->get_Id().c_str(), this->get_Width(), this->get_Height());
     }
 
     /// Returns whether a native GX texture object was initialized for this runtime texture.
@@ -123,6 +136,12 @@ namespace helengine::gamecube {
             throw new InvalidOperationException("GameCube prepacked textures must contain padded tiled RGB5A3 bytes.");
         }
 
+        SYS_Report(
+            "[GC] GCRT prepacked begin id=%s width=%u height=%u expectedBytes=%u\n",
+            data->get_Id().c_str(),
+            width,
+            height,
+            static_cast<unsigned>(expectedColorByteCount));
         NativeTextureDataSize = expectedColorByteCount;
         NativeTextureData = memalign(32, NativeTextureDataSize);
         if (NativeTextureData == nullptr) {
@@ -136,6 +155,7 @@ namespace helengine::gamecube {
         NativeTextureObjectInitialized = true;
         this->set_Width(static_cast<int32_t>(width));
         this->set_Height(static_cast<int32_t>(height));
+        SYS_Report("[GC] GCRT prepacked complete id=%s ptr=%p bytes=%u\n", data->get_Id().c_str(), NativeTextureData, static_cast<unsigned>(NativeTextureDataSize));
     }
 
     /// Encodes one RGBA8 logical texture into tiled GX RGB5A3 memory.
@@ -158,6 +178,14 @@ namespace helengine::gamecube {
         const uint32_t paddedWidth = (width + 3U) & ~3U;
         const uint32_t paddedHeight = (height + 3U) & ~3U;
         NativeTextureDataSize = static_cast<std::size_t>(paddedWidth) * static_cast<std::size_t>(paddedHeight) * 2U;
+        SYS_Report(
+            "[GC] GCRT encode begin id=%s width=%u height=%u padded=%ux%u bytes=%u\n",
+            data->get_Id().c_str(),
+            width,
+            height,
+            paddedWidth,
+            paddedHeight,
+            static_cast<unsigned>(NativeTextureDataSize));
         NativeTextureData = memalign(32, NativeTextureDataSize);
         if (NativeTextureData == nullptr) {
             throw new InvalidOperationException("Could not allocate GameCube texture memory.");
@@ -189,5 +217,6 @@ namespace helengine::gamecube {
         NativeTextureObjectInitialized = true;
         this->set_Width(static_cast<int32_t>(width));
         this->set_Height(static_cast<int32_t>(height));
+        SYS_Report("[GC] GCRT encode complete id=%s ptr=%p bytes=%u\n", data->get_Id().c_str(), NativeTextureData, static_cast<unsigned>(NativeTextureDataSize));
     }
 }

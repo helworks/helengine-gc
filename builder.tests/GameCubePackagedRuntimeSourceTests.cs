@@ -479,7 +479,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("RenderRoundedRect2D(", headerSource, StringComparison.Ordinal);
         Assert.Contains("RenderSprite2D(", headerSource, StringComparison.Ordinal);
         Assert.Contains("RenderText2D(", headerSource, StringComparison.Ordinal);
-        Assert.Contains("Render2D(const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight)", source, StringComparison.Ordinal);
+        Assert.Contains("Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight)", source, StringComparison.Ordinal);
         Assert.Contains("RenderRoundedRect2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
         Assert.Contains("RenderSprite2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
         Assert.Contains("RenderText2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
@@ -496,7 +496,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string bootstrapSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
 
         Assert.Contains("EngineRenderManager2D->BeginFrame();", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineRenderManager3D->SetOverlayRenderManager2D(EngineRenderManager2D);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("Scenes/DemoDiscMainMenu.helen", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("const std::string startupSceneAliasId = \"DemoDiscMainMenu\";", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("bool startupSceneSourceExists = false;", bootstrapSource, StringComparison.Ordinal);
@@ -504,6 +504,28 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("const std::size_t runtimeEntryCount = shouldAddStartupSceneAlias ? entryCount + 1U : entryCount;", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("if (shouldAddStartupSceneAlias && StartupSceneId == entries[index].SceneId) {", bootstrapSource, StringComparison.Ordinal);
         Assert.Contains("new RuntimeSceneCatalogEntry(startupSceneAliasId, entries[index].CookedRelativePath)", bootstrapSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube host completes the 2D overlay pass inside the render-manager draw call before shared scene commits run.
+    /// </summary>
+    [Fact]
+    public void GameCubeFrameBoundarySource_Executes2DOverlayInsideRenderManagerDraw() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string renderManagerHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
+        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+
+        Assert.Contains("void SetOverlayRenderManager2D(GameCubeRenderManager2D* renderManager2D);", renderManagerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeRenderManager2D* OverlayRenderManager2D;", renderManagerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("void Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight);", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("OverlayRenderManager2D->Draw();", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("RasterRenderer->Render2D(framePlan, *OverlayRenderManager2D, MainWindowSize.X, MainWindowSize.Y);", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("EngineRenderManager3D->SetOverlayRenderManager2D(EngineRenderManager2D);", applicationSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("DrawSolidQuad2D(0.0f, 0.0f, static_cast<float>(frameWidth), static_cast<float>(frameHeight), clearColor);", rasterRendererSource, StringComparison.Ordinal);
     }
 
     /// <summary>

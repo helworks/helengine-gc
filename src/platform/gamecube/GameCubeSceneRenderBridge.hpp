@@ -13,8 +13,11 @@ namespace helengine::gamecube {
     /// Resolves generated runtime state into the first backend-local GameCube frame plan.
     class GameCubeSceneRenderBridge {
     public:
-        /// Builds one strict frame plan for the active camera and visible opaque drawables.
+        /// Builds one strict frame plan for the active camera and visible opaque drawables, or returns null when no active camera is available yet.
         GameCubeFramePlan* BuildFramePlan(RendererBackendCapabilityProfile* capabilities, int32_t targetWidth, int32_t targetHeight);
+
+        /// Returns whether the current runtime state exposes at least one enabled camera the GameCube backend can render.
+        bool HasActiveCamera();
     private:
         /// Resolves the first enabled runtime camera the GameCube backend is willing to render.
         CameraComponent* ResolveActiveCamera();

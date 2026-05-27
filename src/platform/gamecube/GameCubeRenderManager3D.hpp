@@ -51,8 +51,8 @@ namespace helengine::gamecube {
         /// Extracts the current frame and renders it through GX.
         void Draw() override;
 
-        /// Draws the captured 2D overlay for the current frame through the shared GX raster path.
-        void Draw2D(GameCubeRenderManager2D* renderManager2D, uint16_t frameWidth, uint16_t frameHeight);
+        /// Registers the 2D overlay render manager that should be captured and rasterized inside the shared 3D draw call.
+        void SetOverlayRenderManager2D(GameCubeRenderManager2D* renderManager2D);
 
         /// Returns the strict backend capability surface exposed by the first GameCube tier.
         RendererBackendCapabilityProfile* GetCapabilityProfile() override;
@@ -71,6 +71,9 @@ namespace helengine::gamecube {
 
         /// Owns the narrow GX raster path for the first renderer milestone.
         GameCubeRasterRenderer* RasterRenderer;
+
+        /// Stores the 2D render manager whose captured overlay drawables must be completed before frame-boundary scene commits run.
+        GameCubeRenderManager2D* OverlayRenderManager2D;
 
         /// Tracks whether the backend has already drawn a real scene frame.
         bool HasRenderedSceneValue;
