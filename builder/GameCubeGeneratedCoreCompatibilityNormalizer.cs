@@ -5,11 +5,6 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
     /// <summary>
-    /// Owns the generated file-I/O normalization that routes packaged runtime reads through the disc-backed GameCube file system.
-    /// </summary>
-    readonly GameCubeGeneratedFileIoNormalizer GeneratedFileIoNormalizer = new();
-
-    /// <summary>
     /// Normalizes the generated-core files required by the GameCube packaged runtime material contract.
     /// </summary>
     /// <param name="generatedCoreRootPath">Generated-core root consumed by the Docker build.</param>
@@ -38,7 +33,6 @@ public sealed class GameCubeGeneratedCoreCompatibilityNormalizer {
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "FontAsset.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "PointerInteractableHitResolver.cpp");
         NormalizeGeneratedCoreFile(generatedCoreRootPath, "StandardPlatformInputConfiguration.cpp");
-        this.GeneratedFileIoNormalizer.Normalize(Path.Combine(generatedCoreRootPath, "system", "io", "file.cpp"));
     }
 
     /// <summary>

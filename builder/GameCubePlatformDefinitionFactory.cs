@@ -25,6 +25,16 @@ public static class GameCubePlatformDefinitionFactory {
     const string GameCubePointerSizeInBytes = "4";
 
     /// <summary>
+    /// Generic codegen hook that identifies the builder-owned file-system adapter header for disc-backed GameCube runtime paths.
+    /// </summary>
+    const string NativeFileSystemHeader = "\"platform/gamecube/GameCubeDiscFileSystem.hpp\"";
+
+    /// <summary>
+    /// Generic codegen hook that identifies the builder-owned file-system adapter type for disc-backed GameCube runtime paths.
+    /// </summary>
+    const string NativeFileSystemType = "helengine::gamecube::GameCubeDiscFileSystem";
+
+    /// <summary>
     /// Creates the serialized default GameCube texture settings contract used when assets do not provide an explicit GameCube override.
     /// </summary>
     /// <returns>Serialized default GameCube texture settings.</returns>
@@ -275,6 +285,20 @@ public static class GameCubePlatformDefinitionFactory {
                             "Type Remaps",
                             PlatformSettingKind.Text,
                             NativeNumericTypeRemaps,
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "native-file-system-header",
+                            "Native File System Header",
+                            PlatformSettingKind.Text,
+                            NativeFileSystemHeader,
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "native-file-system-type",
+                            "Native File System Type",
+                            PlatformSettingKind.Text,
+                            NativeFileSystemType,
                             true,
                             [])
                     ])
