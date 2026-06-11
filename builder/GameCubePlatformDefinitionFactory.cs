@@ -10,6 +10,21 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public static class GameCubePlatformDefinitionFactory {
     /// <summary>
+    /// Generic native numeric type remaps required by C++ platforms that cannot emit System.Numerics runtime types directly.
+    /// </summary>
+    const string NativeNumericTypeRemaps = "System.Numerics.Vector2=helengine.float2;System.Numerics.Vector3=helengine.float3;System.Numerics.Vector4=helengine.float4;System.Numerics.Quaternion=helengine.float4";
+
+    /// <summary>
+    /// Generic generated-math-convention value that instructs the shared C++ generator to emit native column-vector math helpers.
+    /// </summary>
+    const string NativeColumnVectorMathConvention = "native-column-vector";
+
+    /// <summary>
+    /// Generic pointer-size contract forwarded to the shared C++ generator for GameCube-native output.
+    /// </summary>
+    const string GameCubePointerSizeInBytes = "4";
+
+    /// <summary>
     /// Creates the serialized default GameCube texture settings contract used when assets do not provide an explicit GameCube override.
     /// </summary>
     /// <returns>Serialized default GameCube texture settings.</returns>
@@ -219,7 +234,50 @@ public static class GameCubePlatformDefinitionFactory {
                     "GameCube C# to C++ codegen profile",
                     PlatformCodegenLanguage.Cpp,
                     PlatformSerializationEndianness.BigEndian,
-                    [])
+                    [
+                        new PlatformSettingDefinition(
+                            "write-conversion-report",
+                            "Write Conversion Report",
+                            PlatformSettingKind.Boolean,
+                            "true",
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "include-project-defined-preprocessor-symbols",
+                            "Include Project Symbols",
+                            PlatformSettingKind.Boolean,
+                            "false",
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "load-native-runtime-metadata",
+                            "Load Native Runtime Metadata",
+                            PlatformSettingKind.Boolean,
+                            "true",
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "generated-math-convention",
+                            "Generated Math Convention",
+                            PlatformSettingKind.Text,
+                            NativeColumnVectorMathConvention,
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "pointer-size-bytes",
+                            "Pointer Size (Bytes)",
+                            PlatformSettingKind.Text,
+                            GameCubePointerSizeInBytes,
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "type-remaps",
+                            "Type Remaps",
+                            PlatformSettingKind.Text,
+                            NativeNumericTypeRemaps,
+                            true,
+                            [])
+                    ])
             ],
             [
                 new PlatformStorageProfileDefinition(

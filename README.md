@@ -62,7 +62,7 @@ The native build consumes generated engine output from `HELENGINE_CORE_CPP_ROOT`
 Generate GameCube-targeted core output:
 
 ```bash
-rtk dotnet run --project /mnt/c/dev/helworks/csharpcodegen/codegen/codegen.csproj -- --cpp --project /mnt/c/dev/helworks/helengine/engine/helengine.core/helengine.core.csproj --output /mnt/c/dev/helworks/helengine-gc/tmp/generated-core-gamecube --platform gamecube --compiler gcc --endianness big --preset gamecube-core-boot
+rtk dotnet run --project /mnt/c/dev/helworks/csharpcodegen/codegen/codegen.csproj -- --cpp --project /mnt/c/dev/helworks/helengine/engine/helengine.core/helengine.core.csproj --output /mnt/c/dev/helworks/helengine-gc/tmp/generated-core-gamecube --platform gamecube --compiler gcc --endianness big --set generated-math-convention=native-column-vector --set pointer-size-bytes=4 --set "type-remaps=System.Numerics.Vector2=helengine.float2;System.Numerics.Vector3=helengine.float3;System.Numerics.Vector4=helengine.float4;System.Numerics.Quaternion=helengine.float4" --preset native-core-boot
 ```
 
 Build the GameCube player with generated core enabled:
