@@ -50,6 +50,18 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
+    /// Ensures the packaged runtime manifest writer canonicalizes cooked scene asset paths during build generation instead of relying on runtime rejection.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_CanonicalizesRuntimeSceneManifestPathsDuringBuild() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string manifestWriterSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeRuntimeSceneManifestWriter.cs"));
+
+        Assert.Contains("CanonicalPackagedAssetPath.Normalize(metadataEntry.Value)", manifestWriterSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("metadataEntry.Value.Replace('\\\\', '/')", manifestWriterSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures the packaged-disc runtime source keeps narrow diagnostics around startup-scene queueing, first-frame execution, and DVD-backed content reads.
     /// </summary>
     [Fact]
@@ -443,6 +455,19 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
+    /// Ensures the GameCube host registers the 3D physics runtime before packaged startup scenes can deserialize rigid-body payloads.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_RegistersPhysicsRuntimeBeforeStartupSceneLoad() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+
+        Assert.Contains("#include \"Physics3DRuntimeComponentRegistration.hpp\"", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("Physics3DRuntimeComponentRegistration::Register(EngineCore);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineCore->get_SceneManager()->LoadScene(packagedStartupSceneId, SceneLoadMode::Single);", applicationSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures the GameCube 2D render bridge records per-frame draw requests instead of remaining a no-op stub.
     /// </summary>
     [Fact]
@@ -532,6 +557,39 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("EngineRenderManager3D->SetOverlayRenderManager2D(EngineRenderManager2D);", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("EngineRenderManager3D->Draw2D(EngineRenderManager2D, RenderMode->fbWidth, RenderMode->efbHeight);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("DrawSolidQuad2D(0.0f, 0.0f, static_cast<float>(frameWidth), static_cast<float>(frameHeight), clearColor);", rasterRendererSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube camera frame path matches the Wii logical-versus-physical viewport contract so GX presentation does not widen the captured scene.
+    /// </summary>
+    [Fact]
+    public void GameCubeViewportSource_SeparatesLogicalAndPhysicalViewportState() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string renderManagerHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
+        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string framePlanHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeFramePlan.hpp"));
+        string sceneRenderBridgeHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.hpp"));
+        string sceneRenderBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
+        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+
+        Assert.Contains("void SetPresentedFrameSize(uint16_t width, uint16_t height);", renderManagerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("uint16_t PresentedFrameWidth;", renderManagerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("uint16_t PresentedFrameHeight;", renderManagerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("EngineRenderManager3D->SetPresentedFrameSize(static_cast<uint16_t>(RenderMode->fbWidth), static_cast<uint16_t>(RenderMode->efbHeight));", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("float4 LogicalViewport;", framePlanHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("float4 PhysicalViewport;", framePlanHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeFramePlan* BuildFramePlan(RendererBackendCapabilityProfile* capabilities, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight);", sceneRenderBridgeHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("float4 physicalViewport = ResolvePhysicalViewport(logicalViewport, logicalWidth, logicalHeight, physicalWidth, physicalHeight);", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("float4 ResolvePhysicalViewport(const float4& logicalViewport, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight);", sceneRenderBridgeHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("float4x4 projection = BuildProjectionMatrix(camera, logicalViewport.Z / logicalViewport.W);", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeFramePlan* framePlan = SceneRenderBridge->BuildFramePlan(CapabilityProfile, MainWindowSize.X, MainWindowSize.Y, PresentedFrameWidth, PresentedFrameHeight);", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetViewport(framePlan->PhysicalViewport.X", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetScissor(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("static_cast<u32>(framePlan->PhysicalViewport.X)", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("void CopyProjectionMatrixToGx(const float4x4& source, Mtx44& destination);", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("CopyProjectionMatrixToGx(framePlan->Projection, projectionMatrix);", rasterRendererSource, StringComparison.Ordinal);
     }
 
     /// <summary>

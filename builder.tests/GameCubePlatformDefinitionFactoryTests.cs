@@ -20,6 +20,7 @@ public sealed class GameCubePlatformDefinitionFactoryTests {
         Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "type-remaps" && setting.DefaultValue.Contains("System.Numerics.Vector3=helengine.float3", StringComparison.Ordinal));
         Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "load-native-runtime-metadata" && setting.DefaultValue == "true");
         Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "include-project-defined-preprocessor-symbols" && setting.DefaultValue == "false");
+        Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "additional-preprocessor-symbols" && setting.DefaultValue.Contains("HELENGINE_GAMECUBE_INCLUDE_PHYSICS3D_RUNTIME", StringComparison.Ordinal));
         Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "native-file-system-header" && setting.DefaultValue == "\"platform/gamecube/GameCubeDiscFileSystem.hpp\"");
         Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "native-file-system-type" && setting.DefaultValue == "helengine::gamecube::GameCubeDiscFileSystem");
     }

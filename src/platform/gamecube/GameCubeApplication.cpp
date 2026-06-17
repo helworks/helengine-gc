@@ -18,6 +18,7 @@
 #include "Core.hpp"
 #include "CoreInitializationOptions.hpp"
 #include "PlatformInfo.hpp"
+#include "Physics3DRuntimeComponentRegistration.hpp"
 #include "RuntimeSceneLoadService.hpp"
 #include "SceneManager.hpp"
 #include "SceneLoadMode.hpp"
@@ -712,9 +713,13 @@ namespace helengine::gamecube {
             initializationStage = "AddPrimaryWindow";
             SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0x00, 0x00, 0xFF, 0xFF });
             EngineRenderManager3D->AddWindow(0, RenderMode->fbWidth, RenderMode->efbHeight);
+            EngineRenderManager3D->SetPresentedFrameSize(static_cast<uint16_t>(RenderMode->fbWidth), static_cast<uint16_t>(RenderMode->efbHeight));
             initializationStage = "InitializeCore";
             EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);
             SYS_Report("[GC] Engine core initialized.\n");
+            initializationStage = "RegisterPhysicsRuntime";
+            Physics3DRuntimeComponentRegistration::Register(EngineCore);
+            SYS_Report("[GC] Physics runtime registered.\n");
         }
         catch (const std::exception& exception) {
             EngineInitialized = false;
