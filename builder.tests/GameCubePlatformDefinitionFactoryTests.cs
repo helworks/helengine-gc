@@ -14,13 +14,13 @@ public sealed class GameCubePlatformDefinitionFactoryTests {
         PlatformDefinition definition = GameCubePlatformDefinitionFactory.Create();
 
         PlatformCodegenProfileDefinition codegenProfile = Assert.Single(definition.CodegenProfiles);
-        Assert.Equal("default", codegenProfile.Id);
-        Assert.Contains(codegenProfile.Settings, setting => setting.Id == "generated-math-convention" && setting.DefaultValue == "native-column-vector");
-        Assert.Contains(codegenProfile.Settings, setting => setting.Id == "pointer-size-bytes" && setting.DefaultValue == "4");
-        Assert.Contains(codegenProfile.Settings, setting => setting.Id == "type-remaps" && setting.DefaultValue.Contains("System.Numerics.Vector3=helengine.float3", StringComparison.Ordinal));
-        Assert.Contains(codegenProfile.Settings, setting => setting.Id == "load-native-runtime-metadata" && setting.DefaultValue == "true");
-        Assert.Contains(codegenProfile.Settings, setting => setting.Id == "include-project-defined-preprocessor-symbols" && setting.DefaultValue == "false");
-        Assert.Contains(codegenProfile.Settings, setting => setting.Id == "native-file-system-header" && setting.DefaultValue == "\"platform/gamecube/GameCubeDiscFileSystem.hpp\"");
-        Assert.Contains(codegenProfile.Settings, setting => setting.Id == "native-file-system-type" && setting.DefaultValue == "helengine::gamecube::GameCubeDiscFileSystem");
+        Assert.Equal("default", codegenProfile.ProfileId);
+        Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "generated-math-convention" && setting.DefaultValue == "native-column-vector");
+        Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "pointer-size-bytes" && setting.DefaultValue == "4");
+        Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "type-remaps" && setting.DefaultValue.Contains("System.Numerics.Vector3=helengine.float3", StringComparison.Ordinal));
+        Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "load-native-runtime-metadata" && setting.DefaultValue == "true");
+        Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "include-project-defined-preprocessor-symbols" && setting.DefaultValue == "false");
+        Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "native-file-system-header" && setting.DefaultValue == "\"platform/gamecube/GameCubeDiscFileSystem.hpp\"");
+        Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "native-file-system-type" && setting.DefaultValue == "helengine::gamecube::GameCubeDiscFileSystem");
     }
 }

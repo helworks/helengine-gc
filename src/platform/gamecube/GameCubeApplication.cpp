@@ -18,6 +18,8 @@
 #include "Core.hpp"
 #include "CoreInitializationOptions.hpp"
 #include "PlatformInfo.hpp"
+#include "RuntimeSceneLoadService.hpp"
+#include "SceneManager.hpp"
 #include "SceneLoadMode.hpp"
 #include "runtime/native_exceptions.hpp"
 #include "platform/gamecube/GameCubeCubeTestSceneInstaller.hpp"

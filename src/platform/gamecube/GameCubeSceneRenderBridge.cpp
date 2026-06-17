@@ -10,6 +10,7 @@
 #include "Entity.hpp"
 #include "ICamera.hpp"
 #include "IDrawable3D.hpp"
+#include "IRenderQueue3D.hpp"
 #include "LightComponent.hpp"
 #include "ObjectManager.hpp"
 #include "RenderFrame.hpp"

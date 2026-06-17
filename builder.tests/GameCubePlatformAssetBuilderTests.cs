@@ -114,16 +114,14 @@ public sealed class GameCubePlatformAssetBuilderTests {
     /// <param name="textureFormatCapabilities">Texture capability metadata to validate.</param>
     static void AssertTextureFormatCapabilities(PlatformTextureFormatCapabilityDefinition textureFormatCapabilities) {
         Assert.NotNull(textureFormatCapabilities);
-        Assert.Equal(
-            [TextureAssetColorFormat.GxRgb5A3],
-            textureFormatCapabilities.SupportedColorFormats);
+        Assert.Equal("GxRgb5A3", Assert.Single(textureFormatCapabilities.SupportedColorFormatIds));
         Assert.Equal(
             [TextureAssetAlphaPrecision.A8],
             textureFormatCapabilities.SupportedAlphaPrecisions);
         Assert.Collection(
             textureFormatCapabilities.SupportedCombinations,
             combination => {
-                Assert.Equal(TextureAssetColorFormat.GxRgb5A3, combination.ColorFormat);
+                Assert.Equal("GxRgb5A3", combination.ColorFormatId);
                 Assert.Equal(TextureAssetAlphaPrecision.A8, combination.AlphaPrecision);
             });
     }

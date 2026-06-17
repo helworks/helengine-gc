@@ -1,6 +1,69 @@
 # Helengine GameCube Host
 
-This repository contains the native GameCube host scaffold for Helengine.
+This repository contains the native GameCube host, the GameCube platform builder integration, and the GameCube-specific runtime source audits for Helengine.
+
+## Current status
+
+- The shared editor CLI can build GameCube packages with platform id `gamecube`.
+- The packaged-disc output is a raw `game.gcm` image suitable for Dolphin launch verification.
+- The repository still keeps lower-level Docker and generated-core workflows for native runtime bring-up.
+- Source-audit coverage exists for GameCube packaged runtime generation, disc layout staging, and image packaging.
+
+## Editor CLI build
+
+If your workspace keeps `helengine-gc`, `helengine`, and `helprojs` as sibling directories, use the shared wrapper like this:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File ..\helengine\artifacts\build-platform.ps1 `
+  -Project ..\helprojs\city\project.heproj `
+  -Platform gamecube `
+  -Output ..\helprojs\city\gamecube-build
+```
+
+That wrapper runs the main editor CLI with `--build gamecube` and writes the generated GameCube package to the output directory you provide.
+
+## Launching in Dolphin
+
+Use the checked-in launcher script:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\launch_gamecube_image_in_dolphin.ps1 `
+  -ImagePath .\tmp\packaged-disc-proof-life\game.gcm
+```
+
+The launcher requires an explicit `-ImagePath`. Before launch it force-closes any running `Dolphin.exe` processes, recreates an isolated Dolphin user directory under `tmp\`, copies the `GC`, `Backup`, `ResourcePacks`, and `Load` directories from the global Dolphin profile when present, seeds `Logger.ini` from the global Dolphin profile channel set, forces `WriteToConsole`, `WriteToFile`, and `WriteToWindow` on in the isolated profile, and forces the Dolphin logger window visible in the isolated `Qt.ini`.
+
+The launcher prints:
+
+- the image path
+- the image last write time
+- the Dolphin executable path
+- the isolated user directory path
+- the seeded `Logger.ini` path
+- that the logger window is enabled
+- the spawned Dolphin process id
+
+It then starts Dolphin with `-u <userdir> -e <image>`.
+
+The script fails fast when:
+
+- `-ImagePath` is missing
+- the image file is missing
+- the Dolphin executable is missing
+- the logging profile seed files are missing
+
+## Verification
+
+Run the focused GameCube launcher audit:
+
+```powershell
+rtk dotnet test builder.tests/helengine.gamecube.builder.tests.csproj --filter "GameCubeDolphinLauncherScriptTests"
+```
+
+This verifies the current GameCube-specific contract around:
+
+- the explicit Dolphin image launcher workflow
+- the README documentation for the launcher workflow
 
 ## Builder Output
 
@@ -8,14 +71,7 @@ The GameCube builder assembly lives under `builder/` and is intended to be loade
 
 The current builder slice exposes GameCube platform metadata and stages payloads into the output root. It does not yet invoke the native GameCube player build or emit the final `.dol`.
 
-## Current milestone
-
-- Docker-only build using devkitPro GameCube tooling
-- Native `.dol` output for direct loading in Dolphin
-- Generated-core boot with authored `cube_test` scene loading
-- First GameCube GX 3D path for the rotating cube scene
-
-## Build
+## Docker Native Build
 
 ```bash
 docker build -t helengine-gc .

@@ -8,6 +8,18 @@ namespace helengine.gamecube.builder.tests;
 /// </summary>
 public sealed class GameCubeDockerNativeBuildExecutorTests {
     /// <summary>
+    /// Ensures the Docker executor compiles generated-core output as emitted instead of invoking a GameCube-specific generated-code rewriter.
+    /// </summary>
+    [Fact]
+    public void Source_DoesNotUseGeneratedCoreNormalizer() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+
+        Assert.DoesNotContain("GameCubeGeneratedCoreCompatibilityNormalizer", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Normalize(paths.GeneratedCoreRootPath)", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures external generated-core roots are mounted separately into Docker and exported through one absolute container path.
     /// </summary>
     [Fact]

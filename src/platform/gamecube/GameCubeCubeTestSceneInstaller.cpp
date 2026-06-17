@@ -64,7 +64,7 @@ namespace helengine::gamecube {
         lightEntity->set_LayerMask(SceneObjectsLayerMask);
 
         float4 lightOrientation;
-        float4::CreateFromYawPitchRoll(DirectionalLightYawRadians, DirectionalLightPitchRadians, 0.0f, lightOrientation);
+        float4::CreateFromYawPitchRoll__out3(DirectionalLightYawRadians, DirectionalLightPitchRadians, 0.0f, lightOrientation);
         lightOrientation.Normalize();
         lightEntity->set_LocalOrientation(lightOrientation);
 

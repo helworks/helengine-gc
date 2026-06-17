@@ -25,7 +25,7 @@ public sealed class GameCubeTextureCookerTests {
 
         TextureAsset cookedTexture = cooker.CookTexture(
             sourceTexture,
-            new GameCubeTextureCookSettings(0, TextureAssetColorFormat.GxRgb5A3, TextureAssetAlphaPrecision.A8));
+            new GameCubeTextureCookSettings(0, "GxRgb5A3", TextureAssetAlphaPrecision.A8));
 
         Assert.Equal(sourceTexture.Id, cookedTexture.Id);
         Assert.Equal(sourceTexture.RuntimeAssetId, cookedTexture.RuntimeAssetId);

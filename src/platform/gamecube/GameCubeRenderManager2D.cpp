@@ -6,16 +6,19 @@
 #include "CameraComponent.hpp"
 #include "Core.hpp"
 #include "EditorAssetBinarySerializer.hpp"
+#include "Entity.hpp"
 #include "FontAsset.hpp"
 #include "FontInfo.hpp"
 #include "ICamera.hpp"
 #include "IDrawable2D.hpp"
+#include "IRenderQueue2D.hpp"
 #include "ObjectManager.hpp"
 #include "RuntimeTexture.hpp"
 #include "TextureAsset.hpp"
 #include "platform/gamecube/GameCubeRuntimeTexture.hpp"
 #include "runtime/native_cast.hpp"
 #include "runtime/native_exceptions.hpp"
+#include "system/io/file.hpp"
 
 namespace helengine::gamecube {
     /// Creates the GameCube 2D render bridge.
@@ -153,7 +156,6 @@ namespace helengine::gamecube {
             }
 
             camera->get_RenderQueue2D()->VisitOrdered(this);
-            return;
         }
     }
 
