@@ -29,6 +29,8 @@ public sealed class GameCubeDolphinLauncherScriptTests {
         Assert.Contains("ResourcePacks", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Get-Content -LiteralPath $globalLoggerPath -Raw", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Set-Content -LiteralPath (Join-Path $userDir 'Config\\Logger.ini')", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("if (-not (Test-Path -LiteralPath $userDir))", scriptSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("Remove-Item -LiteralPath $userDir -Recurse -Force", scriptSource, StringComparison.Ordinal);
         Assert.Contains("WriteToWindow = True", scriptSource, StringComparison.Ordinal);
         Assert.Contains("WriteToConsole = True", scriptSource, StringComparison.Ordinal);
         Assert.Contains("WriteToFile = True", scriptSource, StringComparison.Ordinal);
@@ -53,5 +55,7 @@ public sealed class GameCubeDolphinLauncherScriptTests {
         Assert.Contains("logger window", readmeSource, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Logger.ini", readmeSource, StringComparison.Ordinal);
         Assert.Contains("global Dolphin profile", readmeSource, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("persistent dedicated Dolphin user directory", readmeSource, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recreates an isolated Dolphin user directory", readmeSource, StringComparison.OrdinalIgnoreCase);
     }
 }

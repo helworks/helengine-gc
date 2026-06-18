@@ -3,8 +3,8 @@
 #include "platform/gamecube/GameCubeCachedMeshData.hpp"
 #include "ModelAsset.hpp"
 #include "RuntimeModel.hpp"
-#include "float2.hpp"
-#include "float3.hpp"
+#include "helengine_float2.hpp"
+#include "helengine_float3.hpp"
 #include "runtime/array.hpp"
 
 namespace helengine::gamecube {

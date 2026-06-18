@@ -143,6 +143,28 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
+    /// Ensures the GameCube 2D raster path reuses persistent text-layout and rounded-rectangle scratch storage instead of allocating fresh UI buffers every frame.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_ReusesUiScratchBuffersDuringRasterOverlayDraws() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+
+        Assert.Contains("struct CachedTextLayoutEntry {", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("std::vector<CachedTextLayoutEntry> CachedTextLayouts;", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("std::vector<float2> RoundedRectOutlineScratch;", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("uint32_t ActiveTextLayoutFrameId;", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("const std::string& ResolveTextLayoutContent(ITextDrawable2D* drawable, FontAsset* font, double fontScale);", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("void PruneTextLayoutCache();", rasterRendererHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("const std::string& content = ResolveTextLayoutContent(drawable, font, fontScale);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("CachedTextLayouts.erase(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("BuildRoundedRectOutline(x, y, width, height, radius, corners, RoundedRectOutlineScratch);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("std::string content = drawable->get_Text();", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("std::vector<float2> outline;", rasterRendererSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures the present-ownership diagnostic is driven by the current raster frame result instead of a sticky lifetime flag.
     /// </summary>
     [Fact]
@@ -455,13 +477,16 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
-    /// Ensures the GameCube host registers the 3D physics runtime before packaged startup scenes can deserialize rigid-body payloads.
+    /// Ensures the GameCube host registers the 3D physics runtime only when the generated core exported the registration header.
     /// </summary>
     [Fact]
-    public void PackagedDiscBootSource_RegistersPhysicsRuntimeBeforeStartupSceneLoad() {
+    public void PackagedDiscBootSource_RegistersPhysicsRuntimeConditionallyBeforeStartupSceneLoad() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
         string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
+        Assert.Contains("HELENGINE_GAMECUBE_HAS_PHYSICS3D_RUNTIME_REGISTRATION", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("#if HELENGINE_GAMECUBE_HAS_PHYSICS3D_RUNTIME_REGISTRATION", applicationSource, StringComparison.Ordinal);
         Assert.Contains("#include \"Physics3DRuntimeComponentRegistration.hpp\"", applicationSource, StringComparison.Ordinal);
         Assert.Contains("Physics3DRuntimeComponentRegistration::Register(EngineCore);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("EngineCore->get_SceneManager()->LoadScene(packagedStartupSceneId, SceneLoadMode::Single);", applicationSource, StringComparison.Ordinal);
@@ -507,13 +532,14 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("void Render2D(", headerSource, StringComparison.Ordinal);
+        Assert.Contains("void TransformLogicalRectToPhysicalViewport(GameCubeFramePlan* framePlan, float& x, float& y, float& width, float& height) const;", headerSource, StringComparison.Ordinal);
         Assert.Contains("RenderRoundedRect2D(", headerSource, StringComparison.Ordinal);
         Assert.Contains("RenderSprite2D(", headerSource, StringComparison.Ordinal);
         Assert.Contains("RenderText2D(", headerSource, StringComparison.Ordinal);
         Assert.Contains("Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight)", source, StringComparison.Ordinal);
-        Assert.Contains("RenderRoundedRect2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
-        Assert.Contains("RenderSprite2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
-        Assert.Contains("RenderText2D(command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
+        Assert.Contains("RenderRoundedRect2D(framePlan, command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
+        Assert.Contains("RenderSprite2D(framePlan, command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
+        Assert.Contains("RenderText2D(framePlan, command, frameWidth, frameHeight);", source, StringComparison.Ordinal);
         Assert.Contains("GX_LoadProjectionMtx(projectionMatrix, GX_ORTHOGRAPHIC);", source, StringComparison.Ordinal);
     }
 
@@ -590,6 +616,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("static_cast<u32>(framePlan->PhysicalViewport.X)", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("void CopyProjectionMatrixToGx(const float4x4& source, Mtx44& destination);", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("CopyProjectionMatrixToGx(framePlan->Projection, projectionMatrix);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("framePlan->PhysicalViewport.X + (x * horizontalScale)", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("framePlan->PhysicalViewport.Y + (y * verticalScale)", rasterRendererSource, StringComparison.Ordinal);
     }
 
     /// <summary>

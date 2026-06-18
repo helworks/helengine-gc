@@ -18,9 +18,9 @@
 #include "RenderFrameExtractionResult.hpp"
 #include "RenderFrameExtractionService.hpp"
 #include "RendererBackendCapabilityProfile.hpp"
-#include "float3.hpp"
-#include "float4.hpp"
-#include "float4x4.hpp"
+#include "helengine_float3.hpp"
+#include "helengine_float4.hpp"
+#include "helengine_float4x4.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeRenderQueueSnapshotVisitor.hpp"
 #include "runtime/native_cast.hpp"
@@ -28,13 +28,17 @@
 
 namespace helengine::gamecube {
     /// Builds one strict frame plan for the active camera and visible opaque drawables, or returns null when no active camera is available yet.
-    GameCubeFramePlan* GameCubeSceneRenderBridge::BuildFramePlan(RendererBackendCapabilityProfile* capabilities, int32_t targetWidth, int32_t targetHeight) {
+    GameCubeFramePlan* GameCubeSceneRenderBridge::BuildFramePlan(RendererBackendCapabilityProfile* capabilities, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight) {
         if (capabilities == nullptr) {
             throw new ArgumentNullException("capabilities");
-        } else if (targetWidth < 1) {
-            throw new ArgumentOutOfRangeException("targetWidth");
-        } else if (targetHeight < 1) {
-            throw new ArgumentOutOfRangeException("targetHeight");
+        } else if (logicalWidth < 1) {
+            throw new ArgumentOutOfRangeException("logicalWidth");
+        } else if (logicalHeight < 1) {
+            throw new ArgumentOutOfRangeException("logicalHeight");
+        } else if (physicalWidth < 1) {
+            throw new ArgumentOutOfRangeException("physicalWidth");
+        } else if (physicalHeight < 1) {
+            throw new ArgumentOutOfRangeException("physicalHeight");
         }
 
         if (!HasActiveCamera()) {
@@ -64,16 +68,22 @@ namespace helengine::gamecube {
             throw new NotSupportedException("Transparent 3D submissions are not supported in the first GameCube renderer tier.");
         }
 
-        float4 viewport = CameraViewportResolver::ResolveViewport(camera->get_Viewport(), targetWidth, targetHeight);
+        float4 logicalViewport = CameraViewportResolver::ResolveViewport(camera->get_Viewport(), logicalWidth, logicalHeight);
+        float4 physicalViewport = ResolvePhysicalViewport(logicalViewport, logicalWidth, logicalHeight, physicalWidth, physicalHeight);
         float4x4 view = BuildViewMatrix(camera);
-        float4x4 projection = BuildProjectionMatrix(camera, viewport.Z / viewport.W);
+        float4x4 projection = BuildProjectionMatrix(camera, logicalViewport.Z / logicalViewport.W);
         float4x4 viewProjection;
         MultiplyMatrices(view, projection, viewProjection);
         return new GameCubeFramePlan(
             camera,
+            extraction,
+            cameras,
+            drawables,
+            lights,
             frame->get_DrawableSubmissions(),
             frame->get_LightSubmissions(),
-            viewport,
+            logicalViewport,
+            physicalViewport,
             view,
             projection,
             viewProjection);
@@ -118,6 +128,17 @@ namespace helengine::gamecube {
         GameCubeRenderQueueSnapshotVisitor visitor;
         camera->get_RenderQueue3D()->VisitOrdered(&visitor);
         return visitor.Items;
+    }
+
+    /// Resolves the physical GX viewport from the logical viewport and current presented framebuffer dimensions.
+    float4 GameCubeSceneRenderBridge::ResolvePhysicalViewport(const float4& logicalViewport, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight) {
+        const float horizontalScale = static_cast<float>(physicalWidth) / static_cast<float>(logicalWidth);
+        const float verticalScale = static_cast<float>(physicalHeight) / static_cast<float>(logicalHeight);
+        return float4(
+            logicalViewport.X * horizontalScale,
+            logicalViewport.Y * verticalScale,
+            logicalViewport.Z * horizontalScale,
+            logicalViewport.W * verticalScale);
     }
 
     /// Builds the authored view matrix from the generated entity transform.

@@ -1,21 +1,24 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include <gccore.h>
 
 #include "MaterialCullMode.hpp"
 #include "RoundedRectCorners.hpp"
+#include "helengine_float2.hpp"
 
 class CameraClearSettings;
 class Entity;
+class FontAsset;
+class ITextDrawable2D;
 class RenderFrameDrawableSubmission;
 class RuntimeMaterial;
 class RuntimeTexture;
 class RuntimeSubmesh;
 class byte4;
-class float2;
 class float3;
 class float4;
 class float4x4;
@@ -44,11 +47,41 @@ namespace helengine::gamecube {
         /// Draws the captured 2D overlay drawables for the current frame through GX using the active frame-plan camera to resolve 2D-only background clears.
         void Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight);
     private:
+        /// Stores one persistent wrapped-text result so unchanged UI labels do not rebuild layout every frame.
+        struct CachedTextLayoutEntry {
+            /// Drawable instance that owns the wrapped text state.
+            ITextDrawable2D* Drawable;
+
+            /// Font asset used when the wrapped text was last rebuilt.
+            FontAsset* Font;
+
+            /// Pixel width constraint used when the wrapped text was last rebuilt.
+            int32_t MaxWidth;
+
+            /// Source text captured from the drawable during the last rebuild.
+            std::string SourceText;
+
+            /// Wrapped text content reused until the drawable text or width changes.
+            std::string WrappedText;
+
+            /// Render2D frame id that last touched this cache entry.
+            uint32_t LastFrameUsed;
+        };
+
         /// Shared runtime-model cache used by the draw path.
         GameCubeMeshCache* MeshCache;
 
         /// Tracks whether the renderer already logged the first textured 3D draw for runtime diagnosis.
         bool HasLoggedFirstTexturedDraw;
+
+        /// Persistent wrapped-text cache reused across overlay frames for stable menu labels.
+        std::vector<CachedTextLayoutEntry> CachedTextLayouts;
+
+        /// Scratch rounded-rectangle outline reused across 2D shape draws to avoid per-call heap churn.
+        std::vector<float2> RoundedRectOutlineScratch;
+
+        /// Identifies the active Render2D frame while text-layout cache pruning runs.
+        uint32_t ActiveTextLayoutFrameId;
 
         /// Configures the GX state used by the current opaque mesh path.
         void ConfigurePipeline(bool useTexturedBranch, bool useIndexedGeometry);
@@ -73,6 +106,12 @@ namespace helengine::gamecube {
 
         /// Copies one generated affine matrix directly into a GX position matrix without runtime reinterpretation.
         void CopyAffineMatrixToGx(const float4x4& source, Mtx& destination);
+
+        /// Copies one generated projection matrix into the GX projection upload layout.
+        void CopyProjectionMatrixToGx(const float4x4& source, Mtx44& destination);
+
+        /// Maps one logical 2D rectangle from shared-engine viewport space into the active physical GameCube viewport.
+        void TransformLogicalRectToPhysicalViewport(GameCubeFramePlan* framePlan, float& x, float& y, float& width, float& height) const;
 
         /// Loads one GX normal matrix derived from the current authored model-view transform so fixed-function lighting stays in view space.
         void LoadNormalMatrix(const Mtx& modelViewMatrix);
@@ -117,7 +156,7 @@ namespace helengine::gamecube {
         void DrawCaptureTriangle(GameCubeFramePlan* framePlan, Entity* entity, const float3& localA, const float3& localB, const float3& localC, uint32_t frameIndex, int32_t triangleIndex);
 
         /// Draws one unlit or textured cached submesh through indexed GX array submission.
-        void DrawCachedSubmesh(GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch);
+        void DrawCachedSubmesh(GameCubeRuntimeMaterial* material, GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch);
 
         /// Draws one lit cached submesh through the indexed GX lighting path.
         void DrawCachedLitSubmesh(GameCubeFramePlan* framePlan, Entity* entity, GameCubeRuntimeMaterial* material, GameCubeCachedMeshData* cachedMeshData, RuntimeSubmesh* runtimeSubmesh, bool useTexturedBranch);
@@ -126,13 +165,19 @@ namespace helengine::gamecube {
         void DrawSubmesh(GameCubeFramePlan* framePlan, RenderFrameDrawableSubmission* submission, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity);
 
         /// Draws one captured rounded rectangle through the current 2D GX path.
-        void RenderRoundedRect2D(const GameCubeRoundedRectDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
+        void RenderRoundedRect2D(GameCubeFramePlan* framePlan, const GameCubeRoundedRectDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
 
         /// Draws one captured sprite through the current 2D GX path.
-        void RenderSprite2D(const GameCubeSpriteDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
+        void RenderSprite2D(GameCubeFramePlan* framePlan, const GameCubeSpriteDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
 
         /// Draws one captured text drawable through the current 2D GX path.
-        void RenderText2D(const GameCubeTextDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
+        void RenderText2D(GameCubeFramePlan* framePlan, const GameCubeTextDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
+
+        /// Resolves reusable text-layout content for one text drawable, rebuilding wrapped text only when authored inputs change.
+        const std::string& ResolveTextLayoutContent(ITextDrawable2D* drawable, FontAsset* font, double fontScale);
+
+        /// Discards wrapped-text cache entries that were not used by the active overlay frame.
+        void PruneTextLayoutCache();
 
         /// Emits one untextured screen-space quad in pixel coordinates.
         void DrawSolidQuad2D(float x, float y, float width, float height, GXColor color);
@@ -156,6 +201,6 @@ namespace helengine::gamecube {
         bool TryResolveClipRect(Entity* entity, float4& clipRect);
 
         /// Applies one resolved clip rectangle as the active GX scissor state.
-        void ApplyClipScissor(const float4& clipRect, uint16_t frameWidth, uint16_t frameHeight);
+        void ApplyClipScissor(GameCubeFramePlan* framePlan, const float4& clipRect, uint16_t frameWidth, uint16_t frameHeight);
     };
 }

@@ -70,6 +70,7 @@ endif
 
 ifeq ($(strip $(HELENGINE_CORE_CPP_ROOT)),)
 CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_GENERATED_CORE=0
+CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_PHYSICS3D_RUNTIME_REGISTRATION=0
 else
 ifneq ($(wildcard $(HELENGINE_CORE_CPP_ROOT)/helengine_core_amalgamated.cpp),)
 GENERATED_CORE_TRANSLATION_UNIT := helengine_core_amalgamated.cpp
@@ -85,8 +86,8 @@ endif
 ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_COMPILER_GCC 1$$'),0)
 $(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_COMPILER_GCC 1)
 endif
-ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_PLATFORM_GAMECUBE 1$$'),0)
-$(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_PLATFORM_GAMECUBE 1)
+ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_PLATFORM_(GAMECUBE|RETROPPC) 1$$'),0)
+$(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_PLATFORM_GAMECUBE 1 or HE_CPP_PLATFORM_RETROPPC 1)
 endif
 ifeq ($(shell tr -d '\r' < $(GENERATED_CONFIG) 2>/dev/null | grep -Ec '^#define HE_CPP_PLATFORM_IS_LITTLE_ENDIAN 0$$'),0)
 $(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_PLATFORM_IS_LITTLE_ENDIAN 0)
@@ -101,12 +102,18 @@ GENERATED_BRIDGE_SOURCES := \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeCubeTestSceneInstaller.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeDiscFileSystem.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneBootstrap.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeFramePlan.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneRenderBridge.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeMeshCache.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRuntimeMaterial.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRuntimeTexture.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRasterRenderer.cpp
 CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_GENERATED_CORE=1 -I$(HELENGINE_CORE_CPP_ROOT)
+ifneq ($(wildcard $(HELENGINE_CORE_CPP_ROOT)/Physics3DRuntimeComponentRegistration.hpp),)
+CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_PHYSICS3D_RUNTIME_REGISTRATION=1
+else
+CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_PHYSICS3D_RUNTIME_REGISTRATION=0
+endif
 endif
 
 ALL_SOURCE_SOURCES := $(SOURCES) $(GENERATED_BRIDGE_SOURCES)

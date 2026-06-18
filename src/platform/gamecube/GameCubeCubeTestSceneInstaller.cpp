@@ -8,8 +8,8 @@
 #include "RuntimeMaterial.hpp"
 #include "RuntimeSubmesh.hpp"
 #include "ShadowMapMode.hpp"
-#include "float3.hpp"
-#include "float4.hpp"
+#include "helengine_float3.hpp"
+#include "helengine_float4.hpp"
 #include "platform/gamecube/GameCubeRuntimeModel.hpp"
 #include "runtime/array.hpp"
 #include "runtime/native_exceptions.hpp"
@@ -44,9 +44,10 @@ namespace helengine::gamecube {
         camera->set_Viewport(float4(0.0f, 0.0f, 1.0f, 1.0f));
         camera->set_NearPlaneDistance(CameraNearPlaneDistance);
         camera->set_FarPlaneDistance(CameraFarPlaneDistance);
+        float4 clearColor(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f);
         camera->set_ClearSettings(CameraClearSettings(
             true,
-            float4(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f),
+            clearColor,
             true,
             1.0f,
             false,

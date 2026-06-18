@@ -38,19 +38,18 @@ foreach ($process in $existingDolphinProcesses) {
     Stop-Process -Id $process.Id -Force
 }
 
-if (Test-Path -LiteralPath $userDir) {
-    Remove-Item -LiteralPath $userDir -Recurse -Force
-}
+if (-not (Test-Path -LiteralPath $userDir)) {
+    New-Item -ItemType Directory -Force -Path $userDir | Out-Null
 
-New-Item -ItemType Directory -Force -Path $userDir | Out-Null
-New-Item -ItemType Directory -Force -Path (Join-Path $userDir 'Config') | Out-Null
-
-foreach ($directoryName in @('GC', 'Backup', 'ResourcePacks', 'Load')) {
-    $sourceDirectoryPath = Join-Path $globalProfileRoot $directoryName
-    if (Test-Path -LiteralPath $sourceDirectoryPath) {
-        Copy-Item -LiteralPath $sourceDirectoryPath -Destination (Join-Path $userDir $directoryName) -Recurse -Force
+    foreach ($directoryName in @('GC', 'Backup', 'ResourcePacks', 'Load')) {
+        $sourceDirectoryPath = Join-Path $globalProfileRoot $directoryName
+        if (Test-Path -LiteralPath $sourceDirectoryPath) {
+            Copy-Item -LiteralPath $sourceDirectoryPath -Destination (Join-Path $userDir $directoryName) -Recurse -Force
+        }
     }
 }
+
+New-Item -ItemType Directory -Force -Path (Join-Path $userDir 'Config') | Out-Null
 
 $loggerSource = Get-Content -LiteralPath $globalLoggerPath -Raw
 $loggerOptionsSection = @'

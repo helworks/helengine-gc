@@ -25,11 +25,6 @@ public static class GameCubePlatformDefinitionFactory {
     const string GameCubePointerSizeInBytes = "4";
 
     /// <summary>
-    /// Generic preprocessor symbol that forces generated-core regeneration to include the GameCube 3D physics runtime even when the selected build scenes do not surface physics feature symbols directly.
-    /// </summary>
-    const string GameCubeIncludePhysics3DRuntimeSymbol = "HELENGINE_GAMECUBE_INCLUDE_PHYSICS3D_RUNTIME";
-
-    /// <summary>
     /// Generic codegen hook that identifies the builder-owned file-system adapter header for disc-backed GameCube runtime paths.
     /// </summary>
     const string NativeFileSystemHeader = "\"platform/gamecube/GameCubeDiscFileSystem.hpp\"";
@@ -262,13 +257,6 @@ public static class GameCubePlatformDefinitionFactory {
                             "Include Project Symbols",
                             PlatformSettingKind.Boolean,
                             "false",
-                            true,
-                            []),
-                        new PlatformSettingDefinition(
-                            "additional-preprocessor-symbols",
-                            "Additional Preprocessor Symbols",
-                            PlatformSettingKind.Text,
-                            GameCubeIncludePhysics3DRuntimeSymbol,
                             true,
                             []),
                         new PlatformSettingDefinition(

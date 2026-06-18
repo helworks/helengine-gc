@@ -18,7 +18,9 @@
 #include "Core.hpp"
 #include "CoreInitializationOptions.hpp"
 #include "PlatformInfo.hpp"
+#if HELENGINE_GAMECUBE_HAS_PHYSICS3D_RUNTIME_REGISTRATION
 #include "Physics3DRuntimeComponentRegistration.hpp"
+#endif
 #include "RuntimeSceneLoadService.hpp"
 #include "SceneManager.hpp"
 #include "SceneLoadMode.hpp"
@@ -717,9 +719,11 @@ namespace helengine::gamecube {
             initializationStage = "InitializeCore";
             EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);
             SYS_Report("[GC] Engine core initialized.\n");
+#if HELENGINE_GAMECUBE_HAS_PHYSICS3D_RUNTIME_REGISTRATION
             initializationStage = "RegisterPhysicsRuntime";
             Physics3DRuntimeComponentRegistration::Register(EngineCore);
             SYS_Report("[GC] Physics runtime registered.\n");
+#endif
         }
         catch (const std::exception& exception) {
             EngineInitialized = false;

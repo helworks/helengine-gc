@@ -103,7 +103,7 @@ public sealed class GameCubeRuntimeSceneManifestWriter {
             KeyValuePair<string, string> metadataEntry = scene.ResolvedMetadata[index];
             if (string.Equals(metadataEntry.Key, "cooked-relative-path", StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(metadataEntry.Value)) {
-                return metadataEntry.Value.Replace('\\', '/');
+                return CanonicalPackagedAssetPath.Normalize(metadataEntry.Value);
             }
         }
 

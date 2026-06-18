@@ -1,7 +1,5 @@
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 
-#include <ogc/system.h>
-
 #include "Asset.hpp"
 #include "CameraComponent.hpp"
 #include "Core.hpp"
@@ -35,12 +33,6 @@ namespace helengine::gamecube {
         GameCubeRuntimeTexture* runtimeTexture = new GameCubeRuntimeTexture();
         runtimeTexture->set_Id(data->get_Id());
         runtimeTexture->LoadFromRaw(data);
-        SYS_Report(
-            "[GC] RM2D build raw texture id=%s size=%ux%u ptr=%p\n",
-            data->get_Id().c_str(),
-            static_cast<unsigned>(data->Width),
-            static_cast<unsigned>(data->Height),
-            runtimeTexture);
         return runtimeTexture;
     }
 
@@ -50,7 +42,6 @@ namespace helengine::gamecube {
             throw new ArgumentException("GameCube cooked texture path is required.", "cookedAssetPath");
         }
 
-        SYS_Report("[GC] RM2D build cooked texture begin path=%s\n", cookedAssetPath.c_str());
         ::FileStream* textureStream = ::File::OpenRead(cookedAssetPath);
         try {
             ::Asset* textureAssetPayload = ::EditorAssetBinarySerializer::Deserialize(textureStream);
@@ -59,24 +50,8 @@ namespace helengine::gamecube {
                 throw new InvalidOperationException("GameCube cooked texture payload did not deserialize as TextureAsset.");
             }
 
-            SYS_Report(
-                "[GC] RM2D build cooked texture decoded path=%s id=%s format=%d size=%ux%u colors=%d palette=%d\n",
-                cookedAssetPath.c_str(),
-                textureAsset->get_Id().c_str(),
-                static_cast<int>(textureAsset->ColorFormat),
-                static_cast<unsigned>(textureAsset->Width),
-                static_cast<unsigned>(textureAsset->Height),
-                textureAsset->Colors != nullptr ? textureAsset->Colors->get_Length() : -1,
-                textureAsset->PaletteColors != nullptr ? textureAsset->PaletteColors->get_Length() : -1);
             textureStream->Dispose();
             RuntimeTexture* runtimeTexture = BuildTextureFromRaw(textureAsset);
-            SYS_Report(
-                "[GC] RM2D build cooked texture path=%s id=%s size=%ux%u ptr=%p\n",
-                cookedAssetPath.c_str(),
-                textureAsset->get_Id().c_str(),
-                static_cast<unsigned>(textureAsset->Width),
-                static_cast<unsigned>(textureAsset->Height),
-                runtimeTexture);
             if (textureAsset->Colors != nullptr && textureAsset->Colors != Array<uint8_t>::Empty()) {
                 delete textureAsset->Colors;
                 textureAsset->Colors = Array<uint8_t>::Empty();
@@ -88,7 +63,6 @@ namespace helengine::gamecube {
             }
 
             delete textureAsset;
-            SYS_Report("[GC] RM2D build cooked texture complete path=%s ptr=%p\n", cookedAssetPath.c_str(), runtimeTexture);
             return runtimeTexture;
         } catch (...) {
             if (textureStream != nullptr) {
@@ -107,10 +81,6 @@ namespace helengine::gamecube {
             return;
         }
 
-        SYS_Report(
-            "[GC] RM2D release texture queued id=%s ptr=%p\n",
-            texture->get_Id().c_str(),
-            texture);
         ReleasedTextures.push_back(texture);
     }
 
@@ -121,24 +91,13 @@ namespace helengine::gamecube {
         }
 
         RuntimeTexture* texture = font->get_Texture();
-        SYS_Report(
-            "[GC] RM2D release font ptr=%p texture=%p atlasPath=%s\n",
-            font,
-            texture,
-            font->get_CookedAtlasTextureRelativePath().c_str());
-
         if (texture != nullptr && !texture->get_IsDisposed()) {
-            SYS_Report("[GC] RM2D release font texture dispose begin ptr=%p\n", texture);
             texture->Dispose();
             delete static_cast<GameCubeRuntimeTexture*>(texture);
-            SYS_Report("[GC] RM2D release font texture dispose complete ptr=%p\n", texture);
         }
 
-        SYS_Report("[GC] RM2D release font dispose begin ptr=%p\n", font);
         font->Dispose();
-        SYS_Report("[GC] RM2D release font dispose complete ptr=%p\n", font);
         delete font;
-        SYS_Report("[GC] RM2D release font delete complete ptr=%p\n", font);
     }
 
     /// Walks the active camera 2D queue and lets each drawable submit itself into this frame capture.

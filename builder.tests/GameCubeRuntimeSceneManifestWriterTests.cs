@@ -14,6 +14,7 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
         string outputRootPath = Path.Combine(Path.GetTempPath(), "gamecube-runtime-manifest-tests", Guid.NewGuid().ToString("N"));
         const string StartupSceneId = "Scenes/DemoDiscMainMenu.helen";
         const string StartupSceneCookedRelativePath = "cooked/scenes/DemoDiscMainMenu.hasset";
+        const string CanonicalStartupSceneCookedRelativePath = "cooked/scenes/demodiscmainmenu.hasset";
         PlatformBuildManifest manifest = new(
             1,
             "project",
@@ -46,7 +47,7 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
 
             string source = File.ReadAllText(Path.Combine(outputRootPath, "runtime", "gamecube_runtime_scene_manifest.inl"));
             Assert.Contains("\"Scenes/DemoDiscMainMenu.helen\"", source, StringComparison.Ordinal);
-            Assert.Contains("\"cooked/scenes/DemoDiscMainMenu.hasset\"", source, StringComparison.Ordinal);
+            Assert.Contains("\"" + CanonicalStartupSceneCookedRelativePath + "\"", source, StringComparison.Ordinal);
         } finally {
             if (Directory.Exists(outputRootPath)) {
                 Directory.Delete(outputRootPath, recursive: true);

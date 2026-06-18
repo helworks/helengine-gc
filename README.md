@@ -31,14 +31,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\launch_gamecube_im
   -ImagePath .\tmp\packaged-disc-proof-life\game.gcm
 ```
 
-The launcher requires an explicit `-ImagePath`. Before launch it force-closes any running `Dolphin.exe` processes, recreates an isolated Dolphin user directory under `tmp\`, copies the `GC`, `Backup`, `ResourcePacks`, and `Load` directories from the global Dolphin profile when present, seeds `Logger.ini` from the global Dolphin profile channel set, forces `WriteToConsole`, `WriteToFile`, and `WriteToWindow` on in the isolated profile, and forces the Dolphin logger window visible in the isolated `Qt.ini`.
+The launcher requires an explicit `-ImagePath`. Before launch it force-closes any running `Dolphin.exe` processes, creates a persistent dedicated Dolphin user directory under `tmp\` on first run, copies the `GC`, `Backup`, `ResourcePacks`, and `Load` directories from the global Dolphin profile when present during that initial seed, rewrites `Logger.ini` from the global Dolphin profile channel set while forcing `WriteToConsole`, `WriteToFile`, and `WriteToWindow` on for every launch, and rewrites `Qt.ini` on every launch to keep the Dolphin logger window visible.
 
 The launcher prints:
 
 - the image path
 - the image last write time
 - the Dolphin executable path
-- the isolated user directory path
+- the persistent dedicated Dolphin user directory path
 - the seeded `Logger.ini` path
 - that the logger window is enabled
 - the spawned Dolphin process id

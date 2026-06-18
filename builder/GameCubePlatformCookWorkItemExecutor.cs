@@ -1,9 +1,11 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using helengine;
 using helengine.baseplatform.Manifest;
 using helengine.editor;
 using FilesAssetSerializer = helengine.files.AssetSerializer;
+using FilesEngineBinaryHeaderSerializer = helengine.files.EngineBinaryHeaderSerializer;
 using FilesFontAssetBinarySerializer = helengine.files.FontAssetBinarySerializer;
 
 namespace helengine.gamecube.builder;
@@ -71,16 +73,9 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
     /// <param name="projectRootPath">Project root used to resolve the source font asset.</param>
     /// <param name="stagingRootPath">Staging root that receives the cooked font asset.</param>
     void ExecuteFontAtlasTextureWorkItem(PlatformCookWorkItem workItem, string projectRootPath, string stagingRootPath) {
-        string sourcePath = ResolveSourceAssetPath(projectRootPath, workItem.SourceAssetPath);
-        FontAsset sourceFont = sourcePath.EndsWith(".hefont", StringComparison.OrdinalIgnoreCase)
-            ? ReadFontAsset(sourcePath)
-            : ImportSourceFont(workItem, sourcePath);
-        if (sourceFont.SourceTextureAsset == null) {
-            throw new InvalidOperationException($"Font asset '{workItem.SourceAssetPath}' did not contain a source texture atlas.");
-        }
-
+        TextureAsset sourceTexture = LoadFontAtlasSourceTexture(workItem, projectRootPath);
         GameCubeTextureCookSettings settings = GameCubeTextureCookSettings.Parse(workItem.SerializedPlatformSettings);
-        TextureAsset cookedTexture = TextureCooker.CookTexture(sourceFont.SourceTextureAsset, settings);
+        TextureAsset cookedTexture = TextureCooker.CookTexture(sourceTexture, settings);
         WriteTextureAsset(Path.Combine(stagingRootPath, NormalizePath(workItem.OutputRelativePath)), cookedTexture);
     }
 
@@ -201,152 +196,113 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
         }
 
         using FileStream stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        EngineBinaryHeader header = EngineBinaryHeaderSerializer.Read(stream);
-        ValidateFontHeader(header);
-        using EngineBinaryReader reader = EngineBinaryReader.Create(stream, header.Endianness);
-        FontInfo fontInfo = new FontInfo(
-            reader.ReadString(),
-            reader.ReadInt32(),
-            reader.ReadSingle());
-        float lineHeight = reader.ReadSingle();
-        int atlasWidth = reader.ReadInt32();
-        int atlasHeight = reader.ReadInt32();
-        TextureAsset sourceTexture = ReadFontSourceTexture(reader, header.Version);
-        Dictionary<char, FontChar> characters = ReadFontCharacters(reader);
-        return new FontAsset(fontInfo, null, characters, lineHeight, atlasWidth, atlasHeight) {
-            SourceTextureAsset = sourceTexture
-        };
+        return FilesFontAssetBinarySerializer.Deserialize(stream);
     }
 
     /// <summary>
-    /// Validates that the supplied binary header matches the packaged font asset format.
+    /// Loads one source atlas texture for a builder-owned font-atlas cook work item.
     /// </summary>
-    /// <param name="header">Binary header already read from the source stream.</param>
-    static void ValidateFontHeader(EngineBinaryHeader header) {
-        if (header == null) {
-            throw new ArgumentNullException(nameof(header));
-        } else if (header.FormatId != FilesFontAssetBinarySerializer.FormatId) {
-            throw new InvalidOperationException($"Unsupported font binary format id '{header.FormatId}'.");
-        } else if (header.RecordKind != (ushort)FilesFontAssetBinarySerializer.RecordKind) {
-            throw new InvalidOperationException($"Unexpected font record kind '{header.RecordKind}'.");
-        } else if (header.Version < 1 || header.Version > FilesFontAssetBinarySerializer.CurrentVersion) {
-            throw new InvalidOperationException($"Unsupported font binary version '{header.Version}'.");
+    /// <param name="workItem">Font-atlas work item emitted by the editor build graph.</param>
+    /// <param name="projectRootPath">Project root used to resolve the source path.</param>
+    /// <returns>Source atlas texture ready for platform-native cooking.</returns>
+    static TextureAsset LoadFontAtlasSourceTexture(PlatformCookWorkItem workItem, string projectRootPath) {
+        if (workItem == null) {
+            throw new ArgumentNullException(nameof(workItem));
+        } else if (string.IsNullOrWhiteSpace(projectRootPath)) {
+            throw new ArgumentException("Project root path must be provided.", nameof(projectRootPath));
+        }
+
+        string sourcePath = ResolveSourceAssetPath(projectRootPath, workItem.SourceAssetPath);
+        try {
+            if (TryReadTextureAsset(sourcePath, out TextureAsset textureAsset)) {
+                return textureAsset;
+            }
+
+            if (TryReadSerializedFontAsset(sourcePath, out FontAsset serializedFontAsset)) {
+                if (serializedFontAsset.SourceTextureAsset == null) {
+                    throw new InvalidOperationException($"Font asset '{workItem.SourceAssetPath}' did not contain a source texture atlas.");
+                }
+
+                return serializedFontAsset.SourceTextureAsset;
+            }
+
+            FontAsset importedFontAsset = ImportSourceFont(workItem, sourcePath);
+            if (importedFontAsset.SourceTextureAsset == null) {
+                throw new InvalidOperationException($"Font asset '{workItem.SourceAssetPath}' did not contain a source texture atlas.");
+            }
+
+            return importedFontAsset.SourceTextureAsset;
+        } catch (Exception exception) {
+            throw new InvalidOperationException($"Failed to load font source '{workItem.SourceAssetPath}' for GameCube atlas cooking.", exception);
         }
     }
 
     /// <summary>
-    /// Reads one serialized font source texture payload from the packaged font stream.
+    /// Attempts to read one serialized packaged font asset from an authored HELE file path.
     /// </summary>
-    /// <param name="reader">Binary reader positioned at the font source texture payload.</param>
-    /// <param name="version">Serialized font payload version.</param>
-    /// <returns>Deserialized source texture asset.</returns>
-    static TextureAsset ReadFontSourceTexture(EngineBinaryReader reader, byte version) {
-        if (reader == null) {
-            throw new ArgumentNullException(nameof(reader));
+    /// <param name="sourcePath">Absolute source path to inspect.</param>
+    /// <param name="fontAsset">Deserialized packaged font asset when the file stores one.</param>
+    /// <returns>True when the source path stored a packaged font asset; otherwise false.</returns>
+    static bool TryReadSerializedFontAsset(string sourcePath, out FontAsset fontAsset) {
+        fontAsset = null;
+        if (string.IsNullOrWhiteSpace(sourcePath)) {
+            throw new ArgumentException("Source path must be provided.", nameof(sourcePath));
         }
 
-        TextureAsset sourceTexture = new TextureAsset();
-        sourceTexture.RuntimeAssetId = version >= 2 ? (ulong)reader.ReadInt64() : 0ul;
-        sourceTexture.Width = reader.ReadUInt16();
-        sourceTexture.Height = reader.ReadUInt16();
-        sourceTexture.ColorFormat = version >= 3
-            ? ReadTextureAssetColorFormat(reader)
-            : TextureAssetColorFormat.Rgba32;
-        sourceTexture.AlphaPrecision = version >= 4
-            ? ReadTextureAssetAlphaPrecision(reader)
-            : GetDefaultTextureAssetAlphaPrecision(sourceTexture.ColorFormat);
-        sourceTexture.PaletteColors = version >= 4 ? reader.ReadByteArray() : Array.Empty<byte>();
-        sourceTexture.Colors = reader.ReadByteArray();
-        return sourceTexture;
+        string extension = Path.GetExtension(sourcePath);
+        if (!string.Equals(extension, ".hefont", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(extension, ".hasset", StringComparison.OrdinalIgnoreCase)) {
+            return false;
+        }
+
+        using FileStream stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        EngineBinaryHeader header;
+        try {
+            header = FilesEngineBinaryHeaderSerializer.Read(stream);
+        } catch (InvalidOperationException) {
+            return false;
+        }
+
+        if (header.RecordKind != (ushort)EditorBinaryRecordKind.FontAsset) {
+            return false;
+        }
+
+        fontAsset = FilesFontAssetBinarySerializer.Deserialize(stream, header);
+        return true;
     }
 
     /// <summary>
-    /// Reads one serialized font character map from the supplied packaged font stream.
+    /// Attempts to read one serialized texture asset from an authored HELE file path.
     /// </summary>
-    /// <param name="reader">Binary reader positioned at the font character payload.</param>
-    /// <returns>Deserialized character map.</returns>
-    static Dictionary<char, FontChar> ReadFontCharacters(EngineBinaryReader reader) {
-        if (reader == null) {
-            throw new ArgumentNullException(nameof(reader));
+    /// <param name="sourcePath">Absolute source path to inspect.</param>
+    /// <param name="textureAsset">Deserialized texture asset when the file stores one.</param>
+    /// <returns>True when the source path stored a texture asset; otherwise false.</returns>
+    static bool TryReadTextureAsset(string sourcePath, out TextureAsset textureAsset) {
+        textureAsset = null;
+        if (string.IsNullOrWhiteSpace(sourcePath)) {
+            throw new ArgumentException("Source path must be provided.", nameof(sourcePath));
         }
 
-        int characterCount = reader.ReadInt32();
-        Dictionary<char, FontChar> characters = new Dictionary<char, FontChar>(characterCount);
-        for (int index = 0; index < characterCount; index++) {
-            char character = (char)reader.ReadUInt16();
-            FontChar fontChar = new FontChar(
-                reader.ReadFloat4(),
-                reader.ReadSingle(),
-                reader.ReadSingle(),
-                reader.ReadSingle(),
-                reader.ReadSingle());
-            characters.Add(character, fontChar);
+        string extension = Path.GetExtension(sourcePath);
+        if (!string.Equals(extension, ".hasset", StringComparison.OrdinalIgnoreCase)) {
+            return false;
         }
 
-        return characters;
-    }
-
-    /// <summary>
-    /// Reads one serialized texture color format from the supplied packaged font stream.
-    /// </summary>
-    /// <param name="reader">Binary reader positioned at the serialized texture color-format byte.</param>
-    /// <returns>Decoded texture color format.</returns>
-    static TextureAssetColorFormat ReadTextureAssetColorFormat(EngineBinaryReader reader) {
-        if (reader == null) {
-            throw new ArgumentNullException(nameof(reader));
+        using FileStream stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        EngineBinaryHeader header;
+        try {
+            header = FilesEngineBinaryHeaderSerializer.Read(stream);
+        } catch (InvalidOperationException) {
+            return false;
         }
 
-        byte serializedValue = reader.ReadByte();
-        if (serializedValue == (byte)TextureAssetColorFormat.Rgba32) {
-            return TextureAssetColorFormat.Rgba32;
-        } else if (serializedValue == (byte)TextureAssetColorFormat.Rgba4444) {
-            return TextureAssetColorFormat.Rgba4444;
-        } else if (serializedValue == (byte)TextureAssetColorFormat.Indexed4) {
-            return TextureAssetColorFormat.Indexed4;
-        } else if (serializedValue == (byte)TextureAssetColorFormat.Indexed8) {
-            return TextureAssetColorFormat.Indexed8;
-        } else if (serializedValue == 4) {
-            return (TextureAssetColorFormat)4;
+        if (header.RecordKind != (ushort)EditorBinaryRecordKind.Asset) {
+            return false;
         }
 
-        throw new InvalidOperationException($"Unsupported texture color format '{serializedValue}'.");
-    }
-
-    /// <summary>
-    /// Reads one serialized texture alpha precision from the supplied packaged font stream.
-    /// </summary>
-    /// <param name="reader">Binary reader positioned at the serialized texture alpha-precision byte.</param>
-    /// <returns>Decoded texture alpha precision.</returns>
-    static TextureAssetAlphaPrecision ReadTextureAssetAlphaPrecision(EngineBinaryReader reader) {
-        if (reader == null) {
-            throw new ArgumentNullException(nameof(reader));
-        }
-
-        byte serializedValue = reader.ReadByte();
-        if (serializedValue == (byte)TextureAssetAlphaPrecision.Opaque) {
-            return TextureAssetAlphaPrecision.Opaque;
-        } else if (serializedValue == (byte)TextureAssetAlphaPrecision.Binary) {
-            return TextureAssetAlphaPrecision.Binary;
-        } else if (serializedValue == (byte)TextureAssetAlphaPrecision.A4) {
-            return TextureAssetAlphaPrecision.A4;
-        } else if (serializedValue == (byte)TextureAssetAlphaPrecision.A8) {
-            return TextureAssetAlphaPrecision.A8;
-        }
-
-        throw new InvalidOperationException($"Unsupported texture alpha precision '{serializedValue}'.");
-    }
-
-    /// <summary>
-    /// Resolves the default alpha precision for legacy font atlas payloads that predate explicit metadata.
-    /// </summary>
-    /// <param name="colorFormat">Serialized texture color format used by the legacy atlas payload.</param>
-    /// <returns>Best-effort alpha precision for the legacy payload.</returns>
-    static TextureAssetAlphaPrecision GetDefaultTextureAssetAlphaPrecision(TextureAssetColorFormat colorFormat) {
-        if (colorFormat == TextureAssetColorFormat.Rgba4444) {
-            return TextureAssetAlphaPrecision.A4;
-        }
-
-        return TextureAssetAlphaPrecision.A8;
+        stream.Position = 0;
+        textureAsset = FilesAssetSerializer.Deserialize(stream) as TextureAsset;
+        return textureAsset != null;
     }
 
     /// <summary>

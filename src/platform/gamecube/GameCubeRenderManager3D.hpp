@@ -4,11 +4,11 @@
 
 #include "RenderManager3D.hpp"
 
+class ContentManager;
 class PlatformMaterialAsset;
 class RuntimeMaterial;
 class RuntimeModel;
 class RendererBackendCapabilityProfile;
-class MaterialLayout;
 
 namespace helengine::gamecube {
     class GameCubeMeshCache;
@@ -27,11 +27,14 @@ namespace helengine::gamecube {
         /// Releases owned GameCube renderer collaborators.
         ~GameCubeRenderManager3D() override;
 
+        /// Rebuilds one legacy raw material asset path through the cooked platform-owned GameCube material contract.
+        RuntimeMaterial* BuildMaterialFromRawAsset(ContentManager* assetContentManager, std::string contentRootPath, std::string materialAssetPath) override;
+
         /// Builds the minimal runtime material required for the first cooked-material GameCube draw path.
-        RuntimeMaterial* BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset) override;
+        RuntimeMaterial* BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset);
 
         /// Builds the minimal runtime material required for the first cooked-material GameCube draw path from one serialized cooked material asset path.
-        RuntimeMaterial* BuildMaterialFromCooked(std::string cookedAssetPath) override;
+        RuntimeMaterial* BuildMaterialFromCooked(std::string cookedAssetPath);
 
         /// Builds a GameCube runtime model that keeps authored submesh and geometry arrays alive.
         RuntimeModel* BuildModelFromRaw(ModelAsset* data) override;
@@ -53,6 +56,9 @@ namespace helengine::gamecube {
 
         /// Registers the 2D overlay render manager that should be captured and rasterized inside the shared 3D draw call.
         void SetOverlayRenderManager2D(GameCubeRenderManager2D* renderManager2D);
+
+        /// Registers the physical presented framebuffer size used for GX viewport and scissor setup.
+        void SetPresentedFrameSize(uint16_t width, uint16_t height);
 
         /// Returns the strict backend capability surface exposed by the first GameCube tier.
         RendererBackendCapabilityProfile* GetCapabilityProfile() override;
@@ -78,6 +84,12 @@ namespace helengine::gamecube {
         /// Tracks whether the backend has already drawn a real scene frame.
         bool HasRenderedSceneValue;
 
+        /// Tracks the physical framebuffer width used by the raster path.
+        uint16_t PresentedFrameWidth;
+
+        /// Tracks the physical framebuffer height used by the raster path.
+        uint16_t PresentedFrameHeight;
+
         /// Counts extracted GameCube scene frames for throttled diagnostics.
         uint32_t ExtractedFrameCount;
 
@@ -86,9 +98,6 @@ namespace helengine::gamecube {
 
         /// Runtime models deferred until the renderer reaches a safe destruction boundary.
         std::vector<RuntimeModel*> ReleasedModels;
-
-        /// Builds the minimal shared-engine material layout needed for one diffuse texture binding.
-        MaterialLayout* CreateCookedMaterialLayout();
 
         /// Resolves one packaged content-relative asset path against the absolute cooked material path that referenced it.
         std::string ResolvePackagedContentAssetPath(const std::string& cookedMaterialAssetPath, const std::string& contentRelativePath);
