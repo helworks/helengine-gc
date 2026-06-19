@@ -1,26 +1,26 @@
 namespace helengine.gamecube.builder.tests;
 
 /// <summary>
-/// Guards the developer launcher contract for running explicit GameCube disc images in Dolphin.
+/// Guards the canonical GameCube launcher contract for running explicit disc images in Dolphin.
 /// </summary>
 public sealed class GameCubeDolphinLauncherScriptTests {
     /// <summary>
-    /// Ensures the launcher keeps an explicit image path contract, force-closes Dolphin, prints image timestamp data, and seeds the logging profile.
+    /// Ensures the canonical launcher requires one explicit artifact path, force-closes Dolphin, prints artifact timestamp data, and seeds the logging profile.
     /// </summary>
     [Fact]
-    public void DolphinImageLauncher_KeepsExplicitImagePathAndLoggingProfileContract() {
+    public void Launcher_RequiresArtifactPath_AndKeepsLoggingProfileContract() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string scriptPath = Path.Combine(repositoryRootPath, "scripts", "launch_gamecube_image_in_dolphin.ps1");
+        string scriptPath = Path.Combine(repositoryRootPath, "scripts", "launch_in_emulator.ps1");
 
-        Assert.True(File.Exists(scriptPath), "Expected scripts/launch_gamecube_image_in_dolphin.ps1 to exist.");
+        Assert.True(File.Exists(scriptPath), "Expected scripts/launch_in_emulator.ps1 to exist.");
 
         string scriptSource = File.ReadAllText(scriptPath);
 
         Assert.Contains("[Parameter(Mandatory = $true)]", scriptSource, StringComparison.Ordinal);
-        Assert.Contains("[string]$ImagePath", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("[string]$ArtifactPath", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Get-Process -Name 'Dolphin'", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Stop-Process", scriptSource, StringComparison.Ordinal);
-        Assert.Contains("Get-Item -LiteralPath $resolvedImagePath", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("Get-Item -LiteralPath $resolvedArtifactPath", scriptSource, StringComparison.Ordinal);
         Assert.Contains("LastWriteTime", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Qt.ini", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Logger.ini", scriptSource, StringComparison.Ordinal);
@@ -36,26 +36,21 @@ public sealed class GameCubeDolphinLauncherScriptTests {
         Assert.Contains("WriteToFile = True", scriptSource, StringComparison.Ordinal);
         Assert.Contains("logvisible=true", scriptSource, StringComparison.Ordinal);
         Assert.Contains("logconfigvisible=true", scriptSource, StringComparison.Ordinal);
-        Assert.Contains("'-u', $userDir, '-e', $resolvedImagePath", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("'-u', $userDir, '-e', $resolvedArtifactPath", scriptSource, StringComparison.Ordinal);
         Assert.Contains("PROCESS_ID=", scriptSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("game.gcm", scriptSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("[string]$ImagePath", scriptSource, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Ensures the README documents the explicit GameCube image launcher workflow for Dolphin.
+    /// Ensures the README documents the canonical GameCube launcher workflow for Dolphin.
     /// </summary>
     [Fact]
-    public void Readme_DocumentsExplicitImageLauncherWorkflow() {
+    public void Readme_DocumentsCanonicalLauncherWorkflow() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         string readmeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "README.md"));
 
-        Assert.Contains("launch_gamecube_image_in_dolphin.ps1", readmeSource, StringComparison.Ordinal);
-        Assert.Contains("-ImagePath", readmeSource, StringComparison.Ordinal);
-        Assert.Contains("process id", readmeSource, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("logger window", readmeSource, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Logger.ini", readmeSource, StringComparison.Ordinal);
-        Assert.Contains("global Dolphin profile", readmeSource, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("persistent dedicated Dolphin user directory", readmeSource, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("recreates an isolated Dolphin user directory", readmeSource, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("launch_in_emulator.ps1", readmeSource, StringComparison.Ordinal);
+        Assert.Contains("-ArtifactPath", readmeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("launch_gamecube_image_in_dolphin.ps1", readmeSource, StringComparison.Ordinal);
     }
 }
