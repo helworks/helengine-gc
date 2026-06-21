@@ -477,6 +477,21 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
+    /// Ensures the GameCube host only uses generated-core lifecycle APIs that exist in the checked-in generated output.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_DoesNotDependOnMissingGeneratedCoreFrameBoundaryApis() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+
+        Assert.DoesNotContain("CommitPendingSceneOperationsDuringDraw", applicationSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("CompleteFrameBoundary", applicationSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("FinalizePresentedFrame", applicationSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("FinalizePresentedFrame", applicationHeaderSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures the GameCube host registers the 3D physics runtime only when the generated core exported the registration header.
     /// </summary>
     [Fact]
@@ -684,5 +699,22 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GX_InitLightDir(", rasterRendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("EvaluateLitVertexColor(framePlan, entity, material", rasterRendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("GX_Color4u8(litColor.r, litColor.g, litColor.b, litColor.a);", rasterRendererSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the builder no longer depends on the Windows GDI font importer project and no longer forces a Windows-only target framework.
+    /// </summary>
+    [Fact]
+    public void BuilderProjectSource_DoesNotDependOnGdiImporterOrWindowsHost() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string builderProjectSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "helengine.gamecube.builder.csproj"));
+        string builderTestsProjectSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder.tests", "helengine.gamecube.builder.tests.csproj"));
+
+        Assert.Contains("<TargetFramework>net9.0</TargetFramework>", builderProjectSource, StringComparison.Ordinal);
+        Assert.Contains("<TargetFramework>net9.0</TargetFramework>", builderTestsProjectSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("net9.0-windows", builderProjectSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("net9.0-windows", builderTestsProjectSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("helengine.editor.windows.gdiimporter", builderProjectSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("helengine.editor.windows\\helengine.editor.windows.csproj", builderProjectSource, StringComparison.Ordinal);
     }
 }

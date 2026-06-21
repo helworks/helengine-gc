@@ -37,39 +37,25 @@ public sealed class GameCubePlatformAssetBuilderTests {
                 && capability.TargetArtifactKind == "runtime-texture"
                 && capability.OwnershipKind == PlatformAssetCookOwnershipKind.BuilderOwned
                 && capability.SettingsContractId == "gamecube-texture");
-        Assert.Contains(
+        Assert.DoesNotContain(
             builder.Definition.AssetCookCapabilities,
-            capability => capability.SourceAssetKind == "font-atlas-texture"
-                && capability.TargetArtifactKind == "runtime-font-atlas-texture"
-                && capability.OwnershipKind == PlatformAssetCookOwnershipKind.BuilderOwned
-                && capability.SettingsContractId == "gamecube-texture");
+            capability => capability.SourceAssetKind == "font-atlas-texture");
     }
 
-    /// <summary>
-    /// Ensures the GameCube builder publishes generic texture-format capability metadata for both image textures and font atlas textures.
-    /// </summary>
+        /// <summary>
+        /// Ensures the GameCube builder publishes generic texture-format capability metadata through one shared texture capability.
+        /// </summary>
     [Fact]
     public void DescriptorAndDefinition_ExposeTextureFormatCapabilities() {
         GameCubePlatformAssetBuilder builder = new();
 
-        Assert.Collection(
-            builder.Definition.AssetCookCapabilities,
-            capability => {
-                Assert.Equal("texture", capability.SourceAssetKind);
-                Assert.Equal("runtime-texture", capability.TargetArtifactKind);
-                Assert.Equal(PlatformAssetCookOwnershipKind.BuilderOwned, capability.OwnershipKind);
-                Assert.Equal("gamecube-texture", capability.SettingsContractId);
-                Assert.Equal("{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}", capability.DefaultSerializedPlatformSettings);
-                AssertTextureFormatCapabilities(capability.TextureFormatCapabilities);
-            },
-            capability => {
-                Assert.Equal("font-atlas-texture", capability.SourceAssetKind);
-                Assert.Equal("runtime-font-atlas-texture", capability.TargetArtifactKind);
-                Assert.Equal(PlatformAssetCookOwnershipKind.BuilderOwned, capability.OwnershipKind);
-                Assert.Equal("gamecube-texture", capability.SettingsContractId);
-                Assert.Equal("{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}", capability.DefaultSerializedPlatformSettings);
-                AssertTextureFormatCapabilities(capability.TextureFormatCapabilities);
-            });
+        PlatformAssetCookCapabilityDefinition capability = Assert.Single(builder.Definition.AssetCookCapabilities);
+        Assert.Equal("texture", capability.SourceAssetKind);
+        Assert.Equal("runtime-texture", capability.TargetArtifactKind);
+        Assert.Equal(PlatformAssetCookOwnershipKind.BuilderOwned, capability.OwnershipKind);
+        Assert.Equal("gamecube-texture", capability.SettingsContractId);
+        Assert.Equal("{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}", capability.DefaultSerializedPlatformSettings);
+        AssertTextureFormatCapabilities(capability.TextureFormatCapabilities);
     }
 
     /// <summary>

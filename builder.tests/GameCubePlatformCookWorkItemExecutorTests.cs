@@ -58,40 +58,40 @@ public sealed class GameCubePlatformCookWorkItemExecutorTests {
     }
 
     /// <summary>
-    /// Ensures a font-atlas work item rewrites the serialized font atlas texture into a prepacked GameCube payload.
+    /// Ensures a texture work item can cook one serialized cached font-atlas texture asset into a prepacked GameCube payload.
     /// </summary>
     [Fact]
-    public void Execute_WhenUsingFontAtlasTextureWorkItem_WritesCookedFontAssetIntoStagingRoot() {
+    public void Execute_WhenUsingSerializedTextureAssetWorkItem_WritesCookedFontAtlasIntoStagingRoot() {
         string workspacePath = Path.Combine(Path.GetTempPath(), "gamecube-platform-cook-work-item-tests", Guid.NewGuid().ToString("N"));
         string projectRootPath = Path.Combine(workspacePath, "project");
         string stagingRootPath = Path.Combine(workspacePath, "staging");
-        string sourceFontPath = Path.Combine(projectRootPath, "assets", "Fonts", "Body.hefont");
-        string outputRelativePath = "cooked/fonts/Body.hefont";
+        string sourceFontPath = Path.Combine(projectRootPath, "assets", "Fonts", "Body.hetex");
+        string outputRelativePath = "cooked/fonts/Body.hetex";
 
         try {
             Directory.CreateDirectory(Path.GetDirectoryName(sourceFontPath) ?? throw new InvalidOperationException("Font source directory path could not be resolved."));
-            WriteSourceFontAsset(sourceFontPath);
+            WriteSourceTextureAsset(sourceFontPath, "Fonts/Body.hetex");
 
             GameCubePlatformCookWorkItemExecutor executor = new GameCubePlatformCookWorkItemExecutor();
             executor.Execute(
                 [
                     new PlatformCookWorkItem(
-                        "gamecube:font-atlas-texture:cooked/fonts/Body.hefont",
-                        "Fonts/Body.hefont",
-                        "font-atlas-texture",
+                        "gamecube:texture:cooked/fonts/Body.hetex",
+                        "Fonts/Body.hetex",
+                        "texture",
                         "gamecube",
-                        "runtime-font-atlas-texture",
+                        "runtime-texture",
                         outputRelativePath,
-                        "runtime-font-atlas-texture:cooked/fonts/Body.hefont",
+                        "runtime-texture:cooked/fonts/Body.hetex",
                         "sha256:source",
                         "sha256:settings",
                         "{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}",
-                        [new PlatformCookWorkItemMetadata("source-asset-id", "Fonts/Body.hefont")])
+                        [new PlatformCookWorkItemMetadata("source-asset-id", "Fonts/Body.hetex")])
                 ],
                 projectRootPath,
                 stagingRootPath);
 
-            string outputPath = Path.Combine(stagingRootPath, "cooked", "fonts", "Body.hefont");
+            string outputPath = Path.Combine(stagingRootPath, "cooked", "fonts", "Body.hetex");
             Assert.True(File.Exists(outputPath));
 
             using FileStream stream = new FileStream(outputPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -108,15 +108,15 @@ public sealed class GameCubePlatformCookWorkItemExecutorTests {
     }
 
     /// <summary>
-    /// Ensures a font-atlas work item can load one generated source texture asset emitted with a generic .hasset extension.
+    /// Ensures a texture work item can load one generated source texture asset emitted with a generic `.hasset` extension.
     /// </summary>
     [Fact]
-    public void Execute_WhenUsingGeneratedTextureAssetHasset_WritesCookedFontAssetIntoStagingRoot() {
+    public void Execute_WhenUsingGeneratedTextureAssetHasset_WritesCookedFontAtlasIntoStagingRoot() {
         string workspacePath = Path.Combine(Path.GetTempPath(), "gamecube-platform-cook-work-item-tests", Guid.NewGuid().ToString("N"));
         string projectRootPath = Path.Combine(workspacePath, "project");
         string stagingRootPath = Path.Combine(workspacePath, "staging");
         string sourceFontPath = Path.Combine(projectRootPath, "assets", "generated", "editor", "fonts", "default-font-atlas.hasset");
-        string outputRelativePath = "cooked/fonts/default-font-atlas.hasset";
+        string outputRelativePath = "cooked/fonts/default.hetex";
 
         try {
             Directory.CreateDirectory(Path.GetDirectoryName(sourceFontPath) ?? throw new InvalidOperationException("Font source directory path could not be resolved."));
@@ -126,13 +126,13 @@ public sealed class GameCubePlatformCookWorkItemExecutorTests {
             executor.Execute(
                 [
                     new PlatformCookWorkItem(
-                        "gamecube:font-atlas-texture:cooked/fonts/default-font-atlas.hasset",
+                        "gamecube:texture:cooked/fonts/default.hetex",
                         "generated/editor/fonts/default-font-atlas.hasset",
-                        "font-atlas-texture",
+                        "texture",
                         "gamecube",
-                        "runtime-font-atlas-texture",
+                        "runtime-texture",
                         outputRelativePath,
-                        "runtime-font-atlas-texture:cooked/fonts/default-font-atlas.hasset",
+                        "runtime-texture:cooked/fonts/default.hetex",
                         "sha256:source",
                         "sha256:settings",
                         "{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}",
@@ -141,7 +141,7 @@ public sealed class GameCubePlatformCookWorkItemExecutorTests {
                 projectRootPath,
                 stagingRootPath);
 
-            string outputPath = Path.Combine(stagingRootPath, "cooked", "fonts", "default-font-atlas.hasset");
+            string outputPath = Path.Combine(stagingRootPath, "cooked", "fonts", "default.hetex");
             Assert.True(File.Exists(outputPath));
 
             using FileStream stream = new FileStream(outputPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -156,34 +156,8 @@ public sealed class GameCubePlatformCookWorkItemExecutorTests {
     }
 
     /// <summary>
-    /// Writes one minimal serialized source font asset for font-atlas cook testing.
-    /// </summary>
-    /// <param name="outputPath">Absolute font-asset output path.</param>
-    static void WriteSourceFontAsset(string outputPath) {
-        FontAsset fontAsset = new FontAsset(
-            new FontInfo("Body", 16, 8),
-            null,
-            new Dictionary<char, FontChar>(),
-            16,
-            1,
-            1) {
-            SourceTextureAsset = new TextureAsset {
-                Id = "Fonts/Body.hefont",
-                Width = 1,
-                Height = 1,
-                ColorFormat = TextureAssetColorFormat.Rgba32,
-                AlphaPrecision = TextureAssetAlphaPrecision.A8,
-                Colors = [0xFF, 0x00, 0x00, 0xFF],
-                PaletteColors = Array.Empty<byte>()
-            }
-        };
-
-        using FileStream stream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        FilesFontAssetBinarySerializer.Serialize(stream, fontAsset);
-    }
-
     /// <summary>
-    /// Writes one minimal serialized source texture asset for generated font-atlas cook testing.
+    /// Writes one minimal serialized source texture asset for cached font-atlas cook testing.
     /// </summary>
     /// <param name="outputPath">Absolute asset output path.</param>
     /// <param name="assetId">Stable texture asset id to serialize.</param>

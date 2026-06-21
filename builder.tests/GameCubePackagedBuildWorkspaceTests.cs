@@ -25,18 +25,24 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
         string apploaderImagePath = Path.Combine(workingRootPath, "tooling", "apploader.img");
         string sceneSourcePath = Path.Combine(sourceRootPath, "cooked", "scenes", "DemoDiscMainMenu.hasset");
         string fontSourcePath = Path.Combine(sourceRootPath, "cooked", "fonts", "DemoDiscBody.hefont");
+        string fontAtlasSourcePath = Path.Combine(sourceRootPath, "cooked", "fonts", "DemoDiscBody.hetex");
         string defaultFontSourcePath = Path.Combine(sourceRootPath, "cooked", "fonts", "default.hefont");
+        string defaultFontAtlasSourcePath = Path.Combine(sourceRootPath, "cooked", "fonts", "default.hetex");
         string previousDirectory = Directory.GetCurrentDirectory();
 
         try {
             Directory.CreateDirectory(Path.GetDirectoryName(sceneSourcePath) ?? throw new InvalidOperationException("Scene directory path could not be resolved."));
             Directory.CreateDirectory(Path.GetDirectoryName(fontSourcePath) ?? throw new InvalidOperationException("Font directory path could not be resolved."));
+            Directory.CreateDirectory(Path.GetDirectoryName(fontAtlasSourcePath) ?? throw new InvalidOperationException("Font atlas directory path could not be resolved."));
             Directory.CreateDirectory(Path.GetDirectoryName(defaultFontSourcePath) ?? throw new InvalidOperationException("Default font directory path could not be resolved."));
+            Directory.CreateDirectory(Path.GetDirectoryName(defaultFontAtlasSourcePath) ?? throw new InvalidOperationException("Default font atlas directory path could not be resolved."));
             Directory.CreateDirectory(generatedCoreRootPath);
             Directory.CreateDirectory(Path.GetDirectoryName(apploaderImagePath) ?? throw new InvalidOperationException("Apploader directory path could not be resolved."));
             await File.WriteAllTextAsync(sceneSourcePath, "scene");
-            WriteFontAsset(fontSourcePath, CreateExternalCookedAtlasFontAsset("Fonts/DemoDiscBody", "cooked/fonts/DemoDiscBody.ps2tex"));
-            WriteFontAsset(defaultFontSourcePath, CreateEmbeddedAtlasFontAsset("fonts/default.hefont"));
+            WriteFontAsset(fontSourcePath, CreateExternalCookedAtlasFontAsset("Fonts/DemoDiscBody", "cooked/fonts/DemoDiscBody.hetex"));
+            WriteTextureAsset(fontAtlasSourcePath, CreateCookedTextureAsset("Fonts/DemoDiscBody#atlas"));
+            WriteFontAsset(defaultFontSourcePath, CreateExternalCookedAtlasFontAsset("fonts/default.hefont", "cooked/fonts/default.hetex"));
+            WriteTextureAsset(defaultFontAtlasSourcePath, CreateCookedTextureAsset("fonts/default.hefont#atlas"));
             await File.WriteAllTextAsync(apploaderImagePath, "apploader");
             Directory.SetCurrentDirectory(sourceRootPath);
 
@@ -60,7 +66,9 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 [
                     new PlatformBuildArtifact("cooked/scenes/DemoDiscMainMenu.hasset", "scene-content-hash", "scene", "gamecube-default"),
                     new PlatformBuildArtifact("cooked/fonts/DemoDiscBody.hefont", "font-content-hash", "font", "gamecube-default"),
-                    new PlatformBuildArtifact("cooked/fonts/default.hefont", "default-font-content-hash", "font", "gamecube-default")
+                    new PlatformBuildArtifact("cooked/fonts/DemoDiscBody.hetex", "font-atlas-content-hash", "texture", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/fonts/default.hefont", "default-font-content-hash", "font", "gamecube-default"),
+                    new PlatformBuildArtifact("cooked/fonts/default.hetex", "default-font-atlas-content-hash", "texture", "gamecube-default")
                 ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
@@ -111,17 +119,19 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "sys", "apploader.img")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "scenes", "DemoDiscMainMenu.hasset")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "DemoDiscBody.hefont")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "DemoDiscBody.hetex")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.hefont")));
-            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.ps2tex")));
+            Assert.True(File.Exists(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.hetex")));
             Assert.True(File.Exists(Path.Combine(outputRootPath, "game.gcm")));
             Assert.True(File.Exists(Path.Combine(generatedCoreRootPath, "runtime", "gamecube_runtime_scene_manifest.hpp")));
+            Assert.DoesNotContain("normalize embedded font atlases", File.ReadAllText(Path.Combine(outputRootPath, "gamecube-build-phase.txt")), StringComparison.OrdinalIgnoreCase);
 
             using FileStream defaultFontStream = new FileStream(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.hefont"), FileMode.Open, FileAccess.Read, FileShare.Read);
             FontAsset stagedDefaultFont = FilesFontAssetBinarySerializer.Deserialize(defaultFontStream);
             Assert.Null(stagedDefaultFont.SourceTextureAsset);
-            Assert.Equal("cooked/fonts/default.ps2tex", stagedDefaultFont.CookedAtlasTextureRelativePath);
+            Assert.Equal("cooked/fonts/default.hetex", stagedDefaultFont.CookedAtlasTextureRelativePath);
 
-            using FileStream defaultAtlasStream = new FileStream(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.ps2tex"), FileMode.Open, FileAccess.Read, FileShare.Read);
+            using FileStream defaultAtlasStream = new FileStream(Path.Combine(outputRootPath, "disc", "files", "cooked", "fonts", "default.hetex"), FileMode.Open, FileAccess.Read, FileShare.Read);
             TextureAsset stagedDefaultAtlasTexture = Assert.IsType<TextureAsset>(FilesAssetSerializer.Deserialize(defaultAtlasStream));
             Assert.Equal(TextureAssetColorFormat.GxRgb5A3, stagedDefaultAtlasTexture.ColorFormat);
         } finally {
@@ -294,6 +304,43 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
 
         using FileStream stream = new FileStream(fontPath, FileMode.Create, FileAccess.Write, FileShare.None);
         FilesFontAssetBinarySerializer.Serialize(stream, fontAsset);
+    }
+
+    /// <summary>
+    /// Creates one cooked GameCube texture payload used by packaged workspace staging tests.
+    /// </summary>
+    /// <param name="textureAssetId">Identifier assigned to the cooked texture asset.</param>
+    /// <returns>Cooked GameCube texture payload.</returns>
+    static TextureAsset CreateCookedTextureAsset(string textureAssetId) {
+        if (string.IsNullOrWhiteSpace(textureAssetId)) {
+            throw new ArgumentException("Texture asset id must be provided.", nameof(textureAssetId));
+        }
+
+        return new TextureAsset {
+            Id = textureAssetId,
+            Width = 1,
+            Height = 1,
+            ColorFormat = TextureAssetColorFormat.GxRgb5A3,
+            AlphaPrecision = TextureAssetAlphaPrecision.A8,
+            Colors = new byte[32],
+            PaletteColors = Array.Empty<byte>()
+        };
+    }
+
+    /// <summary>
+    /// Writes one cooked texture asset to disk for packaged workspace staging tests.
+    /// </summary>
+    /// <param name="texturePath">Absolute cooked texture path.</param>
+    /// <param name="textureAsset">Cooked texture asset to serialize.</param>
+    static void WriteTextureAsset(string texturePath, TextureAsset textureAsset) {
+        if (string.IsNullOrWhiteSpace(texturePath)) {
+            throw new ArgumentException("Texture path must be provided.", nameof(texturePath));
+        } else if (textureAsset == null) {
+            throw new ArgumentNullException(nameof(textureAsset));
+        }
+
+        using FileStream stream = new FileStream(texturePath, FileMode.Create, FileAccess.Write, FileShare.None);
+        FilesAssetSerializer.Serialize(stream, textureAsset);
     }
 
     /// <summary>

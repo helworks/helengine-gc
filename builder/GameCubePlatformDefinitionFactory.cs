@@ -47,18 +47,6 @@ public static class GameCubePlatformDefinitionFactory {
     }
 
     /// <summary>
-    /// Creates the serialized default GameCube font-atlas texture settings contract used when fonts do not provide an explicit GameCube override.
-    /// </summary>
-    /// <returns>Serialized default GameCube font-atlas texture settings.</returns>
-    static string CreateDefaultSerializedFontAtlasTextureCookSettings() {
-        return SerializeTextureCookSettings(new TextureAssetProcessorSettings {
-            MaxResolution = 0,
-            ColorFormatId = "GxRgb5A3",
-            AlphaPrecision = TextureAssetAlphaPrecision.A8
-        });
-    }
-
-    /// <summary>
     /// Serializes the generic texture cook settings contract published to the editor build graph.
     /// </summary>
     /// <param name="processorSettings">Resolved texture processor settings to serialize.</param>
@@ -330,13 +318,6 @@ public static class GameCubePlatformDefinitionFactory {
                     PlatformAssetCookOwnershipKind.BuilderOwned,
                     "gamecube-texture",
                     CreateDefaultSerializedTextureCookSettings(),
-                    CreateTextureFormatCapabilities()),
-                new PlatformAssetCookCapabilityDefinition(
-                    "font-atlas-texture",
-                    "runtime-font-atlas-texture",
-                    PlatformAssetCookOwnershipKind.BuilderOwned,
-                    "gamecube-texture",
-                    CreateDefaultSerializedFontAtlasTextureCookSettings(),
                     CreateTextureFormatCapabilities())
             ]);
     }

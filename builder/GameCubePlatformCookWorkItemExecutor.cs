@@ -6,7 +6,6 @@ using helengine.baseplatform.Manifest;
 using helengine.editor;
 using FilesAssetSerializer = helengine.files.AssetSerializer;
 using FilesEngineBinaryHeaderSerializer = helengine.files.EngineBinaryHeaderSerializer;
-using FilesFontAssetBinarySerializer = helengine.files.FontAssetBinarySerializer;
 
 namespace helengine.gamecube.builder;
 
@@ -15,7 +14,7 @@ namespace helengine.gamecube.builder;
 /// </summary>
 public sealed class GameCubePlatformCookWorkItemExecutor {
     /// <summary>
-    /// Shared GameCube texture cooker used by both raw texture and font-atlas execution paths.
+    /// Shared GameCube texture cooker used by all GameCube texture work items.
     /// </summary>
     readonly GameCubeTextureCooker TextureCooker;
 
@@ -45,8 +44,6 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
             PlatformCookWorkItem workItem = workItems[index] ?? throw new InvalidOperationException("Platform cook work items must not contain null entries.");
             if (string.Equals(workItem.SourceAssetKind, "texture", StringComparison.OrdinalIgnoreCase)) {
                 ExecuteTextureWorkItem(workItem, projectRootPath, stagingRootPath);
-            } else if (string.Equals(workItem.SourceAssetKind, "font-atlas-texture", StringComparison.OrdinalIgnoreCase)) {
-                ExecuteFontAtlasTextureWorkItem(workItem, projectRootPath, stagingRootPath);
             } else {
                 throw new InvalidOperationException($"GameCube builder does not support platform cook work item kind '{workItem.SourceAssetKind}'.");
             }
@@ -67,47 +64,6 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
     }
 
     /// <summary>
-    /// Executes one builder-owned font-atlas texture work item into the staging root.
-    /// </summary>
-    /// <param name="workItem">Font-atlas work item emitted by the editor build graph.</param>
-    /// <param name="projectRootPath">Project root used to resolve the source font asset.</param>
-    /// <param name="stagingRootPath">Staging root that receives the cooked font asset.</param>
-    void ExecuteFontAtlasTextureWorkItem(PlatformCookWorkItem workItem, string projectRootPath, string stagingRootPath) {
-        TextureAsset sourceTexture = LoadFontAtlasSourceTexture(workItem, projectRootPath);
-        GameCubeTextureCookSettings settings = GameCubeTextureCookSettings.Parse(workItem.SerializedPlatformSettings);
-        TextureAsset cookedTexture = TextureCooker.CookTexture(sourceTexture, settings);
-        WriteTextureAsset(Path.Combine(stagingRootPath, NormalizePath(workItem.OutputRelativePath)), cookedTexture);
-    }
-
-    /// <summary>
-    /// Imports one source font file into a raw font asset that still owns its RGBA32 atlas texture.
-    /// </summary>
-    /// <param name="workItem">Font-atlas work item emitted by the editor build graph.</param>
-    /// <param name="sourcePath">Absolute source path to the authored font file.</param>
-    /// <returns>Imported font asset ready for GameCube atlas cooking.</returns>
-    static FontAsset ImportSourceFont(PlatformCookWorkItem workItem, string sourcePath) {
-        if (workItem == null) {
-            throw new ArgumentNullException(nameof(workItem));
-        } else if (string.IsNullOrWhiteSpace(sourcePath)) {
-            throw new ArgumentException("Source path must be provided.", nameof(sourcePath));
-        } else if (!File.Exists(sourcePath)) {
-            throw new FileNotFoundException("Font source file was not found.", sourcePath);
-        }
-
-        using FileStream stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        FontAsset sourceFont = new GdiFontImporter().ImportFont(stream);
-        if (sourceFont.SourceTextureAsset == null) {
-            throw new InvalidOperationException($"Font importer did not produce a source atlas for '{workItem.SourceAssetPath}'.");
-        }
-
-        string sourceAssetId = ResolveMetadataValue(workItem, "source-asset-id");
-        string fontAtlasAssetId = sourceAssetId + "#atlas";
-        sourceFont.SourceTextureAsset.Id = fontAtlasAssetId;
-        sourceFont.SourceTextureAsset.RuntimeAssetId = RuntimeAssetIdGenerator.Generate(fontAtlasAssetId);
-        return sourceFont;
-    }
-
-    /// <summary>
     /// Loads one source texture from the authored project asset path emitted by the editor work item.
     /// </summary>
     /// <param name="workItem">Texture work item emitted by the editor build graph.</param>
@@ -121,6 +77,10 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
         }
 
         string sourcePath = ResolveSourceAssetPath(projectRootPath, workItem.SourceAssetPath);
+        if (TryReadTextureAsset(sourcePath, out TextureAsset textureAsset)) {
+            return textureAsset;
+        }
+
         using Bitmap sourceBitmap = new Bitmap(sourcePath);
         int width = sourceBitmap.Width;
         int height = sourceBitmap.Height;
@@ -186,92 +146,6 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
     }
 
     /// <summary>
-    /// Reads one serialized font asset from the supplied source path without requiring a runtime renderer.
-    /// </summary>
-    /// <param name="sourcePath">Absolute source path to the serialized font asset.</param>
-    /// <returns>Deserialized font asset that still owns its raw source atlas texture payload.</returns>
-    static FontAsset ReadFontAsset(string sourcePath) {
-        if (string.IsNullOrWhiteSpace(sourcePath)) {
-            throw new ArgumentException("Source path must be provided.", nameof(sourcePath));
-        }
-
-        using FileStream stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return FilesFontAssetBinarySerializer.Deserialize(stream);
-    }
-
-    /// <summary>
-    /// Loads one source atlas texture for a builder-owned font-atlas cook work item.
-    /// </summary>
-    /// <param name="workItem">Font-atlas work item emitted by the editor build graph.</param>
-    /// <param name="projectRootPath">Project root used to resolve the source path.</param>
-    /// <returns>Source atlas texture ready for platform-native cooking.</returns>
-    static TextureAsset LoadFontAtlasSourceTexture(PlatformCookWorkItem workItem, string projectRootPath) {
-        if (workItem == null) {
-            throw new ArgumentNullException(nameof(workItem));
-        } else if (string.IsNullOrWhiteSpace(projectRootPath)) {
-            throw new ArgumentException("Project root path must be provided.", nameof(projectRootPath));
-        }
-
-        string sourcePath = ResolveSourceAssetPath(projectRootPath, workItem.SourceAssetPath);
-        try {
-            if (TryReadTextureAsset(sourcePath, out TextureAsset textureAsset)) {
-                return textureAsset;
-            }
-
-            if (TryReadSerializedFontAsset(sourcePath, out FontAsset serializedFontAsset)) {
-                if (serializedFontAsset.SourceTextureAsset == null) {
-                    throw new InvalidOperationException($"Font asset '{workItem.SourceAssetPath}' did not contain a source texture atlas.");
-                }
-
-                return serializedFontAsset.SourceTextureAsset;
-            }
-
-            FontAsset importedFontAsset = ImportSourceFont(workItem, sourcePath);
-            if (importedFontAsset.SourceTextureAsset == null) {
-                throw new InvalidOperationException($"Font asset '{workItem.SourceAssetPath}' did not contain a source texture atlas.");
-            }
-
-            return importedFontAsset.SourceTextureAsset;
-        } catch (Exception exception) {
-            throw new InvalidOperationException($"Failed to load font source '{workItem.SourceAssetPath}' for GameCube atlas cooking.", exception);
-        }
-    }
-
-    /// <summary>
-    /// Attempts to read one serialized packaged font asset from an authored HELE file path.
-    /// </summary>
-    /// <param name="sourcePath">Absolute source path to inspect.</param>
-    /// <param name="fontAsset">Deserialized packaged font asset when the file stores one.</param>
-    /// <returns>True when the source path stored a packaged font asset; otherwise false.</returns>
-    static bool TryReadSerializedFontAsset(string sourcePath, out FontAsset fontAsset) {
-        fontAsset = null;
-        if (string.IsNullOrWhiteSpace(sourcePath)) {
-            throw new ArgumentException("Source path must be provided.", nameof(sourcePath));
-        }
-
-        string extension = Path.GetExtension(sourcePath);
-        if (!string.Equals(extension, ".hefont", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(extension, ".hasset", StringComparison.OrdinalIgnoreCase)) {
-            return false;
-        }
-
-        using FileStream stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        EngineBinaryHeader header;
-        try {
-            header = FilesEngineBinaryHeaderSerializer.Read(stream);
-        } catch (InvalidOperationException) {
-            return false;
-        }
-
-        if (header.RecordKind != (ushort)EditorBinaryRecordKind.FontAsset) {
-            return false;
-        }
-
-        fontAsset = FilesFontAssetBinarySerializer.Deserialize(stream, header);
-        return true;
-    }
-
-    /// <summary>
     /// Attempts to read one serialized texture asset from an authored HELE file path.
     /// </summary>
     /// <param name="sourcePath">Absolute source path to inspect.</param>
@@ -284,7 +158,8 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
         }
 
         string extension = Path.GetExtension(sourcePath);
-        if (!string.Equals(extension, ".hasset", StringComparison.OrdinalIgnoreCase)) {
+        if (!string.Equals(extension, ".hasset", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(extension, ".hetex", StringComparison.OrdinalIgnoreCase)) {
             return false;
         }
 
@@ -323,25 +198,6 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
         FilesAssetSerializer.Serialize(stream, textureAsset);
     }
 
-    /// <summary>
-    /// Writes one cooked font asset to the supplied staging path.
-    /// </summary>
-    /// <param name="destinationPath">Absolute staging path that receives the cooked font asset.</param>
-    /// <param name="fontAsset">Cooked font asset to serialize.</param>
-    static void WriteFontAsset(string destinationPath, FontAsset fontAsset) {
-        if (string.IsNullOrWhiteSpace(destinationPath)) {
-            throw new ArgumentException("Destination path must be provided.", nameof(destinationPath));
-        } else if (fontAsset == null) {
-            throw new ArgumentNullException(nameof(fontAsset));
-        }
-
-        string directoryPath = Path.GetDirectoryName(destinationPath) ?? throw new InvalidOperationException("Destination directory path could not be resolved.");
-        Directory.CreateDirectory(directoryPath);
-        using FileStream stream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        FilesFontAssetBinarySerializer.Serialize(stream, fontAsset);
-    }
-
-    /// <summary>
     /// Resolves one work-item metadata value by key.
     /// </summary>
     /// <param name="workItem">Work item whose metadata should be searched.</param>

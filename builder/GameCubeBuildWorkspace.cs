@@ -130,9 +130,6 @@ public static class GameCubeBuildWorkspace {
         WritePhaseMarker(phaseMarkerPath, "stage cooked artifacts begin");
         StageCookedArtifacts(request, paths.StagingRootPath, progressReporter, diagnosticReporter, diagnostics, cancellationToken);
         WritePhaseMarker(phaseMarkerPath, "stage cooked artifacts completed");
-        WritePhaseMarker(phaseMarkerPath, "normalize embedded font atlases begin");
-        NormalizeEmbeddedFontAtlases(paths.StagingRootPath);
-        WritePhaseMarker(phaseMarkerPath, "normalize embedded font atlases completed");
 
         if (diagnostics.Count > 0) {
             WritePhaseMarker(phaseMarkerPath, "diagnostics reported before packaged native build");
@@ -541,131 +538,6 @@ public static class GameCubeBuildWorkspace {
     }
 
     /// <summary>
-    /// Rewrites staged packaged fonts that still embed raw atlas bytes so GameCube runtime can load one cooked external atlas texture.
-    /// </summary>
-    /// <param name="stagingRootPath">Staging root that already contains packaged cooked artifacts.</param>
-    static void NormalizeEmbeddedFontAtlases(string stagingRootPath) {
-        if (string.IsNullOrWhiteSpace(stagingRootPath)) {
-            throw new ArgumentException("Staging root path must be provided.", nameof(stagingRootPath));
-        }
-
-        string cookedFontsRootPath = Path.Combine(stagingRootPath, "cooked", "fonts");
-        if (!Directory.Exists(cookedFontsRootPath)) {
-            return;
-        }
-
-        GameCubeTextureCooker textureCooker = new GameCubeTextureCooker();
-        GameCubeTextureCookSettings cookSettings = new GameCubeTextureCookSettings(0, "GxRgb5A3", TextureAssetAlphaPrecision.A8);
-        string[] fontPaths = Directory.GetFiles(cookedFontsRootPath, "*.hefont", SearchOption.AllDirectories);
-        for (int fontIndex = 0; fontIndex < fontPaths.Length; fontIndex++) {
-            string fontPath = fontPaths[fontIndex];
-            FontAsset fontAsset = ReadPackagedFontAsset(fontPath);
-            if (!HasEmbeddedFontAtlas(fontAsset)) {
-                continue;
-            }
-
-            string cookedAtlasTextureRelativePath = ResolveCookedAtlasTextureRelativePath(stagingRootPath, fontPath, fontAsset);
-            TextureAsset cookedAtlasTexture = textureCooker.CookTexture(fontAsset.SourceTextureAsset, cookSettings);
-            WriteTextureAsset(Path.Combine(stagingRootPath, NormalizeRelativePath(cookedAtlasTextureRelativePath)), cookedAtlasTexture);
-            fontAsset.CookedAtlasTextureRelativePath = cookedAtlasTextureRelativePath;
-            fontAsset.SourceTextureAsset = null;
-            WriteFontAsset(fontPath, fontAsset);
-        }
-    }
-
-    /// <summary>
-    /// Returns whether one packaged font still owns embedded source-texture bytes that must be externalized for GameCube.
-    /// </summary>
-    /// <param name="fontAsset">Packaged font asset to inspect.</param>
-    /// <returns>True when the font contains one raw source atlas payload; otherwise false.</returns>
-    static bool HasEmbeddedFontAtlas(FontAsset fontAsset) {
-        if (fontAsset == null) {
-            throw new ArgumentNullException(nameof(fontAsset));
-        }
-
-        return fontAsset.SourceTextureAsset != null
-            && fontAsset.SourceTextureAsset.Colors != null
-            && fontAsset.SourceTextureAsset.Colors.Length > 0;
-    }
-
-    /// <summary>
-    /// Resolves the cooked atlas texture path to assign to one staged packaged font during GameCube normalization.
-    /// </summary>
-    /// <param name="stagingRootPath">Absolute staging root that owns the font artifact.</param>
-    /// <param name="fontPath">Absolute staged packaged font path.</param>
-    /// <param name="fontAsset">Packaged font asset being normalized.</param>
-    /// <returns>Runtime-relative cooked atlas texture path.</returns>
-    static string ResolveCookedAtlasTextureRelativePath(string stagingRootPath, string fontPath, FontAsset fontAsset) {
-        if (string.IsNullOrWhiteSpace(stagingRootPath)) {
-            throw new ArgumentException("Staging root path must be provided.", nameof(stagingRootPath));
-        } else if (string.IsNullOrWhiteSpace(fontPath)) {
-            throw new ArgumentException("Font path must be provided.", nameof(fontPath));
-        } else if (fontAsset == null) {
-            throw new ArgumentNullException(nameof(fontAsset));
-        }
-
-        if (!string.IsNullOrWhiteSpace(fontAsset.CookedAtlasTextureRelativePath)) {
-            return NormalizeRelativePath(fontAsset.CookedAtlasTextureRelativePath);
-        }
-
-        string stagedFontRelativePath = NormalizeRelativePath(Path.GetRelativePath(stagingRootPath, fontPath));
-        string cookedAtlasTextureRelativePath = Path.ChangeExtension(stagedFontRelativePath, ".ps2tex");
-        if (string.IsNullOrWhiteSpace(cookedAtlasTextureRelativePath)) {
-            throw new InvalidOperationException($"Cooked atlas texture path could not be resolved for '{fontPath}'.");
-        }
-
-        return NormalizeRelativePath(cookedAtlasTextureRelativePath);
-    }
-
-    /// <summary>
-    /// Reads one packaged font asset from disk using the shared files serializer.
-    /// </summary>
-    /// <param name="fontPath">Absolute packaged font path to load.</param>
-    /// <returns>Deserialized packaged font asset.</returns>
-    static FontAsset ReadPackagedFontAsset(string fontPath) {
-        if (string.IsNullOrWhiteSpace(fontPath)) {
-            throw new ArgumentException("Font path must be provided.", nameof(fontPath));
-        }
-
-        using FileStream stream = new FileStream(fontPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return FilesFontAssetBinarySerializer.Deserialize(stream);
-    }
-
-    /// <summary>
-    /// Writes one normalized packaged font asset back to disk.
-    /// </summary>
-    /// <param name="fontPath">Absolute packaged font destination path.</param>
-    /// <param name="fontAsset">Normalized packaged font asset to serialize.</param>
-    static void WriteFontAsset(string fontPath, FontAsset fontAsset) {
-        if (string.IsNullOrWhiteSpace(fontPath)) {
-            throw new ArgumentException("Font path must be provided.", nameof(fontPath));
-        } else if (fontAsset == null) {
-            throw new ArgumentNullException(nameof(fontAsset));
-        }
-
-        using FileStream stream = new FileStream(fontPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        FilesFontAssetBinarySerializer.Serialize(stream, fontAsset);
-    }
-
-    /// <summary>
-    /// Writes one cooked texture asset into the staged disc tree.
-    /// </summary>
-    /// <param name="texturePath">Absolute texture destination path.</param>
-    /// <param name="textureAsset">Cooked texture asset to serialize.</param>
-    static void WriteTextureAsset(string texturePath, TextureAsset textureAsset) {
-        if (string.IsNullOrWhiteSpace(texturePath)) {
-            throw new ArgumentException("Texture path must be provided.", nameof(texturePath));
-        } else if (textureAsset == null) {
-            throw new ArgumentNullException(nameof(textureAsset));
-        }
-
-        string directoryPath = Path.GetDirectoryName(texturePath) ?? throw new InvalidOperationException("Texture directory path could not be resolved.");
-        Directory.CreateDirectory(directoryPath);
-        using FileStream stream = new FileStream(texturePath, FileMode.Create, FileAccess.Write, FileShare.None);
-        FilesAssetSerializer.Serialize(stream, textureAsset);
-    }
-
-    /// <summary>
     /// Builds successful scene outcomes for the packaged-build report.
     /// </summary>
     /// <param name="scenes">Scenes included in the packaged build request.</param>
@@ -792,6 +664,6 @@ public static class GameCubeBuildWorkspace {
     /// <param name="path">The path to normalize.</param>
     /// <returns>The normalized path.</returns>
     static string NormalizeRelativePath(string path) {
-        return path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+        return path.Replace('\\', '/');
     }
 }
