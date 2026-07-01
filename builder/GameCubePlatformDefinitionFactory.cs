@@ -35,6 +35,13 @@ public static class GameCubePlatformDefinitionFactory {
     const string NativeFileSystemType = "helengine::gamecube::GameCubeDiscFileSystem";
 
     /// <summary>
+    /// Helengine-owned portable-input preprocessor symbols required by the GameCube generated-core GX matrix ABI.
+    /// </summary>
+    static readonly IReadOnlyList<string> RuntimePortableInputPreprocessorSymbols = [
+        PortableInputPreprocessorSymbolCatalog.MatrixAbiGxGameCubeWiiSymbol
+    ];
+
+    /// <summary>
     /// Creates the serialized default GameCube texture settings contract used when assets do not provide an explicit GameCube override.
     /// </summary>
     /// <returns>Serialized default GameCube texture settings.</returns>
@@ -310,7 +317,8 @@ public static class GameCubePlatformDefinitionFactory {
             new RuntimeGenerationContract(
                 RuntimeMaterialResolutionMode.CookedPlatformOwned,
                 true,
-                PackagedPathPolicy.ContentRelativeOnly),
+                PackagedPathPolicy.ContentRelativeOnly,
+                RuntimePortableInputPreprocessorSymbols),
             assetCookCapabilities: [
                 new PlatformAssetCookCapabilityDefinition(
                     "texture",

@@ -22,5 +22,6 @@ public sealed class GameCubePlatformDefinitionFactoryTests {
         Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "include-project-defined-preprocessor-symbols" && setting.DefaultValue == "false");
         Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "native-file-system-header" && setting.DefaultValue == "\"platform/gamecube/GameCubeDiscFileSystem.hpp\"");
         Assert.Contains(codegenProfile.Settings, setting => setting.SettingId == "native-file-system-type" && setting.DefaultValue == "helengine::gamecube::GameCubeDiscFileSystem");
+        Assert.Contains(PortableInputPreprocessorSymbolCatalog.MatrixAbiGxGameCubeWiiSymbol, definition.RuntimeGenerationContract.PortableInputPreprocessorSymbols);
     }
 }
