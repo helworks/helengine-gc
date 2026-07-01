@@ -24,6 +24,9 @@ public sealed class GameCubeDolphinLauncherScriptTests {
         Assert.Contains("LastWriteTime", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Qt.ini", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Logger.ini", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("HELENGINE_GAMECUBE_DOLPHIN_PATH", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("GetFolderPath('ApplicationData')", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("Join-Path $roamingAppDataRoot 'Dolphin Emulator'", scriptSource, StringComparison.Ordinal);
         Assert.Contains("GC", scriptSource, StringComparison.Ordinal);
         Assert.Contains("Backup", scriptSource, StringComparison.Ordinal);
         Assert.Contains("ResourcePacks", scriptSource, StringComparison.Ordinal);
@@ -36,9 +39,13 @@ public sealed class GameCubeDolphinLauncherScriptTests {
         Assert.Contains("WriteToFile = True", scriptSource, StringComparison.Ordinal);
         Assert.Contains("logvisible=true", scriptSource, StringComparison.Ordinal);
         Assert.Contains("logconfigvisible=true", scriptSource, StringComparison.Ordinal);
-        Assert.Contains("'-u', $userDir, '-e', $resolvedArtifactPath", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("$quotedUserDir = '\"' + $userDir + '\"'", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("$quotedArtifactPath = '\"' + $resolvedArtifactPath + '\"'", scriptSource, StringComparison.Ordinal);
+        Assert.Contains("'-u', $quotedUserDir, '-e', $quotedArtifactPath", scriptSource, StringComparison.Ordinal);
         Assert.Contains("PROCESS_ID=", scriptSource, StringComparison.Ordinal);
         Assert.DoesNotContain("[string]$ImagePath", scriptSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("C:\\dev\\helworks\\emus\\dolphin-2603a-x64\\Dolphin-x64\\Dolphin.exe", scriptSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("C:\\Users\\Helena\\AppData\\Roaming\\Dolphin Emulator", scriptSource, StringComparison.Ordinal);
     }
 
     /// <summary>

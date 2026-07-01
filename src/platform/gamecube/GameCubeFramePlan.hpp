@@ -4,8 +4,8 @@
 #include "RenderFrameDrawableSubmission.hpp"
 #include "RenderFrameExtractionResult.hpp"
 #include "RenderFrameLightSubmission.hpp"
-#include "helengine_float4.hpp"
-#include "helengine_float4x4.hpp"
+#include "float4.hpp"
+#include "float4x4.hpp"
 #include "runtime/native_list.hpp"
 
 class IDrawable3D;

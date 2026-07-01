@@ -1,5 +1,7 @@
 #include "platform/gamecube/GameCubeSceneBootstrap.hpp"
 
+#include <cstdlib>
+
 #include <ogc/dvd.h>
 #include <ogc/system.h>
 
@@ -142,7 +144,28 @@ namespace helengine::gamecube {
 
     /// Returns the packaged startup scene id emitted by the GameCube builder.
     std::string GameCubeSceneBootstrap::GetPackagedStartupSceneId() {
+        const std::string overrideSceneId = GetPackagedStartupSceneIdOverride();
+        if (!String::IsNullOrWhiteSpace(overrideSceneId)) {
+            SYS_Report("[GC] Packaged startup scene override active: %s\n", overrideSceneId.c_str());
+            return overrideSceneId;
+        }
+
         return he_get_runtime_gamecube_startup_scene_id();
+    }
+
+    /// Returns one optional packaged startup scene override supplied through the host environment.
+    std::string GameCubeSceneBootstrap::GetPackagedStartupSceneIdOverride() {
+        const char* environmentValue = std::getenv("HELENGINE_GAMECUBE_PACKAGED_STARTUP_SCENE_ID");
+        if (environmentValue == nullptr) {
+            return std::string();
+        }
+
+        const std::string overrideSceneId = environmentValue;
+        if (String::IsNullOrWhiteSpace(overrideSceneId)) {
+            return std::string();
+        }
+
+        return overrideSceneId;
     }
 
     /// Returns whether all required staged files exist under the candidate content root.

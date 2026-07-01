@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#include <ogc/system.h>
+
 #include "AmbientLightComponent.hpp"
 #include "CameraComponent.hpp"
 #include "CameraViewportResolver.hpp"
@@ -18,9 +20,9 @@
 #include "RenderFrameExtractionResult.hpp"
 #include "RenderFrameExtractionService.hpp"
 #include "RendererBackendCapabilityProfile.hpp"
-#include "helengine_float3.hpp"
-#include "helengine_float4.hpp"
-#include "helengine_float4x4.hpp"
+#include "float3.hpp"
+#include "float4.hpp"
+#include "float4x4.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeRenderQueueSnapshotVisitor.hpp"
 #include "runtime/native_cast.hpp"
@@ -45,12 +47,12 @@ namespace helengine::gamecube {
             return nullptr;
         }
 
+        ObjectManager* objectManager = Core::get_Instance()->get_ObjectManager();
         CameraComponent* camera = ResolveActiveCamera();
         List<IDrawable3D*>* drawables = SnapshotVisibleDrawables(camera);
         List<CameraComponent*>* cameras = new List<CameraComponent*>(1);
         cameras->Add(camera);
         List<LightComponent*>* lights = new List<LightComponent*>();
-        ObjectManager* objectManager = Core::get_Instance()->get_ObjectManager();
         List<AmbientLightComponent*>* ambientLights = objectManager->get_AmbientLights();
         for (int32_t lightIndex = 0; lightIndex < ambientLights->get_Count(); lightIndex++) {
             lights->Add((*ambientLights)[lightIndex]);
@@ -66,6 +68,19 @@ namespace helengine::gamecube {
         RenderFrame* frame = (*extraction->get_Frames())[0];
         if (frame->get_HasTransparentDrawables()) {
             throw new NotSupportedException("Transparent 3D submissions are not supported in the first GameCube renderer tier.");
+        }
+
+        if (!HasLoggedFirstFramePlanState) {
+            HasLoggedFirstFramePlanState = true;
+            SYS_Report(
+                "[GC] Frame plan snapshot: drawables=%ld ambient=%ld directional=%ld inputLights=%ld frameLights=%ld frameDrawables=%ld transparent=%d\n",
+                static_cast<long>(drawables->get_Count()),
+                static_cast<long>(ambientLights->get_Count()),
+                static_cast<long>(directionalLights->get_Count()),
+                static_cast<long>(lights->get_Count()),
+                static_cast<long>(frame->get_LightSubmissions()->get_Count()),
+                static_cast<long>(frame->get_DrawableSubmissions()->get_Count()),
+                frame->get_HasTransparentDrawables() ? 1 : 0);
         }
 
         float4 logicalViewport = CameraViewportResolver::ResolveViewport(camera->get_Viewport(), logicalWidth, logicalHeight);

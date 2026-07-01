@@ -101,13 +101,16 @@ GENERATED_BRIDGE_SOURCES := \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRenderManager3D.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeCubeTestSceneInstaller.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeDiscFileSystem.cpp \
-	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneBootstrap.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeFramePlan.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneRenderBridge.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeMeshCache.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRuntimeMaterial.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRuntimeTexture.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRasterRenderer.cpp
+ifeq ($(strip $(HELENGINE_GAMECUBE_BOOT_MODE)),packaged-disc)
+GENERATED_BRIDGE_SOURCES += \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneBootstrap.cpp
+endif
 CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_GENERATED_CORE=1 -I$(HELENGINE_CORE_CPP_ROOT)
 ifneq ($(wildcard $(HELENGINE_CORE_CPP_ROOT)/Physics3DRuntimeComponentRegistration.hpp),)
 CPPFLAGS += -DHELENGINE_GAMECUBE_HAS_PHYSICS3D_RUNTIME_REGISTRATION=1
@@ -130,7 +133,9 @@ CXXFLAGS := \
 	-Wextra \
 	$(MACHDEP) \
 	-ffunction-sections \
-	-fdata-sections
+	-fdata-sections \
+	-MMD \
+	-MP
 
 APPLOADER_CFLAGS := \
 	-std=gnu11 \
@@ -171,6 +176,8 @@ LDLIBS := \
 	-logc \
 	-ldb \
 	-lm
+
+DEPFILES := $(OBJECTS:.o=.d)
 
 .PHONY: all clean packaged-disc-assets
 
@@ -257,3 +264,5 @@ $(PACKAGED_DISC_MKGBI_LIB_OBJECT): $(APPLOADER_SOURCE_ROOT)/common/lib.c $(APPLO
 
 clean:
 	@rm -rf $(BUILD_DIR)
+
+-include $(DEPFILES)

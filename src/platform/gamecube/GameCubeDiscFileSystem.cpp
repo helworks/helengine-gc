@@ -50,31 +50,27 @@ namespace helengine::gamecube {
         bool ReadDiscRange(void* destination, std::size_t offset, std::size_t length) {
             if (destination == nullptr) {
                 return false;
+            } else if (length == 0U) {
+                return true;
             }
 
-            const std::size_t alignedSectorBufferLength = Align32(DiscSectorSize);
+            const std::size_t firstSectorIndex = offset / DiscSectorSize;
+            const std::size_t firstSectorByteOffset = offset % DiscSectorSize;
+            const std::size_t lastByteOffsetExclusive = offset + length;
+            const std::size_t lastSectorIndex = (lastByteOffsetExclusive + (DiscSectorSize - 1U)) / DiscSectorSize;
+            const std::size_t sectorCount = lastSectorIndex - firstSectorIndex;
+            const std::size_t sectorBufferLength = sectorCount * DiscSectorSize;
+            const std::size_t alignedSectorBufferLength = Align32(sectorBufferLength);
             uint8_t* sectorBuffer = static_cast<uint8_t*>(memalign(32, alignedSectorBufferLength));
             if (sectorBuffer == nullptr) {
                 return false;
             }
 
-            uint8_t* destinationBytes = static_cast<uint8_t*>(destination);
-            std::size_t remainingLength = length;
-            std::size_t currentOffset = offset;
             bool readSucceeded = true;
-            while (remainingLength > 0U) {
-                const std::size_t sectorIndex = currentOffset / DiscSectorSize;
-                const std::size_t sectorByteOffset = currentOffset % DiscSectorSize;
-                if (__io_gcdvd.readSectors == nullptr || !__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), 1, sectorBuffer)) {
-                    readSucceeded = false;
-                    break;
-                }
-
-                const std::size_t bytesThisSector = std::min(remainingLength, DiscSectorSize - sectorByteOffset);
-                std::memcpy(destinationBytes, sectorBuffer + sectorByteOffset, bytesThisSector);
-                destinationBytes += bytesThisSector;
-                currentOffset += bytesThisSector;
-                remainingLength -= bytesThisSector;
+            if (__io_gcdvd.readSectors == nullptr || !__io_gcdvd.readSectors(static_cast<sec_t>(firstSectorIndex), static_cast<sec_t>(sectorCount), sectorBuffer)) {
+                readSucceeded = false;
+            } else {
+                std::memcpy(destination, sectorBuffer + firstSectorByteOffset, length);
             }
 
             free(sectorBuffer);
@@ -143,9 +139,7 @@ namespace helengine::gamecube {
                 valueKindLowByte);
         }
 
-        FileStream* stream = new FileStream(buffer, fileSize);
-        free(buffer);
-        return stream;
+        return new FileStream(buffer, fileSize);
     }
 
     /// Ensures the packaged disc FST has been loaded into memory before path resolution occurs.

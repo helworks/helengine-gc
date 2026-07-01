@@ -71,6 +71,9 @@ namespace helengine::gamecube {
         /// Initializes the generated engine core when generated sources are present in the build.
         bool InitializeEngineCore();
 
+        /// Returns the optional runtime test-scene override that should bypass packaged scene loading when present.
+        static std::string GetRuntimeTestSceneOverride();
+
         /// Advances one engine frame when the generated core was initialized successfully.
         bool UpdateEngineCore();
 

@@ -5,7 +5,9 @@
 #include <cstring>
 #include <vector>
 
-#include "helengine_byte4.hpp"
+#include <ogc/system.h>
+
+#include "byte4.hpp"
 #include "CameraClearSettings.hpp"
 #include "CameraComponent.hpp"
 #include "ClipRectComponent.hpp"
@@ -27,12 +29,12 @@
 #include "RuntimeMaterialLightingModel.hpp"
 #include "RuntimeTexture.hpp"
 #include "RuntimeSubmesh.hpp"
-#include "helengine_float2.hpp"
-#include "helengine_float3.hpp"
-#include "helengine_float4.hpp"
-#include "helengine_float4x4.hpp"
+#include "float2.hpp"
+#include "float3.hpp"
+#include "float4.hpp"
+#include "float4x4.hpp"
 #include "TextLayoutUtils.hpp"
-#include "helengine_int2.hpp"
+#include "int2.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
 #include "platform/gamecube/GameCubeMeshCache.hpp"
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
@@ -54,6 +56,8 @@ namespace helengine::gamecube {
     GameCubeRasterRenderer::GameCubeRasterRenderer(GameCubeMeshCache* meshCache)
         : MeshCache(meshCache)
         , HasLoggedFirstTexturedDraw(false)
+        , HasLoggedFirstLightingState(false)
+        , HasLoggedFirstLitDraw(false)
         , CachedTextLayouts()
         , RoundedRectOutlineScratch()
         , ActiveTextLayoutFrameId(0U) {
@@ -193,7 +197,7 @@ namespace helengine::gamecube {
         GX_ClearVtxDesc();
         GX_SetVtxDesc(GX_VA_POS, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);
         GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
-        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? (useIndexedGeometry ? GX_INDEX16 : GX_DIRECT) : GX_NONE);
+        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? GX_DIRECT : GX_NONE);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
@@ -206,7 +210,6 @@ namespace helengine::gamecube {
         GX_SetNumTevStages(1);
         GX_SetTevOrder(GX_TEVSTAGE0, useTexturedBranch ? GX_TEXCOORD0 : GX_TEXCOORDNULL, useTexturedBranch ? GX_TEXMAP0 : GX_TEXMAP_NULL, GX_COLOR0A0);
         GX_SetTevOp(GX_TEVSTAGE0, useTexturedBranch ? GX_MODULATE : GX_PASSCLR);
-        GX_SetCullMode(GX_CULL_FRONT);
         GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
         GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
         GX_SetZCompLoc(GX_TRUE);
@@ -221,7 +224,7 @@ namespace helengine::gamecube {
         GX_SetVtxDesc(GX_VA_POS, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);
         GX_SetVtxDesc(GX_VA_NRM, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);
         GX_SetVtxDesc(GX_VA_CLR0, GX_NONE);
-        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? (useIndexedGeometry ? GX_INDEX16 : GX_DIRECT) : GX_NONE);
+        GX_SetVtxDesc(GX_VA_TEX0, useTexturedBranch ? GX_DIRECT : GX_NONE);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
         GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
@@ -235,7 +238,6 @@ namespace helengine::gamecube {
         GX_SetNumTevStages(1);
         GX_SetTevOrder(GX_TEVSTAGE0, useTexturedBranch ? GX_TEXCOORD0 : GX_TEXCOORDNULL, useTexturedBranch ? GX_TEXMAP0 : GX_TEXMAP_NULL, GX_COLOR0A0);
         GX_SetTevOp(GX_TEVSTAGE0, useTexturedBranch ? GX_MODULATE : GX_PASSCLR);
-        GX_SetCullMode(GX_CULL_FRONT);
         GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
         GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
         GX_SetZCompLoc(GX_TRUE);
@@ -279,6 +281,7 @@ namespace helengine::gamecube {
         float3 ambientRgb(0.0f, 0.0f, 0.0f);
         float3 directionalRgb(0.0f, 0.0f, 0.0f);
         float3 directionalDirection(0.0f, 0.0f, -1.0f);
+        float3 directionalPosition(0.0f, 0.0f, 1024.0f);
         hasDirectionalLight = false;
 
         for (int32_t lightIndex = 0; lightIndex < framePlan->LightSubmissions->get_Count(); lightIndex++) {
@@ -308,8 +311,10 @@ namespace helengine::gamecube {
 
             float4 lightOrientation = lightEntity->get_Orientation();
             lightOrientation.Normalize();
-            directionalDirection = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), lightOrientation) * -1.0f;
+            // GX diffuse lighting expects a positional source, so emulate a directional light with a far non-attenuated view-space light position.
+            directionalDirection = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), lightOrientation);
             directionalDirection = TransformDirectionToViewSpace(float3::Normalize(directionalDirection), framePlan->View);
+            directionalPosition = float3::Normalize(directionalDirection) * -1024.0f;
             directionalRgb = rgb;
             hasDirectionalLight = true;
         }
@@ -317,14 +322,37 @@ namespace helengine::gamecube {
         ambientColor = ConvertLightingColorToGx(ambientRgb);
         GX_SetChanAmbColor(GX_COLOR0A0, ambientColor);
 
+        if (!HasLoggedFirstLightingState) {
+            HasLoggedFirstLightingState = true;
+            SYS_Report(
+                "[GC] Lighting state: frameLights=%ld ambientRgb=(%.3f, %.3f, %.3f) ambientGx=(%u, %u, %u) hasDirectional=%d directionalRgb=(%.3f, %.3f, %.3f) directionalView=(%.3f, %.3f, %.3f) directionalPos=(%.3f, %.3f, %.3f)\n",
+                static_cast<long>(framePlan->LightSubmissions->get_Count()),
+                ambientRgb.X,
+                ambientRgb.Y,
+                ambientRgb.Z,
+                static_cast<unsigned int>(ambientColor.r),
+                static_cast<unsigned int>(ambientColor.g),
+                static_cast<unsigned int>(ambientColor.b),
+                hasDirectionalLight ? 1 : 0,
+                directionalRgb.X,
+                directionalRgb.Y,
+                directionalRgb.Z,
+                directionalDirection.X,
+                directionalDirection.Y,
+                directionalDirection.Z,
+                directionalPosition.X,
+                directionalPosition.Y,
+                directionalPosition.Z);
+        }
+
         if (!hasDirectionalLight) {
-            GX_InitLightDir(&lightObject, 0.0f, 0.0f, -1.0f);
+            GX_InitLightPos(&lightObject, 0.0f, 0.0f, 1024.0f);
             GX_InitLightColor(&lightObject, GXColor { 0x00, 0x00, 0x00, 0xFF });
             GX_LoadLightObj(&lightObject, GX_LIGHT0);
             return;
         }
 
-        GX_InitLightDir(&lightObject, directionalDirection.X, directionalDirection.Y, directionalDirection.Z);
+        GX_InitLightPos(&lightObject, directionalPosition.X, directionalPosition.Y, directionalPosition.Z);
         GX_InitLightColor(&lightObject, ConvertLightingColorToGx(directionalRgb));
         GX_LoadLightObj(&lightObject, GX_LIGHT0);
     }
@@ -485,7 +513,7 @@ namespace helengine::gamecube {
         return gameCubeRuntimeTexture;
     }
 
-    /// Maps the shared material cull-mode contract onto GX, which interprets front and back winding in reverse.
+    /// Maps the shared material cull-mode contract onto GX's reversed face-culling convention so closed meshes keep their outward-facing triangles.
     u8 GameCubeRasterRenderer::ResolveGxCullMode(MaterialCullMode cullMode) {
         switch (cullMode) {
             case MaterialCullMode::None:
@@ -785,7 +813,9 @@ namespace helengine::gamecube {
             GX_Position1x16(cachedIndex);
             GX_Color4u8(baseColor.r, baseColor.g, baseColor.b, baseColor.a);
             if (useTexturedBranch) {
-                GX_TexCoord1x16(cachedIndex);
+                const GameCubePackedTexCoord2 packedTextureCoordinate = (*cachedMeshData->PackedTexCoords)[cachedIndex];
+                const float2 textureCoordinate(packedTextureCoordinate.U, packedTextureCoordinate.V);
+                GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);
             }
         }
         GX_End();
@@ -823,13 +853,30 @@ namespace helengine::gamecube {
         const float3 baseColor = material->GetBaseColor();
         GX_SetChanMatColor(GX_COLOR0A0, ConvertLightingColorToGx(baseColor));
 
+        if (!HasLoggedFirstLitDraw) {
+            HasLoggedFirstLitDraw = true;
+            SYS_Report(
+                "[GC] First lit draw: baseColor=(%.3f, %.3f, %.3f) textured=%d hasDirectional=%d ambientGx=(%u, %u, %u) indices=%ld\n",
+                baseColor.X,
+                baseColor.Y,
+                baseColor.Z,
+                useTexturedBranch ? 1 : 0,
+                hasDirectionalLight ? 1 : 0,
+                static_cast<unsigned int>(ambientColor.r),
+                static_cast<unsigned int>(ambientColor.g),
+                static_cast<unsigned int>(ambientColor.b),
+                static_cast<long>(indexCount));
+        }
+
         GX_Begin(GX_TRIANGLES, GX_VTXFMT0, indexCount);
         for (int32_t indexOffset = 0; indexOffset < indexCount; indexOffset++) {
             const uint16_t cachedIndex = (*cachedMeshData->Indices16)[indexStart + indexOffset];
             GX_Position1x16(cachedIndex);
             GX_Normal1x16(cachedIndex);
             if (useTexturedBranch) {
-                GX_TexCoord1x16(cachedIndex);
+                const GameCubePackedTexCoord2 packedTextureCoordinate = (*cachedMeshData->PackedTexCoords)[cachedIndex];
+                const float2 textureCoordinate(packedTextureCoordinate.U, packedTextureCoordinate.V);
+                GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);
             }
         }
         GX_End();
@@ -920,6 +967,9 @@ namespace helengine::gamecube {
         int2 size = drawable->get_Size();
         float width = size.X > 0 ? static_cast<float>(size.X) : static_cast<float>(runtimeTexture->get_Width());
         float height = size.Y > 0 ? static_cast<float>(size.Y) : static_cast<float>(runtimeTexture->get_Height());
+        float3 scale = drawable->get_Parent()->get_Scale();
+        width *= scale.X;
+        height *= scale.Y;
         if (width <= 0.0f || height <= 0.0f) {
             return;
         }
@@ -936,7 +986,13 @@ namespace helengine::gamecube {
         float x = position.X;
         float y = position.Y;
         TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);
-        DrawTexturedQuad2D(x, y, width, height, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);
+        float4 orientation = drawable->get_Parent()->get_Orientation();
+        orientation.Normalize();
+        float3 rotatedRight = float4::RotateVector(float3(1.0f, 0.0f, 0.0f), orientation);
+        const float rotation = std::atan2(rotatedRight.Y, rotatedRight.X);
+        const float centerX = x + (width * 0.5f);
+        const float centerY = y + (height * 0.5f);
+        DrawTransformedTexturedQuad2D(centerX, centerY, width, height, rotation, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);
     }
 
     /// Draws one captured text drawable through the current 2D GX path.
@@ -1191,6 +1247,44 @@ namespace helengine::gamecube {
         GX_Color4u8(color.r, color.g, color.b, color.a);
         GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y + sourceRect.W);
         GX_Position3f32(x, y + height, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_TexCoord2f32(sourceRect.X, sourceRect.Y + sourceRect.W);
+        GX_End();
+    }
+
+    /// Emits one textured screen-space quad in pixel coordinates after applying one centered 2D rotation.
+    void GameCubeRasterRenderer::DrawTransformedTexturedQuad2D(float centerX, float centerY, float width, float height, float rotation, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture) {
+        if (texture == nullptr) {
+            throw new ArgumentNullException("texture");
+        }
+
+        GX_LoadTexObj(texture->GetNativeTextureObject(), GX_TEXMAP0);
+
+        const float halfWidth = width * 0.5f;
+        const float halfHeight = height * 0.5f;
+        const float rotationSin = std::sin(rotation);
+        const float rotationCos = std::cos(rotation);
+
+        const float topLeftX = centerX + ((-halfWidth * rotationCos) - (-halfHeight * rotationSin));
+        const float topLeftY = centerY + ((-halfWidth * rotationSin) + (-halfHeight * rotationCos));
+        const float topRightX = centerX + ((halfWidth * rotationCos) - (-halfHeight * rotationSin));
+        const float topRightY = centerY + ((halfWidth * rotationSin) + (-halfHeight * rotationCos));
+        const float bottomRightX = centerX + ((halfWidth * rotationCos) - (halfHeight * rotationSin));
+        const float bottomRightY = centerY + ((halfWidth * rotationSin) + (halfHeight * rotationCos));
+        const float bottomLeftX = centerX + ((-halfWidth * rotationCos) - (halfHeight * rotationSin));
+        const float bottomLeftY = centerY + ((-halfWidth * rotationSin) + (halfHeight * rotationCos));
+
+        GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+        GX_Position3f32(topLeftX, topLeftY, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_TexCoord2f32(sourceRect.X, sourceRect.Y);
+        GX_Position3f32(topRightX, topRightY, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y);
+        GX_Position3f32(bottomRightX, bottomRightY, 0.0f);
+        GX_Color4u8(color.r, color.g, color.b, color.a);
+        GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y + sourceRect.W);
+        GX_Position3f32(bottomLeftX, bottomLeftY, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
         GX_TexCoord2f32(sourceRect.X, sourceRect.Y + sourceRect.W);
         GX_End();

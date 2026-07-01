@@ -8,7 +8,7 @@
 
 #include "MaterialCullMode.hpp"
 #include "RoundedRectCorners.hpp"
-#include "helengine_float2.hpp"
+#include "float2.hpp"
 
 class CameraClearSettings;
 class Entity;
@@ -73,6 +73,12 @@ namespace helengine::gamecube {
 
         /// Tracks whether the renderer already logged the first textured 3D draw for runtime diagnosis.
         bool HasLoggedFirstTexturedDraw;
+
+        /// Tracks whether the renderer already reported the first resolved fixed-function lighting state.
+        bool HasLoggedFirstLightingState;
+
+        /// Tracks whether the renderer already reported the first lit-material draw inputs.
+        bool HasLoggedFirstLitDraw;
 
         /// Persistent wrapped-text cache reused across overlay frames for stable menu labels.
         std::vector<CachedTextLayoutEntry> CachedTextLayouts;
@@ -196,6 +202,9 @@ namespace helengine::gamecube {
 
         /// Emits one textured screen-space quad in pixel coordinates.
         void DrawTexturedQuad2D(float x, float y, float width, float height, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture);
+
+        /// Emits one textured screen-space quad in pixel coordinates after applying one centered 2D rotation.
+        void DrawTransformedTexturedQuad2D(float centerX, float centerY, float width, float height, float rotation, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture);
 
         /// Resolves the active clip rectangle for one 2D drawable by intersecting ancestor clip regions.
         bool TryResolveClipRect(Entity* entity, float4& clipRect);

@@ -156,6 +156,55 @@ public sealed class GameCubePlatformCookWorkItemExecutorTests {
     }
 
     /// <summary>
+    /// Ensures a texture work item can treat one `.hasset` sidecar path as the imported source image when the sidecar is not a serialized texture asset.
+    /// </summary>
+    [Fact]
+    public void Execute_WhenTextureWorkItemUsesImportSettingsSidecar_CooksSiblingSourceImage() {
+        string workspacePath = Path.Combine(Path.GetTempPath(), "gamecube-platform-cook-work-item-tests", Guid.NewGuid().ToString("N"));
+        string projectRootPath = Path.Combine(workspacePath, "project");
+        string stagingRootPath = Path.Combine(workspacePath, "staging");
+        string sourceTexturePath = Path.Combine(projectRootPath, "assets", "Images", "Menu", "logo.png");
+        string sourceSettingsPath = string.Concat(sourceTexturePath, ".hasset");
+        string outputRelativePath = "cooked/imported/logo-runtime.hasset";
+
+        try {
+            Directory.CreateDirectory(Path.GetDirectoryName(sourceTexturePath) ?? throw new InvalidOperationException("Texture source directory path could not be resolved."));
+            File.WriteAllBytes(sourceTexturePath, CreateSinglePixelPngBytes());
+            File.WriteAllBytes(sourceSettingsPath, [0, 1, 2, 3]);
+
+            GameCubePlatformCookWorkItemExecutor executor = new GameCubePlatformCookWorkItemExecutor();
+            executor.Execute(
+                [
+                    new PlatformCookWorkItem(
+                        "gamecube:texture:cooked/imported/logo-runtime.hasset",
+                        "Images/Menu/logo.png.hasset",
+                        "texture",
+                        "gamecube",
+                        "runtime-texture",
+                        outputRelativePath,
+                        "runtime-texture:cooked/imported/logo-runtime.hasset",
+                        "sha256:source",
+                        "sha256:settings",
+                        "{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}",
+                        [new PlatformCookWorkItemMetadata("source-asset-id", "Images/Menu/logo.png")])
+                ],
+                projectRootPath,
+                stagingRootPath);
+
+            string outputPath = Path.Combine(stagingRootPath, "cooked", "imported", "logo-runtime.hasset");
+            Assert.True(File.Exists(outputPath));
+
+            using FileStream stream = new FileStream(outputPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            TextureAsset cookedTexture = Assert.IsType<TextureAsset>(FilesAssetSerializer.Deserialize(stream));
+            Assert.Equal(TextureAssetColorFormat.GxRgb5A3, cookedTexture.ColorFormat);
+            Assert.Equal(32, cookedTexture.Colors.Length);
+        } finally {
+            if (Directory.Exists(workspacePath)) {
+                Directory.Delete(workspacePath, recursive: true);
+            }
+        }
+    }
+
     /// <summary>
     /// Writes one minimal serialized source texture asset for cached font-atlas cook testing.
     /// </summary>

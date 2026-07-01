@@ -3,7 +3,7 @@
 #include <string>
 
 #include "RuntimeMaterial.hpp"
-#include "helengine_float3.hpp"
+#include "float3.hpp"
 
 class RuntimeTexture;
 

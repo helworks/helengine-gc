@@ -26,6 +26,10 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GENERATED_CORE_TRANSLATION_UNIT := helengine_core_unity.cpp", makefileSource, StringComparison.Ordinal);
         Assert.Contains("does not contain helengine_core_amalgamated.cpp or helengine_core_unity.cpp", makefileSource, StringComparison.Ordinal);
         Assert.Contains("$(BUILD_DIR)/generated/$(GENERATED_CORE_TRANSLATION_UNIT:.cpp=.o): $(GENERATED_CORE_SOURCE)", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("-MMD", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("-MP", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("DEPFILES := $(OBJECTS:.o=.d)", makefileSource, StringComparison.Ordinal);
+        Assert.Contains("-include $(DEPFILES)", makefileSource, StringComparison.Ordinal);
         Assert.Contains("packaged-disc-assets", makefileSource, StringComparison.Ordinal);
         Assert.Contains("APPLOADER_SOURCE_ROOT := $(THIRD_PARTY_DIR)/cubeboot-tools", makefileSource, StringComparison.Ordinal);
         Assert.Contains("gamecube_runtime_scene_manifest.inl", manifestWriterSource, StringComparison.Ordinal);
@@ -42,6 +46,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("VIDEO_ClearFrameBuffer(RenderMode, FrameBuffers[0], COLOR_BLACK);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("VIDEO_ClearFrameBuffer(RenderMode, FrameBuffers[1], COLOR_BLACK);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("GX_CopyDisp(FrameBuffers[0], GX_TRUE);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("static std::string GetRuntimeTestSceneOverride();", applicationHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("HELENGINE_GAMECUBE_RUNTIME_TEST_SCENE", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeCubeTestSceneInstaller::InstallSlopeScene();", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("RunPackagedStartupProbe()", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("int RunPackagedStartupProbe();", applicationHeaderSource, StringComparison.Ordinal);
         Assert.Contains("HasSatisfiedVerificationExitCondition()", applicationSource, StringComparison.Ordinal);
@@ -120,7 +127,6 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GX_LoadProjectionMtx(projectionMatrix, GX_PERSPECTIVE);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("ConfigureDirectionalLight(", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("submission->get_Material()", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("GX_SetCullMode(GX_CULL_FRONT);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("ResolveGxCullMode(", rasterRendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("[GC] 2D queue snapshot", applicationSource, StringComparison.Ordinal);
@@ -179,6 +185,20 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
+    /// Ensures the GameCube runtime source no longer emits per-frame snapshot and render queue spam through OSReport.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_DoesNotEmitPerFrameRenderSpamDiagnostics() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string sceneRenderBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
+        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+
+        Assert.DoesNotContain("[GC] snap=", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("[GC] extract=", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("[GC] has3D=", renderManagerSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures packaged DVD-backed content reads no longer rely on raw host file APIs for <c>dvd:/</c> paths.
     /// </summary>
     [Fact]
@@ -205,6 +225,25 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("const char expectedAssetName[] = \"DemoDiscMainMenu.hasset\";", applicationSource, StringComparison.Ordinal);
         Assert.Contains("const std::string expectedPath = \"dvd:/cooked/scenes/DemoDiscMainMenu.hasset\";", applicationSource, StringComparison.Ordinal);
         Assert.Contains("foundDemoDiscMainMenu", applicationSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures both packaged DVD byte-range helpers batch one aligned sector span per requested file range instead of issuing one DVD request per 2 KiB sector.
+    /// </summary>
+    [Fact]
+    public void PackagedDiscBootSource_BatchesAlignedDvdSectorReads() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string discFileSystemSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscFileSystem.cpp"));
+
+        Assert.Contains("const std::size_t firstSectorIndex = offset / DiscSectorSize;", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("const std::size_t sectorCount = lastSectorIndex - firstSectorIndex;", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("__io_gcdvd.readSectors(static_cast<sec_t>(firstSectorIndex), static_cast<sec_t>(sectorCount), sectorBuffer)", discFileSystemSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), 1, sectorBuffer)", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("const std::size_t firstSectorIndex = offset / DiscSectorSize;", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("const std::size_t sectorCount = lastSectorIndex - firstSectorIndex;", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("__io_gcdvd.readSectors(static_cast<sec_t>(firstSectorIndex), static_cast<sec_t>(sectorCount), sectorBuffer)", applicationSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), 1, sectorBuffer)", applicationSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -559,6 +598,26 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
+    /// Ensures the GameCube sprite overlay path applies entity scale and centered 2D orientation instead of rendering every sprite as an axis-aligned quad.
+    /// </summary>
+    [Fact]
+    public void GameCubeRasterRenderer_WhenRenderingSprites_AppliesEntityScaleAndOrientation() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string headerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+
+        Assert.Contains("void DrawTransformedTexturedQuad2D(float centerX, float centerY, float width, float height, float rotation, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture);", headerSource, StringComparison.Ordinal);
+        Assert.Contains("float3 scale = drawable->get_Parent()->get_Scale();", source, StringComparison.Ordinal);
+        Assert.Contains("width *= scale.X;", source, StringComparison.Ordinal);
+        Assert.Contains("height *= scale.Y;", source, StringComparison.Ordinal);
+        Assert.Contains("float4 orientation = drawable->get_Parent()->get_Orientation();", source, StringComparison.Ordinal);
+        Assert.Contains("float3 rotatedRight = float4::RotateVector(float3(1.0f, 0.0f, 0.0f), orientation);", source, StringComparison.Ordinal);
+        Assert.Contains("const float rotation = std::atan2(rotatedRight.Y, rotatedRight.X);", source, StringComparison.Ordinal);
+        Assert.Contains("DrawTransformedTexturedQuad2D(centerX, centerY, width, height, rotation, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("DrawTexturedQuad2D(x, y, width, height, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures the GameCube application resets and renders the 2D queue during the packaged menu frame loop.
     /// </summary>
     [Fact]
@@ -676,7 +735,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("runtimeModel->CachedMeshData", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetArray(GX_VA_POS", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_Position1x16(", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("GX_TexCoord1x16(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("const GameCubePackedTexCoord2 packedTextureCoordinate = (*cachedMeshData->PackedTexCoords)[cachedIndex];", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);", rasterRendererSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -694,11 +754,70 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("cachedMeshData->PackedNormals", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetArray(GX_VA_NRM", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_Normal1x16(", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("GX_SetVtxDesc(GX_VA_NRM, GX_INDEX16);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_SetVtxDesc(GX_VA_NRM, useIndexedGeometry ? GX_INDEX16 : GX_DIRECT);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GX_SetChanCtrl(GX_COLOR0A0", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("GX_InitLightDir(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_InitLightPos(", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("GX_InitLightDir(", rasterRendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("EvaluateLitVertexColor(framePlan, entity, material", rasterRendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("GX_Color4u8(litColor.r, litColor.g, litColor.b, litColor.a);", rasterRendererSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube 3D mesh pipelines do not overwrite the material-resolved cull mode with a hardcoded front-face cull.
+    /// </summary>
+    [Fact]
+    public void CachedMeshRenderSource_PreservesMaterialResolvedCullMode() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+
+        Assert.Contains("GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("GX_SetCullMode(GX_CULL_FRONT);", rasterRendererSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube renderer preserves outward-facing authored triangles by mapping shared-engine cull modes onto GX's reversed face-culling convention.
+    /// </summary>
+    [Fact]
+    public void CachedMeshRenderSource_UsesReversedGxCullMappings() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+
+        Assert.Contains("case MaterialCullMode::Back:\n                return GX_CULL_FRONT;", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("case MaterialCullMode::Front:\n                return GX_CULL_BACK;", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("case MaterialCullMode::Back:\n                return GX_CULL_BACK;", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("case MaterialCullMode::Front:\n                return GX_CULL_FRONT;", rasterRendererSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube directional-light path emulates an authored directional ray by placing a non-attenuated GX light far away in view space instead of using the spotlight-only GX_InitLightDir helper.
+    /// </summary>
+    [Fact]
+    public void CachedMeshRenderSource_EmulatesDirectionalLightUsingFarViewSpacePosition() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string directXRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "..", "helengine", "engine", "helengine.directx11", "DirectX11Renderer3D.cs"));
+        string forwardShaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "..", "helengine", "engine", "helengine.editor", "shaders", "builtin", "ForwardStandardShader.hlsl"));
+
+        Assert.Contains("float3 lightDirection = float3.Normalize(LightDirectionUtility.GetEntityForwardDirection(directionalLight.Parent)) * -1f;", directXRendererSource, StringComparison.Ordinal);
+        Assert.Contains("lightDirection = normalize(-directionAndShadow.xyz);", forwardShaderSource, StringComparison.Ordinal);
+        Assert.Contains("directionalDirection = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), lightOrientation);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("directionalPosition = float3::Normalize(directionalDirection) * -1024.0f;", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("GX_InitLightPos(&lightObject, directionalPosition.X, directionalPosition.Y, directionalPosition.Z);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("GX_InitLightDir(", rasterRendererSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the GameCube 3D runtime emits explicit frame-plan drawable diagnostics so empty-scene fallback clears can be traced to the correct extraction stage.
+    /// </summary>
+    [Fact]
+    public void GameCubeFramePlanSource_EmitsDrawableCountDiagnostics() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string sceneRenderBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
+
+        Assert.Contains("[GC] Frame snapshot visibleDrawables=", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("[GC] Frame extraction drawableSubmissions=", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("[GC] Render frame has3D=", renderManagerSource, StringComparison.Ordinal);
     }
 
     /// <summary>

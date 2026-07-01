@@ -187,6 +187,16 @@ namespace helengine::gamecube {
 #endif
     }
 
+    /// Returns the optional runtime test-scene override that should bypass packaged scene loading when present.
+    std::string GameCubeApplication::GetRuntimeTestSceneOverride() {
+        const char* environmentValue = std::getenv("HELENGINE_GAMECUBE_RUNTIME_TEST_SCENE");
+        if (environmentValue == nullptr) {
+            return std::string();
+        }
+
+        return environmentValue;
+    }
+
     /// Initializes the native host and enters the steady-state frame loop.
     int GameCubeApplication::Run() {
         SetBootPhase(GameCubeBootPhase::NativeVideo, GXColor { 0xFF, 0x00, 0x00, 0xFF });
@@ -435,33 +445,27 @@ namespace helengine::gamecube {
     bool GameCubeApplication::ReadDiscRange(void* destination, std::size_t offset, std::size_t length) {
         if (destination == nullptr) {
             return false;
+        } else if (length == 0U) {
+            return true;
         }
 
-        const std::size_t alignedSectorBufferLength = (DiscSectorSize + 31U) & ~static_cast<std::size_t>(31U);
+        const std::size_t firstSectorIndex = offset / DiscSectorSize;
+        const std::size_t firstSectorByteOffset = offset % DiscSectorSize;
+        const std::size_t lastByteOffsetExclusive = offset + length;
+        const std::size_t lastSectorIndex = (lastByteOffsetExclusive + (DiscSectorSize - 1U)) / DiscSectorSize;
+        const std::size_t sectorCount = lastSectorIndex - firstSectorIndex;
+        const std::size_t sectorBufferLength = sectorCount * DiscSectorSize;
+        const std::size_t alignedSectorBufferLength = (sectorBufferLength + 31U) & ~static_cast<std::size_t>(31U);
         uint8_t* sectorBuffer = static_cast<uint8_t*>(memalign(32, alignedSectorBufferLength));
         if (sectorBuffer == nullptr) {
             return false;
         }
 
-        uint8_t* destinationBytes = static_cast<uint8_t*>(destination);
-        std::size_t remainingLength = length;
-        std::size_t currentOffset = offset;
         bool readSucceeded = true;
-        while (remainingLength > 0U) {
-            const std::size_t sectorIndex = currentOffset / DiscSectorSize;
-            const std::size_t sectorByteOffset = currentOffset % DiscSectorSize;
-            if (__io_gcdvd.readSectors == nullptr || !__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), 1, sectorBuffer)) {
-                readSucceeded = false;
-                break;
-            }
-
-            const std::size_t bytesThisSector = remainingLength < (DiscSectorSize - sectorByteOffset)
-                ? remainingLength
-                : (DiscSectorSize - sectorByteOffset);
-            std::memcpy(destinationBytes, sectorBuffer + sectorByteOffset, bytesThisSector);
-            destinationBytes += bytesThisSector;
-            currentOffset += bytesThisSector;
-            remainingLength -= bytesThisSector;
+        if (__io_gcdvd.readSectors == nullptr || !__io_gcdvd.readSectors(static_cast<sec_t>(firstSectorIndex), static_cast<sec_t>(sectorCount), sectorBuffer)) {
+            readSucceeded = false;
+        } else {
+            std::memcpy(destination, sectorBuffer + firstSectorByteOffset, length);
         }
 
         free(sectorBuffer);
@@ -758,12 +762,28 @@ namespace helengine::gamecube {
                 throw std::runtime_error("Packaged GameCube boot requires a runtime scene manager.");
             }
 
-            const std::string packagedStartupSceneId = GameCubeSceneBootstrap::GetPackagedStartupSceneId();
-            EngineCore->get_SceneManager()->LoadScene(packagedStartupSceneId, SceneLoadMode::Single);
-            SYS_Report("[GC] Packaged runtime startup scene queued.\n");
+            const std::string runtimeTestSceneOverride = GetRuntimeTestSceneOverride();
+            if (runtimeTestSceneOverride == "slope") {
+                GameCubeCubeTestSceneInstaller::InstallSlopeScene();
+                SYS_Report("[GC] Runtime slope test scene installed.\n");
+            } else if (!runtimeTestSceneOverride.empty()) {
+                throw std::runtime_error(std::string("Unsupported GameCube runtime test scene override: ") + runtimeTestSceneOverride);
+            } else {
+                const std::string packagedStartupSceneId = GameCubeSceneBootstrap::GetPackagedStartupSceneId();
+                EngineCore->get_SceneManager()->LoadScene(packagedStartupSceneId, SceneLoadMode::Single);
+                SYS_Report("[GC] Packaged runtime startup scene queued.\n");
+            }
 #else
-            GameCubeCubeTestSceneInstaller::Install();
-            SYS_Report("[GC] Runtime cube-test scene installed.\n");
+            const std::string runtimeTestSceneOverride = GetRuntimeTestSceneOverride();
+            if (runtimeTestSceneOverride == "slope") {
+                GameCubeCubeTestSceneInstaller::InstallSlopeScene();
+                SYS_Report("[GC] Runtime slope test scene installed.\n");
+            } else if (!runtimeTestSceneOverride.empty()) {
+                throw std::runtime_error(std::string("Unsupported GameCube runtime test scene override: ") + runtimeTestSceneOverride);
+            } else {
+                GameCubeCubeTestSceneInstaller::Install();
+                SYS_Report("[GC] Runtime cube-test scene installed.\n");
+            }
 #endif
             EngineInitialized = true;
             PresentedFrameCount = 0;

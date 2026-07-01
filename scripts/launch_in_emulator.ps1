@@ -77,8 +77,25 @@ if ($allowedExtensions -notcontains $artifactExtension) {
 }
 
 $repositoryRootPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$dolphinPath = 'C:\dev\helworks\emus\dolphin-2603a-x64\Dolphin-x64\Dolphin.exe'
-$globalProfileRoot = 'C:\Users\Helena\AppData\Roaming\Dolphin Emulator'
+$configuredDolphinPath = [Environment]::GetEnvironmentVariable('HELENGINE_GAMECUBE_DOLPHIN_PATH')
+if ([string]::IsNullOrWhiteSpace($configuredDolphinPath)) {
+    $dolphinPath = [System.IO.Path]::GetFullPath((Join-Path $repositoryRootPath '..\emus\dolphin-2603a-x64\Dolphin-x64\Dolphin.exe'))
+} else {
+    $dolphinPath = [System.IO.Path]::GetFullPath($configuredDolphinPath)
+}
+
+$roamingAppDataRoot = [Environment]::GetFolderPath('ApplicationData')
+if ([string]::IsNullOrWhiteSpace($roamingAppDataRoot)) {
+    throw 'Windows roaming AppData path could not be resolved.'
+}
+
+$configuredProfileRoot = [Environment]::GetEnvironmentVariable('HELENGINE_GAMECUBE_DOLPHIN_PROFILE_ROOT')
+if ([string]::IsNullOrWhiteSpace($configuredProfileRoot)) {
+    $globalProfileRoot = Join-Path $roamingAppDataRoot 'Dolphin Emulator'
+} else {
+    $globalProfileRoot = [System.IO.Path]::GetFullPath($configuredProfileRoot)
+}
+
 $userDir = Join-Path $repositoryRootPath 'tmp\dolphin-launcher-user'
 
 if (-not (Test-Path -LiteralPath $dolphinPath -PathType Leaf)) {
@@ -144,5 +161,7 @@ Write-Output ("USER_DIR=" + $userDir)
 Write-Output ("LOGGER_CONFIG=" + (Join-Path $userDir 'Config\Logger.ini'))
 Write-Output ("LOG_WINDOW=enabled")
 
-$process = Start-Process -FilePath $dolphinPath -ArgumentList '-u', $userDir, '-e', $resolvedArtifactPath -PassThru
+$quotedUserDir = '"' + $userDir + '"'
+$quotedArtifactPath = '"' + $resolvedArtifactPath + '"'
+$process = Start-Process -FilePath $dolphinPath -ArgumentList '-u', $quotedUserDir, '-e', $quotedArtifactPath -PassThru
 Write-Output ("PROCESS_ID=" + $process.Id)

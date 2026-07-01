@@ -96,7 +96,7 @@ public sealed class GameCubeWiimmsIsoToolsImagePackagerTests {
         packager.Package(CreateLayout(), outputImagePath, CancellationToken.None);
 
         Assert.Contains("--iso", processRunner.LastStartInfo.ArgumentList);
-        Assert.Equal("COPY", processRunner.LastStartInfo.ArgumentList[1]);
+        Assert.Equal("COPY", processRunner.LastStartInfo.ArgumentList[0]);
     }
 
     /// <summary>

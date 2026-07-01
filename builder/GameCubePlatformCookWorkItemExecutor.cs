@@ -81,7 +81,7 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
             return textureAsset;
         }
 
-        using Bitmap sourceBitmap = new Bitmap(sourcePath);
+        using Bitmap sourceBitmap = new Bitmap(ResolveBitmapSourcePath(sourcePath));
         int width = sourceBitmap.Width;
         int height = sourceBitmap.Height;
         if (width < 1 || height < 1 || width > ushort.MaxValue || height > ushort.MaxValue) {
@@ -178,6 +178,54 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
         stream.Position = 0;
         textureAsset = FilesAssetSerializer.Deserialize(stream) as TextureAsset;
         return textureAsset != null;
+    }
+
+    /// <summary>
+    /// Resolves the bitmap source path that should be imported when one work-item source path is not a serialized texture asset.
+    /// </summary>
+    /// <param name="sourcePath">Absolute authored source path emitted by the editor work item.</param>
+    /// <returns>Absolute bitmap source path that System.Drawing can load.</returns>
+    static string ResolveBitmapSourcePath(string sourcePath) {
+        if (string.IsNullOrWhiteSpace(sourcePath)) {
+            throw new ArgumentException("Source path must be provided.", nameof(sourcePath));
+        }
+
+        if (TryResolveImportSettingsSiblingSourcePath(sourcePath, out string siblingSourcePath)) {
+            return siblingSourcePath;
+        }
+
+        return sourcePath;
+    }
+
+    /// <summary>
+    /// Attempts to resolve the sibling authored image path for one import-settings sidecar.
+    /// </summary>
+    /// <param name="sourcePath">Absolute work-item source path that may point at one `.hasset` import-settings sidecar.</param>
+    /// <param name="siblingSourcePath">Resolved authored image path when the sidecar has one sibling source image.</param>
+    /// <returns>True when the supplied path was one import-settings sidecar with a sibling source image.</returns>
+    static bool TryResolveImportSettingsSiblingSourcePath(string sourcePath, out string siblingSourcePath) {
+        if (string.IsNullOrWhiteSpace(sourcePath)) {
+            throw new ArgumentException("Source path must be provided.", nameof(sourcePath));
+        }
+
+        siblingSourcePath = string.Empty;
+        if (!string.Equals(Path.GetExtension(sourcePath), ".hasset", StringComparison.OrdinalIgnoreCase)) {
+            return false;
+        }
+
+        string candidateSourcePath = Path.Combine(
+            Path.GetDirectoryName(sourcePath) ?? string.Empty,
+            Path.GetFileNameWithoutExtension(sourcePath));
+        if (!File.Exists(candidateSourcePath)) {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(Path.GetExtension(candidateSourcePath))) {
+            return false;
+        }
+
+        siblingSourcePath = candidateSourcePath;
+        return true;
     }
 
     /// <summary>

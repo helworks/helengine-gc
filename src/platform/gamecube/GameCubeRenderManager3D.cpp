@@ -2,11 +2,13 @@
 
 #include <algorithm>
 
+#include <ogc/system.h>
+
 #include "Asset.hpp"
 #include "Core.hpp"
 #include "EditorAssetBinarySerializer.hpp"
 #include "Entity.hpp"
-#include "helengine_float2.hpp"
+#include "float2.hpp"
 #include "IDrawable3D.hpp"
 #include "MaterialCullMode.hpp"
 #include "MaterialRenderState.hpp"
@@ -225,6 +227,10 @@ namespace helengine::gamecube {
             if (runtimeModel->CachedMeshData != nullptr) {
                 if (runtimeModel->CachedMeshData->PackedPositions != nullptr && runtimeModel->CachedMeshData->PackedPositions != Array<GameCubePackedPosition3>::Empty()) {
                     delete runtimeModel->CachedMeshData->PackedPositions;
+                }
+
+                if (runtimeModel->CachedMeshData->PackedNormals != nullptr && runtimeModel->CachedMeshData->PackedNormals != Array<GameCubePackedNormal3>::Empty()) {
+                    delete runtimeModel->CachedMeshData->PackedNormals;
                 }
 
                 if (runtimeModel->CachedMeshData->PackedTexCoords != nullptr && runtimeModel->CachedMeshData->PackedTexCoords != Array<GameCubePackedTexCoord2>::Empty()) {

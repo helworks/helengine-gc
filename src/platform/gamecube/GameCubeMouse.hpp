@@ -2,7 +2,7 @@
 
 #include "Mouse.hpp"
 #include "MouseState.hpp"
-#include "helengine_int2.hpp"
+#include "int2.hpp"
 
 namespace helengine::gamecube {
     /// Implements the generated mouse contract for the current GameCube bootstrap with a fixed default pointer state.

@@ -18,6 +18,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\launch_in_emulator
   -ArtifactPath ..\helprojs\city\gamecube-build\game.gcm
 ```
 
+Set `HELENGINE_GAMECUBE_DOLPHIN_PATH` to override the default sibling `..\emus\...` Dolphin executable path, and `HELENGINE_GAMECUBE_DOLPHIN_PROFILE_ROOT` to override the global Dolphin profile root if needed.
+
 ## More Docs
 
 - [Docker Build Notes](docs/Docker.md)

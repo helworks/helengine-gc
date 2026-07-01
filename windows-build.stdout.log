@@ -1,0 +1,6 @@
+[helengine-editor] build scene entries begin
+[helengine-editor] build scene entries completed
+[helengine-editor] build cooked artifacts begin
+[helengine-editor] build cooked artifacts completed
+Build completed for platform 'windows': C:\dev\helprojs\city\windows-build
+Enabled runtime features: debug_overlay (AutoDetected), host_file_system (AutoDetected), render2d (AutoDetected), shaders (AutoDetected), sprites (AutoDetected), text2d (AutoDetected), text_processing (AutoDetected). Disabled runtime features: reflection_like_runtime (NotIncluded), runtime_json (NotIncluded).

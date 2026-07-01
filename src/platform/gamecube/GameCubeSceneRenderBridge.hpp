@@ -20,6 +20,9 @@ namespace helengine::gamecube {
         /// Returns whether the current runtime state exposes at least one enabled camera the GameCube backend can render.
         bool HasActiveCamera();
     private:
+        /// Tracks whether the first extracted frame-plan counts were already reported for runtime lighting diagnosis.
+        bool HasLoggedFirstFramePlanState = false;
+
         /// Resolves the first enabled runtime camera the GameCube backend is willing to render.
         CameraComponent* ResolveActiveCamera();
 

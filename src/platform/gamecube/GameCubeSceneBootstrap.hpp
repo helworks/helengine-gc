@@ -42,6 +42,9 @@ namespace helengine::gamecube {
         /// Returns the packaged startup scene id emitted by the GameCube builder.
         static std::string GetPackagedStartupSceneId();
     private:
+        /// Returns one optional packaged startup scene override supplied through the host environment.
+        static std::string GetPackagedStartupSceneIdOverride();
+
         /// Returns whether all required staged files exist under the candidate content root.
         static bool HasRequiredFiles(std::string rootPath);
 
