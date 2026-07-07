@@ -34,13 +34,13 @@ namespace helengine::gamecube {
         RuntimeMaterial* BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset);
 
         /// Builds the minimal runtime material required for the first cooked-material GameCube draw path from one serialized cooked material asset path.
-        RuntimeMaterial* BuildMaterialFromCooked(std::string cookedAssetPath);
+        RuntimeMaterial* BuildMaterialFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource);
 
         /// Builds a GameCube runtime model that keeps authored submesh and geometry arrays alive.
         RuntimeModel* BuildModelFromRaw(ModelAsset* data) override;
 
         /// Builds a GameCube runtime model from one serialized cooked model asset path.
-        RuntimeModel* BuildModelFromCooked(std::string cookedAssetPath) override;
+        RuntimeModel* BuildModelFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) override;
 
         /// Releases one GameCube runtime material after the final scene reference is removed.
         void ReleaseMaterial(RuntimeMaterial* material) override;

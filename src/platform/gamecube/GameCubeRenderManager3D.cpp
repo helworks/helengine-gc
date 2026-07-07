@@ -68,7 +68,7 @@ namespace helengine::gamecube {
             throw new ArgumentException("GameCube material asset path is required.", "materialAssetPath");
         }
 
-        return BuildMaterialFromCooked(materialAssetPath);
+        return BuildMaterialFromCooked(materialAssetPath, nullptr);
     }
 
     /// Builds the minimal runtime material required for the first cooked-material GameCube draw path.
@@ -95,7 +95,8 @@ namespace helengine::gamecube {
     }
 
     /// Builds the minimal runtime material required for the first cooked-material GameCube draw path from one serialized cooked asset path.
-    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromCooked(std::string cookedAssetPath) {
+    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) {
+        (void)contentStreamSource;
         if (cookedAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked material path is required.", "cookedAssetPath");
         }
@@ -144,7 +145,8 @@ namespace helengine::gamecube {
     }
 
     /// Builds a GameCube runtime model from one serialized cooked model asset path.
-    RuntimeModel* GameCubeRenderManager3D::BuildModelFromCooked(std::string cookedAssetPath) {
+    RuntimeModel* GameCubeRenderManager3D::BuildModelFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) {
+        (void)contentStreamSource;
         if (cookedAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked model path is required.", "cookedAssetPath");
         }

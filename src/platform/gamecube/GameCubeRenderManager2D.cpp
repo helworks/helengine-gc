@@ -37,7 +37,8 @@ namespace helengine::gamecube {
     }
 
     /// Builds one GameCube-native runtime texture from one packaged cooked texture asset path.
-    RuntimeTexture* GameCubeRenderManager2D::BuildTextureFromCooked(std::string cookedAssetPath) {
+    RuntimeTexture* GameCubeRenderManager2D::BuildTextureFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) {
+        (void)contentStreamSource;
         if (cookedAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked texture path is required.", "cookedAssetPath");
         }
