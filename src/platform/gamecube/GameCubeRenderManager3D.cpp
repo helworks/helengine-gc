@@ -59,13 +59,9 @@ namespace helengine::gamecube {
     }
 
     /// Rebuilds one legacy raw material asset path through the cooked platform-owned GameCube material contract.
-    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromRawAsset(ContentManager* assetContentManager, std::string contentRootPath, std::string materialAssetPath) {
+    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromRawAsset(ContentManager* assetContentManager, std::string materialAssetPath) {
         if (assetContentManager == nullptr) {
             throw new ArgumentNullException("assetContentManager");
-        }
-
-        if (contentRootPath.empty()) {
-            throw new ArgumentException("GameCube content root path is required.", "contentRootPath");
         }
 
         if (materialAssetPath.empty()) {

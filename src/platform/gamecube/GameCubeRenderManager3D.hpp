@@ -28,7 +28,7 @@ namespace helengine::gamecube {
         ~GameCubeRenderManager3D() override;
 
         /// Rebuilds one legacy raw material asset path through the cooked platform-owned GameCube material contract.
-        RuntimeMaterial* BuildMaterialFromRawAsset(ContentManager* assetContentManager, std::string contentRootPath, std::string materialAssetPath) override;
+        RuntimeMaterial* BuildMaterialFromRawAsset(ContentManager* assetContentManager, std::string materialAssetPath) override;
 
         /// Builds the minimal runtime material required for the first cooked-material GameCube draw path.
         RuntimeMaterial* BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset);

@@ -17,6 +17,7 @@
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
 #include "Core.hpp"
 #include "CoreInitializationOptions.hpp"
+#include "HostFileSystemContentStreamSource.hpp"
 #include "PlatformInfo.hpp"
 #if HELENGINE_GAMECUBE_HAS_GENERATED_RUNTIME_MODULE_REGISTRATION
 #include "GeneratedRuntimeModuleRegistration.hpp"
@@ -692,14 +693,14 @@ namespace helengine::gamecube {
             }
             const std::string packagedContentRootPath = GameCubeSceneBootstrap::GetPackagedContentRootPath();
             SYS_Report("[GC] Packaged content root: %s\n", packagedContentRootPath.c_str());
-            options->ContentRootPath = packagedContentRootPath;
+            options->ContentStreamSource = new HostFileSystemContentStreamSource(packagedContentRootPath);
             options->SceneCatalog = GameCubeSceneBootstrap::CreatePackagedSceneCatalog();
             options->StandardPlatformInputConfiguration = GameCubeSceneBootstrap::CreatePackagedStandardPlatformInputConfiguration();
             const std::string packagedStartupSceneId = GameCubeSceneBootstrap::GetPackagedStartupSceneId();
             SYS_Report("[GC] Packaged startup scene id: %s\n", packagedStartupSceneId.c_str());
             SYS_Report("[GC] Runtime build stamp: %s\n", BuildStamp);
 #else
-            options->ContentRootPath = ".";
+            options->ContentStreamSource = new HostFileSystemContentStreamSource(".");
             options->SceneCatalog = nullptr;
 #endif
             options->UpdateOrderLayers = 4;
