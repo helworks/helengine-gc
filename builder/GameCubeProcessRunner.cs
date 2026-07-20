@@ -13,16 +13,6 @@ public sealed class GameCubeProcessRunner : IGameCubeProcessRunner {
     /// <param name="cancellationToken">Cancellation token that can stop the process cooperatively.</param>
     /// <returns>Captured process result.</returns>
     public GameCubeProcessRunResult Run(ProcessStartInfo startInfo, CancellationToken cancellationToken) {
-        if (startInfo == null) {
-            throw new ArgumentNullException(nameof(startInfo));
-        }
-
-        startInfo.RedirectStandardOutput = true;
-        startInfo.RedirectStandardError = true;
-
-        using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start external GameCube builder process.");
-        process.WaitForExit();
-        cancellationToken.ThrowIfCancellationRequested();
-        return new GameCubeProcessRunResult(process.ExitCode, process.StandardOutput.ReadToEnd(), process.StandardError.ReadToEnd());
+        return new GameCubeProcessOutputStreamer().Run(startInfo, cancellationToken);
     }
 }

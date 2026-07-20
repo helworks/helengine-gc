@@ -10,6 +10,7 @@
 
 class Core;
 class PlatformInfo;
+class IAudioBackend;
 
 namespace helengine::gamecube {
     class GameCubeInputManager;
@@ -176,6 +177,9 @@ namespace helengine::gamecube {
 
         /// Stores the generated input manager bridge.
         GameCubeInputManager* EngineInputManager;
+
+        /// Stores the GameCube audio backend used by generated audio source components.
+        IAudioBackend* EngineAudioBackend;
 
         /// Stores the platform descriptor passed into the generated core initialization contract.
         PlatformInfo* EnginePlatformInfo;

@@ -3,12 +3,13 @@
 #include "Asset.hpp"
 #include "CameraComponent.hpp"
 #include "Core.hpp"
-#include "EditorAssetBinarySerializer.hpp"
+#include "PackagedAssetBinarySerializer.hpp"
 #include "Entity.hpp"
 #include "FontAsset.hpp"
 #include "FontInfo.hpp"
 #include "ICamera.hpp"
 #include "IDrawable2D.hpp"
+#include "IContentStreamSource.hpp"
 #include "IRenderQueue2D.hpp"
 #include "ObjectManager.hpp"
 #include "RuntimeTexture.hpp"
@@ -38,14 +39,15 @@ namespace helengine::gamecube {
 
     /// Builds one GameCube-native runtime texture from one packaged cooked texture asset path.
     RuntimeTexture* GameCubeRenderManager2D::BuildTextureFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) {
-        (void)contentStreamSource;
         if (cookedAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked texture path is required.", "cookedAssetPath");
+        } else if (contentStreamSource == nullptr) {
+            throw new ArgumentNullException("contentStreamSource");
         }
 
-        ::FileStream* textureStream = ::File::OpenRead(cookedAssetPath);
+        ::Stream* textureStream = contentStreamSource->OpenRead(cookedAssetPath);
         try {
-            ::Asset* textureAssetPayload = ::EditorAssetBinarySerializer::Deserialize(textureStream);
+            ::Asset* textureAssetPayload = ::PackagedAssetBinarySerializer::Deserialize(textureStream);
             ::TextureAsset* textureAsset = he_cpp_try_cast<::TextureAsset>(textureAssetPayload);
             if (textureAsset == nullptr) {
                 throw new InvalidOperationException("GameCube cooked texture payload did not deserialize as TextureAsset.");

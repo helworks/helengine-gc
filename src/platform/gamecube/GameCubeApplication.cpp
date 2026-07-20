@@ -28,6 +28,7 @@
 #include "runtime/native_exceptions.hpp"
 #include "platform/gamecube/GameCubeCubeTestSceneInstaller.hpp"
 #include "platform/gamecube/GameCubeInputManager.hpp"
+#include "platform/gamecube/audio/GameCubeAudioBackend.hpp"
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 #include "platform/gamecube/GameCubeRenderManager3D.hpp"
 #include "platform/gamecube/GameCubeSceneBootstrap.hpp"
@@ -172,6 +173,7 @@ namespace helengine::gamecube {
         , EngineRenderManager3D(nullptr)
         , EngineRenderManager2D(nullptr)
         , EngineInputManager(nullptr)
+        , EngineAudioBackend(nullptr)
         , EnginePlatformInfo(nullptr)
 #endif
     {
@@ -182,6 +184,7 @@ namespace helengine::gamecube {
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         delete EngineCore;
         delete EngineInputManager;
+        delete EngineAudioBackend;
         delete EngineRenderManager2D;
         delete EngineRenderManager3D;
         delete EnginePlatformInfo;
@@ -715,6 +718,7 @@ namespace helengine::gamecube {
             EngineRenderManager2D = new GameCubeRenderManager2D();
             EngineRenderManager3D->SetOverlayRenderManager2D(EngineRenderManager2D);
             EngineInputManager = new GameCubeInputManager();
+            EngineAudioBackend = new GameCubeAudioBackend();
             EnginePlatformInfo = new PlatformInfo("gamecube", "gc-headless");
 
             initializationStage = "AddPrimaryWindow";
@@ -723,6 +727,7 @@ namespace helengine::gamecube {
             EngineRenderManager3D->SetPresentedFrameSize(static_cast<uint16_t>(RenderMode->fbWidth), static_cast<uint16_t>(RenderMode->efbHeight));
             initializationStage = "InitializeCore";
             EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);
+            EngineCore->SetAudioBackend(EngineAudioBackend);
             SYS_Report("[GC] Engine core initialized.\n");
 #if HELENGINE_GAMECUBE_HAS_GENERATED_RUNTIME_MODULE_REGISTRATION
             initializationStage = "RegisterGeneratedRuntimeModules";

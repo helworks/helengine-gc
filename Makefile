@@ -97,6 +97,7 @@ $(error HELENGINE_CORE_CPP_ROOT helcpp_config.hpp must define HE_CPP_PLATFORM_IS
 endif
 GENERATED_BRIDGE_SOURCES := \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeInputManager.cpp \
+	$(SOURCE_DIR)/platform/gamecube/audio/GameCubeAudioBackend.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRenderManager2D.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRenderManager3D.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeCubeTestSceneInstaller.cpp \
@@ -173,6 +174,7 @@ LDFLAGS := \
 	-Wl,--gc-sections
 
 LDLIBS := \
+	-lasnd \
 	-logc \
 	-ldb \
 	-lm

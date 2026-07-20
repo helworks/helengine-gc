@@ -42,7 +42,7 @@ namespace helengine::gamecube {
         gamepadState.SetButtonDown(InputGamepadButton::Start, (heldButtons & PAD_BUTTON_START) != 0);
         gamepadState.SetButtonDown(InputGamepadButton::Select, (heldButtons & PAD_TRIGGER_Z) != 0);
         gamepadState.set_LeftStickX(static_cast<int16_t>(PAD_StickX(0) * 256));
-        gamepadState.set_LeftStickY(static_cast<int16_t>(PAD_StickY(0) * 256));
+        gamepadState.set_LeftStickY(static_cast<int16_t>(-PAD_StickY(0) * 256));
         gamepadState.set_RightStickX(static_cast<int16_t>(PAD_SubStickX(0) * 256));
         gamepadState.set_RightStickY(static_cast<int16_t>(PAD_SubStickY(0) * 256));
         gamepadState.set_LeftTrigger(static_cast<int16_t>(PAD_TriggerL(0) * 256));

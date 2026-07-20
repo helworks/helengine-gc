@@ -6,9 +6,10 @@
 
 #include "Asset.hpp"
 #include "Core.hpp"
-#include "EditorAssetBinarySerializer.hpp"
+#include "PackagedAssetBinarySerializer.hpp"
 #include "Entity.hpp"
 #include "float2.hpp"
+#include "IContentStreamSource.hpp"
 #include "IDrawable3D.hpp"
 #include "MaterialCullMode.hpp"
 #include "MaterialRenderState.hpp"
@@ -96,14 +97,15 @@ namespace helengine::gamecube {
 
     /// Builds the minimal runtime material required for the first cooked-material GameCube draw path from one serialized cooked asset path.
     RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) {
-        (void)contentStreamSource;
         if (cookedAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked material path is required.", "cookedAssetPath");
+        } else if (contentStreamSource == nullptr) {
+            throw new ArgumentNullException("contentStreamSource");
         }
 
-        ::FileStream* stream = ::File::OpenRead(cookedAssetPath);
+        ::Stream* stream = contentStreamSource->OpenRead(cookedAssetPath);
         try {
-            ::Asset* asset = ::EditorAssetBinarySerializer::Deserialize(stream);
+            ::Asset* asset = ::PackagedAssetBinarySerializer::Deserialize(stream);
             ::PlatformMaterialAsset* cookedMaterialAsset = he_cpp_try_cast<::PlatformMaterialAsset>(asset);
             if (cookedMaterialAsset == nullptr) {
                 throw new ArgumentException("GameCube cooked material payload did not deserialize as PlatformMaterialAsset.", "cookedAssetPath");
@@ -111,7 +113,7 @@ namespace helengine::gamecube {
 
             stream->Dispose();
             GameCubeRuntimeMaterial* runtimeMaterial = static_cast<GameCubeRuntimeMaterial*>(BuildMaterialFromCooked(cookedMaterialAsset));
-            AttachCookedDiffuseTexture(runtimeMaterial, cookedMaterialAsset, cookedAssetPath);
+            AttachCookedDiffuseTexture(runtimeMaterial, cookedMaterialAsset, cookedAssetPath, contentStreamSource);
             delete cookedMaterialAsset;
             return runtimeMaterial;
         } catch (...) {
@@ -146,14 +148,15 @@ namespace helengine::gamecube {
 
     /// Builds a GameCube runtime model from one serialized cooked model asset path.
     RuntimeModel* GameCubeRenderManager3D::BuildModelFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) {
-        (void)contentStreamSource;
         if (cookedAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked model path is required.", "cookedAssetPath");
+        } else if (contentStreamSource == nullptr) {
+            throw new ArgumentNullException("contentStreamSource");
         }
 
-        ::FileStream* stream = ::File::OpenRead(cookedAssetPath);
+        ::Stream* stream = contentStreamSource->OpenRead(cookedAssetPath);
         try {
-            ::Asset* asset = ::EditorAssetBinarySerializer::Deserialize(stream);
+            ::Asset* asset = ::PackagedAssetBinarySerializer::Deserialize(stream);
             ::ModelAsset* cookedModelAsset = he_cpp_try_cast<::ModelAsset>(asset);
             if (cookedModelAsset == nullptr) {
                 throw new ArgumentException("GameCube cooked model payload did not deserialize as ModelAsset.", "cookedAssetPath");
@@ -365,9 +368,9 @@ namespace helengine::gamecube {
 
         std::string normalizedMaterialAssetPath = cookedMaterialAssetPath;
         std::replace(normalizedMaterialAssetPath.begin(), normalizedMaterialAssetPath.end(), '\\', '/');
-        const std::size_t cookedMarkerIndex = normalizedMaterialAssetPath.find("/cooked/");
+        const std::size_t cookedMarkerIndex = normalizedMaterialAssetPath.find("cooked/");
         if (cookedMarkerIndex == std::string::npos) {
-            throw new InvalidOperationException("GameCube cooked material path must contain the packaged '/cooked/' root segment.");
+            throw new InvalidOperationException("GameCube cooked material path must contain the packaged 'cooked/' root segment.");
         }
 
         const std::string contentRootPath = cookedMaterialAssetPath.substr(0, cookedMarkerIndex);
@@ -375,13 +378,15 @@ namespace helengine::gamecube {
     }
 
     /// Loads and attaches one cooked diffuse texture when the path-based GameCube cooked-material contract references one.
-    void GameCubeRenderManager3D::AttachCookedDiffuseTexture(GameCubeRuntimeMaterial* runtimeMaterial, PlatformMaterialAsset* materialAsset, const std::string& cookedMaterialAssetPath) {
+    void GameCubeRenderManager3D::AttachCookedDiffuseTexture(GameCubeRuntimeMaterial* runtimeMaterial, PlatformMaterialAsset* materialAsset, const std::string& cookedMaterialAssetPath, IContentStreamSource* contentStreamSource) {
         if (runtimeMaterial == nullptr) {
             throw new ArgumentNullException("runtimeMaterial");
         } else if (materialAsset == nullptr) {
             throw new ArgumentNullException("materialAsset");
         } else if (cookedMaterialAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked material path is required.", "cookedMaterialAssetPath");
+        } else if (contentStreamSource == nullptr) {
+            throw new ArgumentNullException("contentStreamSource");
         }
 
         if (materialAsset->TextureRelativePath.empty()) {
@@ -389,9 +394,9 @@ namespace helengine::gamecube {
         }
 
         const std::string cookedTextureAssetPath = ResolvePackagedContentAssetPath(cookedMaterialAssetPath, materialAsset->TextureRelativePath);
-        ::FileStream* textureStream = ::File::OpenRead(cookedTextureAssetPath);
+        ::Stream* textureStream = contentStreamSource->OpenRead(cookedTextureAssetPath);
         try {
-            ::Asset* textureAssetPayload = ::EditorAssetBinarySerializer::Deserialize(textureStream);
+            ::Asset* textureAssetPayload = ::PackagedAssetBinarySerializer::Deserialize(textureStream);
             ::TextureAsset* textureAsset = he_cpp_try_cast<::TextureAsset>(textureAssetPayload);
             if (textureAsset == nullptr) {
                 throw new InvalidOperationException("GameCube cooked diffuse texture payload did not deserialize as TextureAsset.");

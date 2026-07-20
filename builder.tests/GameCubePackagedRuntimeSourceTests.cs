@@ -143,7 +143,15 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("[GC] File::Exists path=", fileSource, StringComparison.Ordinal);
         Assert.Contains("[GC] File::OpenRead path=", fileSource, StringComparison.Ordinal);
         Assert.Contains("delete sourceTextureAsset;", renderManager2DSource, StringComparison.Ordinal);
+        Assert.Contains("#include \"PackagedAssetBinarySerializer.hpp\"", renderManager2DSource, StringComparison.Ordinal);
+        Assert.Contains("::PackagedAssetBinarySerializer::Deserialize(textureStream)", renderManager2DSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("EditorAssetBinarySerializer", renderManager2DSource, StringComparison.Ordinal);
         Assert.Contains("delete static_cast<GameCubeRuntimeTexture*>(texture);", renderManager2DSource, StringComparison.Ordinal);
+        Assert.Contains("#include \"PackagedAssetBinarySerializer.hpp\"", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("::PackagedAssetBinarySerializer::Deserialize(stream)", renderManagerSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("EditorAssetBinarySerializer", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("normalizedMaterialAssetPath.find(\"cooked/\")", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("contentRootPath = normalizedMaterialAssetPath.substr(0, cookedMarkerIndex)", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("delete static_cast<GameCubeRuntimeMaterial*>(material);", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("delete runtimeModel;", renderManagerSource, StringComparison.Ordinal);
     }
@@ -218,8 +226,10 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GameCubeDiscFileSystem::OpenRead(filePath)", fileSource, StringComparison.Ordinal);
         Assert.Contains("FileStream(const uint8_t* data, size_t length);", fileStreamHeaderSource, StringComparison.Ordinal);
         Assert.Contains("bool ReadDiscRange(void* destination, std::size_t offset, std::size_t length)", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), 1, sectorBuffer)", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), static_cast<sec_t>(sectorsToRead), scratchBuffer)", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("ReadDiscRange(buffer, discOffset, fileSize)", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("FileStream* stream = nullptr;", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("// FileStream copies memory-backed input", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const uint32_t fstOffset = ReadBigEndianU32(discHeader + 0x424);", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const uint32_t fstSize = ReadBigEndianU32(discHeader + 0x428);", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const char expectedAssetName[] = \"DemoDiscMainMenu.hasset\";", applicationSource, StringComparison.Ordinal);
@@ -228,18 +238,20 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
-    /// Ensures both packaged DVD byte-range helpers batch one aligned sector span per requested file range instead of issuing one DVD request per 2 KiB sector.
+    /// Ensures packaged DVD byte-range reads use a bounded scratch buffer instead of allocating one sector span per file.
     /// </summary>
     [Fact]
-    public void PackagedDiscBootSource_BatchesAlignedDvdSectorReads() {
+    public void PackagedDiscBootSource_BoundsDvdReadScratchAllocation() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
         string discFileSystemSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscFileSystem.cpp"));
 
         Assert.Contains("const std::size_t firstSectorIndex = offset / DiscSectorSize;", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const std::size_t sectorCount = lastSectorIndex - firstSectorIndex;", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("__io_gcdvd.readSectors(static_cast<sec_t>(firstSectorIndex), static_cast<sec_t>(sectorCount), sectorBuffer)", discFileSystemSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), 1, sectorBuffer)", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("constexpr std::size_t MaximumSectorsPerRead = 32;", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("const std::size_t scratchBufferLength = MaximumSectorsPerRead * DiscSectorSize;", discFileSystemSource, StringComparison.Ordinal);
+        Assert.Contains("__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), static_cast<sec_t>(sectorsToRead), scratchBuffer)", discFileSystemSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("const std::size_t sectorBufferLength = sectorCount * DiscSectorSize;", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const std::size_t firstSectorIndex = offset / DiscSectorSize;", applicationSource, StringComparison.Ordinal);
         Assert.Contains("const std::size_t sectorCount = lastSectorIndex - firstSectorIndex;", applicationSource, StringComparison.Ordinal);
         Assert.Contains("__io_gcdvd.readSectors(static_cast<sec_t>(firstSectorIndex), static_cast<sec_t>(sectorCount), sectorBuffer)", applicationSource, StringComparison.Ordinal);
@@ -325,6 +337,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::South", source, StringComparison.Ordinal);
         Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::East", source, StringComparison.Ordinal);
         Assert.Contains("gamepadState.SetButtonDown(InputGamepadButton::Start", source, StringComparison.Ordinal);
+        Assert.Contains("gamepadState.set_LeftStickY(static_cast<int16_t>(-PAD_StickY(0) * 256));", source, StringComparison.Ordinal);
     }
 
     /// <summary>

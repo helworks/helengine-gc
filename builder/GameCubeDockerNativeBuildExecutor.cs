@@ -18,26 +18,15 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
 
         ProcessStartInfo startInfo = CreateStartInfo(paths);
 
-        using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start the GameCube Docker build process.");
-        Task<string> standardOutputTask = process.StandardOutput.ReadToEndAsync();
-        Task<string> standardErrorTask = process.StandardError.ReadToEndAsync();
-        while (!process.HasExited) {
-            cancellationToken.ThrowIfCancellationRequested();
-            process.WaitForExit(100);
-        }
+        GameCubeProcessRunResult result = new GameCubeProcessOutputStreamer().Run(startInfo, cancellationToken);
 
-        process.WaitForExit();
-        Task.WaitAll(standardOutputTask, standardErrorTask);
-
-        if (process.ExitCode != 0) {
-            string standardOutput = standardOutputTask.Result;
-            string standardError = standardErrorTask.Result;
+        if (result.ExitCode != 0) {
             throw new InvalidOperationException(
                 "GameCube native packaged-disc build failed."
                 + Environment.NewLine
-                + standardOutput
+                + result.StandardOutput
                 + Environment.NewLine
-                + standardError);
+                + result.StandardError);
         }
 
         string builtDolPath = Path.Combine(paths.RepositoryRootPath, "build", "helengine_gc.dol");

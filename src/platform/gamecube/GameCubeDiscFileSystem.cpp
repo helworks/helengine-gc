@@ -22,6 +22,7 @@ namespace helengine::gamecube {
         constexpr const char* BuildStamp = __DATE__ " " __TIME__;
         constexpr std::size_t DiscHeaderReadLength = 0x440;
         constexpr std::size_t DiscSectorSize = 2048;
+        constexpr std::size_t MaximumSectorsPerRead = 32;
         constexpr std::size_t FstEntrySize = 12;
         constexpr uint32_t DiscMagic = 0xC2339F3D;
 
@@ -55,25 +56,44 @@ namespace helengine::gamecube {
             }
 
             const std::size_t firstSectorIndex = offset / DiscSectorSize;
-            const std::size_t firstSectorByteOffset = offset % DiscSectorSize;
             const std::size_t lastByteOffsetExclusive = offset + length;
             const std::size_t lastSectorIndex = (lastByteOffsetExclusive + (DiscSectorSize - 1U)) / DiscSectorSize;
             const std::size_t sectorCount = lastSectorIndex - firstSectorIndex;
-            const std::size_t sectorBufferLength = sectorCount * DiscSectorSize;
-            const std::size_t alignedSectorBufferLength = Align32(sectorBufferLength);
-            uint8_t* sectorBuffer = static_cast<uint8_t*>(memalign(32, alignedSectorBufferLength));
-            if (sectorBuffer == nullptr) {
+            const std::size_t scratchBufferLength = MaximumSectorsPerRead * DiscSectorSize;
+            uint8_t* scratchBuffer = static_cast<uint8_t*>(memalign(32, Align32(scratchBufferLength)));
+            if (scratchBuffer == nullptr) {
+                SYS_Report("[GC] DVD scratch-buffer allocation failed.\n");
                 return false;
             }
 
-            bool readSucceeded = true;
-            if (__io_gcdvd.readSectors == nullptr || !__io_gcdvd.readSectors(static_cast<sec_t>(firstSectorIndex), static_cast<sec_t>(sectorCount), sectorBuffer)) {
-                readSucceeded = false;
-            } else {
-                std::memcpy(destination, sectorBuffer + firstSectorByteOffset, length);
+            bool readSucceeded = __io_gcdvd.readSectors != nullptr;
+            for (std::size_t sectorsRead = 0U; readSucceeded && sectorsRead < sectorCount;) {
+                const std::size_t sectorsToRead = std::min(MaximumSectorsPerRead, sectorCount - sectorsRead);
+                const std::size_t sectorIndex = firstSectorIndex + sectorsRead;
+                if (!__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), static_cast<sec_t>(sectorsToRead), scratchBuffer)) {
+                    SYS_Report(
+                        "[GC] DVD sector read failed sector=%lu count=%lu\n",
+                        static_cast<unsigned long>(sectorIndex),
+                        static_cast<unsigned long>(sectorsToRead));
+                    readSucceeded = false;
+                    break;
+                }
+
+                const std::size_t chunkStartOffset = sectorIndex * DiscSectorSize;
+                const std::size_t chunkEndOffset = chunkStartOffset + (sectorsToRead * DiscSectorSize);
+                const std::size_t copyStartOffset = std::max(offset, chunkStartOffset);
+                const std::size_t copyEndOffset = std::min(lastByteOffsetExclusive, chunkEndOffset);
+                if (copyStartOffset < copyEndOffset) {
+                    std::memcpy(
+                        static_cast<uint8_t*>(destination) + (copyStartOffset - offset),
+                        scratchBuffer + (copyStartOffset - chunkStartOffset),
+                        copyEndOffset - copyStartOffset);
+                }
+
+                sectorsRead += sectorsToRead;
             }
 
-            free(sectorBuffer);
+            free(scratchBuffer);
             return readSucceeded;
         }
     }
@@ -107,6 +127,11 @@ namespace helengine::gamecube {
         const std::size_t alignedSize = Align32(fileSize);
         uint8_t* buffer = static_cast<uint8_t*>(memalign(32, alignedSize));
         if (buffer == nullptr) {
+            SYS_Report(
+                "[GC] Packaged file allocation failed path=%s size=%lu alignedSize=%lu\n",
+                path != nullptr ? path : "<null>",
+                static_cast<unsigned long>(fileSize),
+                static_cast<unsigned long>(alignedSize));
             throw std::runtime_error("Could not allocate a packaged GameCube disc read buffer.");
         }
 
@@ -139,7 +164,17 @@ namespace helengine::gamecube {
                 valueKindLowByte);
         }
 
-        return new FileStream(buffer, fileSize);
+        FileStream* stream = nullptr;
+        try {
+            stream = new FileStream(buffer, fileSize);
+        } catch (...) {
+            free(buffer);
+            throw;
+        }
+
+        // FileStream copies memory-backed input, so this DVD staging allocation must not outlive the call.
+        free(buffer);
+        return stream;
     }
 
     /// Ensures the packaged disc FST has been loaded into memory before path resolution occurs.
