@@ -33,6 +33,12 @@ namespace helengine::gamecube {
         /// Initializes the packaged GameCube disc interface before any packaged content file access occurs.
         static bool InitializePackagedDisc();
 
+        /// Installs the packaged-disc completion bridge without mounting or resetting the already booted disc image.
+        static bool InitializePackagedDiscInterface();
+
+        /// Verifies direct reads from the disc already established by the boot apploader without resetting the drive.
+        static bool VerifyPackagedDiscReadiness();
+
         /// Creates the packaged runtime scene catalog emitted by the GameCube builder.
         static RuntimeSceneCatalog* CreatePackagedSceneCatalog();
 

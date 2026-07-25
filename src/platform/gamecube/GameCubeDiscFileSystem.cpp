@@ -12,9 +12,10 @@
 #include <string>
 #include <vector>
 
-#include <ogc/dvd.h>
 #include <ogc/system.h>
 
+#include "platform/gamecube/GameCubeApplication.hpp"
+#include "platform/gamecube/GameCubeDiscReader.hpp"
 #include "system/io/file-stream.hpp"
 
 namespace helengine::gamecube {
@@ -22,7 +23,12 @@ namespace helengine::gamecube {
         constexpr const char* BuildStamp = __DATE__ " " __TIME__;
         constexpr std::size_t DiscHeaderReadLength = 0x440;
         constexpr std::size_t DiscSectorSize = 2048;
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        /// Limits each diagnostic DVD request to one physical GameCube sector so a multi-sector DI stall is distinguishable from an invalid request context.
+        constexpr std::size_t MaximumSectorsPerRead = 1;
+#else
         constexpr std::size_t MaximumSectorsPerRead = 32;
+#endif
         constexpr std::size_t FstEntrySize = 12;
         constexpr uint32_t DiscMagic = 0xC2339F3D;
 
@@ -35,7 +41,6 @@ namespace helengine::gamecube {
         std::vector<uint8_t> FstBytes;
         std::vector<GameCubeDiscFileEntry> FileEntries;
         bool IndexLoaded = false;
-
         std::size_t Align32(std::size_t value) {
             return (value + 31U) & ~static_cast<std::size_t>(31U);
         }
@@ -47,7 +52,7 @@ namespace helengine::gamecube {
                 | static_cast<uint32_t>(bytes[3]);
         }
 
-        /// Reads an arbitrary byte range from the public libogc DVD disc interface using aligned sector transfers.
+        /// Reads an arbitrary byte range through the GameCube DI DMA interface using aligned sector transfers.
         bool ReadDiscRange(void* destination, std::size_t offset, std::size_t length) {
             if (destination == nullptr) {
                 return false;
@@ -66,18 +71,26 @@ namespace helengine::gamecube {
                 return false;
             }
 
-            bool readSucceeded = __io_gcdvd.readSectors != nullptr;
+            bool readSucceeded = true;
             for (std::size_t sectorsRead = 0U; readSucceeded && sectorsRead < sectorCount;) {
                 const std::size_t sectorsToRead = std::min(MaximumSectorsPerRead, sectorCount - sectorsRead);
                 const std::size_t sectorIndex = firstSectorIndex + sectorsRead;
-                if (!__io_gcdvd.readSectors(static_cast<sec_t>(sectorIndex), static_cast<sec_t>(sectorsToRead), scratchBuffer)) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                constexpr std::size_t DirectDiagnosticSectorMask = 0x0FFFU;
+                ReportDirectFrameDiagnosticCode(static_cast<uint16_t>(0xF000U | (sectorIndex & DirectDiagnosticSectorMask)));
+#endif
+                if (!GameCubeDiscReader::ReadBytes(scratchBuffer, sectorIndex * DiscSectorSize, sectorsToRead * DiscSectorSize)) {
                     SYS_Report(
-                        "[GC] DVD sector read failed sector=%lu count=%lu\n",
+                        "[GC] DI sector read failed sector=%lu count=%lu\n",
                         static_cast<unsigned long>(sectorIndex),
                         static_cast<unsigned long>(sectorsToRead));
                     readSucceeded = false;
                     break;
                 }
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                ReportDirectFrameDiagnosticCode(static_cast<uint16_t>(0xF240U + sectorsToRead));
+                ReportDirectFrameDiagnosticCode(0xF101U);
+#endif
 
                 const std::size_t chunkStartOffset = sectorIndex * DiscSectorSize;
                 const std::size_t chunkEndOffset = chunkStartOffset + (sectorsToRead * DiscSectorSize);
@@ -116,6 +129,9 @@ namespace helengine::gamecube {
     FileStream* GameCubeDiscFileSystem::OpenRead(const char* path) {
         std::size_t discOffset = 0;
         std::size_t fileSize = 0;
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xF001U);
+#endif
         if (!TryResolveFile(path, discOffset, fileSize)) {
             throw std::runtime_error(std::string("Packaged GameCube disc path was not found: ") + (path != nullptr ? path : "<null>"));
         }
@@ -126,6 +142,9 @@ namespace helengine::gamecube {
 
         const std::size_t alignedSize = Align32(fileSize);
         uint8_t* buffer = static_cast<uint8_t*>(memalign(32, alignedSize));
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xF002U);
+#endif
         if (buffer == nullptr) {
             SYS_Report(
                 "[GC] Packaged file allocation failed path=%s size=%lu alignedSize=%lu\n",
@@ -136,12 +155,21 @@ namespace helengine::gamecube {
         }
 
         std::memset(buffer, 0, alignedSize);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xF003U);
+#endif
         SYS_Report("[GC] Build stamp before dvd read: %s\n", BuildStamp);
         SYS_Report("[GC] GameCubeDiscFileSystem reading indexed path=%s offset=%lu size=%lu\n", path != nullptr ? path : "<null>", static_cast<unsigned long>(discOffset), static_cast<unsigned long>(fileSize));
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xF004U);
+#endif
         if (!ReadDiscRange(buffer, discOffset, fileSize)) {
             free(buffer);
             throw std::runtime_error("GameCube DVD sector read failed for a packaged content file.");
         }
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xF005U);
+#endif
         if (path != nullptr
             && (std::strcmp(path, "dvd:/cooked/engine/models/cube.hasset") == 0
                 || std::strcmp(path, "dvd:/cooked/engine/materials/standard.hasset") == 0)) {
@@ -166,6 +194,9 @@ namespace helengine::gamecube {
 
         FileStream* stream = nullptr;
         try {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xF006U);
+#endif
             stream = new FileStream(buffer, fileSize);
         } catch (...) {
             free(buffer);
@@ -174,6 +205,9 @@ namespace helengine::gamecube {
 
         // FileStream copies memory-backed input, so this DVD staging allocation must not outlive the call.
         free(buffer);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xF007U);
+#endif
         return stream;
     }
 
@@ -230,20 +264,56 @@ namespace helengine::gamecube {
         FstBytes.assign(alignedFstBuffer, alignedFstBuffer + fstSize);
         free(alignedFstBuffer);
         FileEntries.clear();
-        IndexDirectory(0U, "dvd:/");
+        if (!IndexDirectory(0U, "dvd:/")) {
+            FileEntries.clear();
+            SYS_Report("[GC] Packaged GameCube FST contains an invalid entry or name range.\n");
+            return false;
+        }
+
         IndexLoaded = true;
         SYS_Report("[GC] Indexed %lu packaged GameCube disc files.\n", static_cast<unsigned long>(FileEntries.size()));
         return true;
     }
 
-    /// Recursively indexes one FST directory entry and all of its children.
-    void GameCubeDiscFileSystem::IndexDirectory(std::size_t directoryEntryIndex, std::string directoryPath) {
+    /// Recursively indexes one validated FST directory entry and all of its children.
+    bool GameCubeDiscFileSystem::IndexDirectory(std::size_t directoryEntryIndex, std::string directoryPath) {
+        if (FstBytes.size() < FstEntrySize) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xF801U);
+#endif
+            return false;
+        }
+
+        const std::size_t entryCount = ReadBigEndianU32(FstBytes.data() + 8);
+        if (entryCount == 0U
+            || entryCount > FstBytes.size() / FstEntrySize
+            || directoryEntryIndex >= entryCount) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xF802U);
+#endif
+            return false;
+        }
+
         const std::size_t directoryOffset = directoryEntryIndex * FstEntrySize;
         const std::size_t directoryEndIndex = ReadBigEndianU32(FstBytes.data() + directoryOffset + 8);
+        if (directoryEndIndex <= directoryEntryIndex || directoryEndIndex > entryCount) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xF803U);
+#endif
+            return false;
+        }
+
         for (std::size_t entryIndex = directoryEntryIndex + 1; entryIndex < directoryEndIndex; entryIndex++) {
             const std::size_t entryOffset = entryIndex * FstEntrySize;
             const bool isDirectory = FstBytes[entryOffset] != 0;
-            const std::string entryName = ReadEntryName(entryIndex);
+            std::string entryName;
+            if (!TryReadEntryName(entryIndex, entryName)) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                ReportDirectFrameDiagnosticCode(0xF804U);
+#endif
+                return false;
+            }
+
             const std::string entryPath = directoryPath == "dvd:/"
                 ? directoryPath + entryName
                 : directoryPath + "/" + entryName;
@@ -251,7 +321,10 @@ namespace helengine::gamecube {
             if (isDirectory) {
                 const uint32_t parentDirectoryIndex = ReadBigEndianU32(FstBytes.data() + entryOffset + 4);
                 if (parentDirectoryIndex == directoryEntryIndex) {
-                    IndexDirectory(entryIndex, NormalizePath(entryPath.c_str()));
+                    if (!IndexDirectory(entryIndex, NormalizePath(entryPath.c_str()))) {
+                        return false;
+                    }
+
                     entryIndex = ReadBigEndianU32(FstBytes.data() + entryOffset + 8) - 1U;
                 }
 
@@ -264,17 +337,44 @@ namespace helengine::gamecube {
                 ReadBigEndianU32(FstBytes.data() + entryOffset + 8)
             });
         }
+
+        return true;
     }
 
-    /// Returns the UTF-8 entry name stored for the specified FST entry.
-    std::string GameCubeDiscFileSystem::ReadEntryName(std::size_t entryIndex) {
+    /// Reads one FST entry name only when its bounded byte range and terminating character are present in the loaded FST.
+    bool GameCubeDiscFileSystem::TryReadEntryName(std::size_t entryIndex, std::string& entryName) {
+        entryName.clear();
+        if (FstBytes.size() < FstEntrySize) {
+            return false;
+        }
+
         const std::size_t entryCount = ReadBigEndianU32(FstBytes.data() + 8);
+        if (entryCount == 0U || entryCount > FstBytes.size() / FstEntrySize || entryIndex >= entryCount) {
+            return false;
+        }
+
         const std::size_t stringTableOffset = entryCount * FstEntrySize;
+        if (stringTableOffset >= FstBytes.size()) {
+            return false;
+        }
+
         const std::size_t entryOffset = entryIndex * FstEntrySize;
         const uint32_t nameOffset = (static_cast<uint32_t>(FstBytes[entryOffset + 1]) << 16)
             | (static_cast<uint32_t>(FstBytes[entryOffset + 2]) << 8)
             | static_cast<uint32_t>(FstBytes[entryOffset + 3]);
-        return std::string(reinterpret_cast<const char*>(FstBytes.data() + stringTableOffset + nameOffset));
+        if (nameOffset >= FstBytes.size() - stringTableOffset) {
+            return false;
+        }
+
+        const char* const entryNameStart = reinterpret_cast<const char*>(FstBytes.data() + stringTableOffset + nameOffset);
+        const std::size_t entryNameMaximumLength = FstBytes.size() - stringTableOffset - nameOffset;
+        const void* const entryNameTerminator = std::memchr(entryNameStart, '\0', entryNameMaximumLength);
+        if (entryNameTerminator == nullptr) {
+            return false;
+        }
+
+        entryName.assign(entryNameStart, static_cast<const char*>(entryNameTerminator) - entryNameStart);
+        return true;
     }
 
     /// Normalizes one `dvd:/...` path into the slash form used by indexed entries.

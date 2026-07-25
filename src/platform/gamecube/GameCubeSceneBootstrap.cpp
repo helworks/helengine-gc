@@ -1,8 +1,8 @@
 #include "platform/gamecube/GameCubeSceneBootstrap.hpp"
 
 #include <cstdlib>
+#include <cstdint>
 
-#include <ogc/dvd.h>
 #include <ogc/system.h>
 
 #include "InputControlId.hpp"
@@ -15,6 +15,7 @@
 #include "runtime/array.hpp"
 #include "runtime/native_list.hpp"
 #include "runtime/native_exceptions.hpp"
+#include "platform/gamecube/GameCubeDiscReader.hpp"
 #include "StandardPlatformAction.hpp"
 #include "StandardPlatformActionBinding.hpp"
 #include "StandardPlatformInputConfiguration.hpp"
@@ -68,10 +69,29 @@ namespace helengine::gamecube {
 
     /// Initializes the packaged GameCube DVD interface before the runtime attempts any packaged file access.
     bool GameCubeSceneBootstrap::InitializePackagedDisc() {
-        DVD_Init();
-        const s32 mountResult = DVD_Mount();
-        SYS_Report("[GC] DVD_Mount result: %ld\n", static_cast<long>(mountResult));
-        return mountResult >= 0;
+        return InitializePackagedDiscInterface() && VerifyPackagedDiscReadiness();
+    }
+
+    /// Installs the packaged-disc completion bridge without mounting or resetting the already booted disc image.
+    bool GameCubeSceneBootstrap::InitializePackagedDiscInterface() {
+        return GameCubeDiscReader::Initialize();
+    }
+
+    /// Verifies direct reads from the disc already established by the boot apploader without resetting the drive.
+    bool GameCubeSceneBootstrap::VerifyPackagedDiscReadiness() {
+        alignas(32) uint8_t discHeader[0x20] {};
+        if (!GameCubeDiscReader::ReadBytes(discHeader, 0U, sizeof(discHeader))) {
+            SYS_Report("[GC] Packaged disc header read reported a DI transfer error.\n");
+            return false;
+        }
+
+        const uint32_t discMagic = (static_cast<uint32_t>(discHeader[0x1C]) << 24)
+            | (static_cast<uint32_t>(discHeader[0x1D]) << 16)
+            | (static_cast<uint32_t>(discHeader[0x1E]) << 8)
+            | static_cast<uint32_t>(discHeader[0x1F]);
+        const bool isGameCubeDisc = discMagic == 0xC2339F3DU;
+        SYS_Report("[GC] Packaged disc header magic=%08lX ready=%d\n", static_cast<unsigned long>(discMagic), isGameCubeDisc ? 1 : 0);
+        return isGameCubeDisc;
     }
 
     /// Creates the packaged runtime scene catalog emitted by the GameCube builder.

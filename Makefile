@@ -101,6 +101,7 @@ GENERATED_BRIDGE_SOURCES := \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRenderManager2D.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRenderManager3D.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeCubeTestSceneInstaller.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeDiscReader.cpp\
 	$(SOURCE_DIR)/platform/gamecube/GameCubeDiscFileSystem.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeFramePlan.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneRenderBridge.cpp \

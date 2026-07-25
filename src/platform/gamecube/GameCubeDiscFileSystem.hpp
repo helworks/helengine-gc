@@ -25,11 +25,11 @@ namespace helengine::gamecube {
         /// Reads the disc header and FST, then indexes all packaged file entries.
         static bool LoadIndex();
 
-        /// Recursively indexes one FST directory entry and all of its children.
-        static void IndexDirectory(std::size_t directoryEntryIndex, std::string directoryPath);
+        /// Recursively indexes one validated FST directory entry and all of its children.
+        static bool IndexDirectory(std::size_t directoryEntryIndex, std::string directoryPath);
 
-        /// Returns the UTF-8 entry name stored for the specified FST entry.
-        static std::string ReadEntryName(std::size_t entryIndex);
+        /// Reads one FST entry name only when its bounded byte range and terminating character are present in the loaded FST.
+        static bool TryReadEntryName(std::size_t entryIndex, std::string& entryName);
 
         /// Normalizes one `dvd:/...` path into the slash form used by indexed entries.
         static std::string NormalizePath(const char* path);
