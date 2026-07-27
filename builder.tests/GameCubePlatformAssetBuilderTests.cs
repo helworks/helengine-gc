@@ -54,7 +54,7 @@ public sealed class GameCubePlatformAssetBuilderTests {
         Assert.Equal("runtime-texture", capability.TargetArtifactKind);
         Assert.Equal(PlatformAssetCookOwnershipKind.BuilderOwned, capability.OwnershipKind);
         Assert.Equal("gamecube-texture", capability.SettingsContractId);
-        Assert.Equal("{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}", capability.DefaultSerializedPlatformSettings);
+        Assert.Equal("{\"maxResolution\":512,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}", capability.DefaultSerializedPlatformSettings);
         AssertTextureFormatCapabilities(capability.TextureFormatCapabilities);
     }
 

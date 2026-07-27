@@ -47,7 +47,7 @@ public static class GameCubePlatformDefinitionFactory {
     /// <returns>Serialized default GameCube texture settings.</returns>
     static string CreateDefaultSerializedTextureCookSettings() {
         return SerializeTextureCookSettings(new TextureAssetProcessorSettings {
-            MaxResolution = 0,
+            MaxResolution = 512,
             ColorFormatId = "GxRgb5A3",
             AlphaPrecision = TextureAssetAlphaPrecision.A8
         });
@@ -115,6 +115,34 @@ public static class GameCubePlatformDefinitionFactory {
                             "Shader Variant Pruning",
                             PlatformSettingKind.Boolean,
                             "true",
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "enable-memory-card-diagnostic-journal",
+                            "Enable Memory Card Diagnostic Journal",
+                            PlatformSettingKind.Boolean,
+                            "false",
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "enable-nintendont-handoff-diagnostic",
+                            "Enable Nintendont Handoff Diagnostic",
+                            PlatformSettingKind.Boolean,
+                            "false",
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "enable-first-frame-trace-diagnostic",
+                            "Enable First-Frame Trace Diagnostic",
+                            PlatformSettingKind.Boolean,
+                            "false",
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "enable-exception-screen-diagnostic",
+                            "Enable Exception Screen Diagnostic",
+                            PlatformSettingKind.Boolean,
+                            "false",
                             true,
                             [])
                     ])
