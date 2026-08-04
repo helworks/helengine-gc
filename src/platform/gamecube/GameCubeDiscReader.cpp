@@ -12,6 +12,10 @@
 #include <ogc/irq.h>
 #include <ogc/system.h>
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+#include "platform/gamecube/GameCubeApplication.hpp"
+#endif
+
 /// Transfers control from the PI/DI interrupt dispatcher through the Nintendont-recognised bridge into the packaged-disc completion routine.
 extern "C" void GameCubeDiscInterruptTrampoline(uint32_t interruptId, void* context);
 
@@ -65,6 +69,11 @@ namespace helengine::gamecube {
         /// Defines every DI status mask bit that must remain enabled while a request is active.
         constexpr uint32_t DiscInterruptEnableMask = 0x2AU;
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        /// Defines the maximum number of direct DI status observations before the diagnostic build treats one request as stalled.
+        constexpr uint32_t DiscReadPollingIterationLimit = 60000000U;
+#endif
+
         /// Stores whether the executable has registered its owned DI completion bridge.
         bool IsInitialized = false;
 
@@ -108,10 +117,30 @@ namespace helengine::gamecube {
             return true;
         }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        /// Displays a persistent reader-owned checkpoint when a DI request never exposes a terminal status bit.
+        [[noreturn]] void LatchDiscReadTimeout() {
+            ReportDirectFrameDiagnosticCode(0xD001U);
+            while (true) {
+                asm volatile("sync" ::: "memory");
+            }
+        }
+#endif
+
         /// Waits for an interrupt-driven or directly observed terminal DI status after issuing one read request.
         bool WaitForReadCompletion(volatile uint32_t* discInterface) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            uint32_t pollingIterationCount = 0U;
+#endif
             while (!IsReadComplete) {
                 TryCompleteRead(discInterface);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                pollingIterationCount++;
+                if (pollingIterationCount == DiscReadPollingIterationLimit) {
+                    IsReadPending = false;
+                    LatchDiscReadTimeout();
+                }
+#endif
                 asm volatile("sync" ::: "memory");
             }
 

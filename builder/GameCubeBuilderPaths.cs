@@ -30,7 +30,107 @@ public sealed class GameCubeBuilderPaths {
             Path.Combine(request.OutputRoot, "game.gcm"),
             Path.Combine(request.OutputRoot, "native", "helengine_gc.dol"),
             Path.Combine(request.OutputRoot, "native", "apploader.img"),
-            Path.Combine(request.OutputRoot, "native", "gbi.hdr"));
+            Path.Combine(request.OutputRoot, "native", "gbi.hdr"),
+            ResolveMemoryCardDiagnosticJournalEnabled(request),
+            ResolveNintendontHandoffDiagnosticEnabled(request),
+            ResolveFirstFrameTraceDiagnosticEnabled(request),
+            ResolveExceptionScreenDiagnosticEnabled(request),
+            ResolveGeneratedRuntimeModuleRegistrationEnabled(request),
+            ResolveSystemReportEnabled(request),
+            ResolveDirectFrameDiagnosticEnabled(request),
+            ResolveLogoAnimationDiagnosticEnabled(request),
+            ResolveOptionalBooleanBuildOption(request, "enable-input-trace-diagnostic"));
+    }
+
+    /// <summary>
+    /// Resolves whether the current build explicitly enables the optional memory-card diagnostic journal.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <returns>True when the journal build option is enabled; otherwise false.</returns>
+    static bool ResolveMemoryCardDiagnosticJournalEnabled(PlatformBuildRequest request) {
+        return ResolveOptionalBooleanBuildOption(request, "enable-memory-card-diagnostic-journal");
+    }
+
+    /// <summary>
+    /// Resolves whether the current build explicitly enables the optional Nintendont handoff diagnostic.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <returns>True when the handoff diagnostic build option is enabled; otherwise false.</returns>
+    static bool ResolveNintendontHandoffDiagnosticEnabled(PlatformBuildRequest request) {
+        return ResolveOptionalBooleanBuildOption(request, "enable-nintendont-handoff-diagnostic");
+    }
+
+    /// <summary>
+    /// Resolves whether the current build explicitly enables the optional first-frame runtime trace diagnostic.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <returns>True when the first-frame trace build option is enabled; otherwise false.</returns>
+    static bool ResolveFirstFrameTraceDiagnosticEnabled(PlatformBuildRequest request) {
+        return ResolveOptionalBooleanBuildOption(request, "enable-first-frame-trace-diagnostic");
+    }
+
+    /// <summary>
+    /// Resolves whether the current build explicitly enables the native PowerPC exception-screen diagnostic.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <returns>True when the exception-screen diagnostic build option is enabled; otherwise false.</returns>
+    static bool ResolveExceptionScreenDiagnosticEnabled(PlatformBuildRequest request) {
+        return ResolveOptionalBooleanBuildOption(request, "enable-exception-screen-diagnostic");
+    }
+
+    /// <summary>
+    /// Resolves whether generated runtime-module registration remains enabled for the native build.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <returns>True unless the build explicitly disables generated runtime-module registration.</returns>
+    static bool ResolveGeneratedRuntimeModuleRegistrationEnabled(PlatformBuildRequest request) {
+        return ResolveOptionalBooleanBuildOption(request, "enable-generated-runtime-module-registration", true);
+    }
+
+    /// <summary>
+    /// Resolves whether libogc system reports remain available to the native runtime.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <returns>True unless the build explicitly disables system reports.</returns>
+    static bool ResolveSystemReportEnabled(PlatformBuildRequest request) {
+        return ResolveOptionalBooleanBuildOption(request, "enable-system-report", true);
+    }
+
+    /// <summary>
+    /// Resolves whether the native direct-frame diagnostic should render fixed XFB breadcrumbs and monitor progress through VI retraces.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <returns>True when the build explicitly enables the direct-frame diagnostic; otherwise false.</returns>
+    static bool ResolveDirectFrameDiagnosticEnabled(PlatformBuildRequest request) {
+        return ResolveOptionalBooleanBuildOption(request, "enable-direct-frame-diagnostic");
+    }
+
+    /// <summary>
+    /// Resolves whether the native logo-animation diagnostic should latch a visible code when sampled sprite rotation is discontinuous.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <returns>True when the build explicitly enables the logo-animation diagnostic; otherwise false.</returns>
+    static bool ResolveLogoAnimationDiagnosticEnabled(PlatformBuildRequest request) {
+        return ResolveOptionalBooleanBuildOption(request, "enable-logo-animation-diagnostic");
+    }
+
+    /// <summary>
+    /// Resolves one optional Boolean GameCube build option while rejecting malformed selected values.
+    /// </summary>
+    /// <param name="request">Resolved platform build request containing selected build options.</param>
+    /// <param name="settingId">Stable identifier of the optional Boolean build setting.</param>
+    /// <param name="defaultValue">Value used when no option was selected.</param>
+    /// <returns>The selected setting value, or <paramref name="defaultValue"/> when no value was selected.</returns>
+    static bool ResolveOptionalBooleanBuildOption(PlatformBuildRequest request, string settingId, bool defaultValue = false) {
+        if (!request.SelectedBuildOptionValues.TryGetValue(settingId, out string configuredValue)) {
+            return defaultValue;
+        }
+
+        if (!bool.TryParse(configuredValue, out bool enabled)) {
+            throw new InvalidOperationException($"GameCube build option '{settingId}' must be either true or false.");
+        }
+
+        return enabled;
     }
 
     /// <summary>
@@ -92,6 +192,15 @@ public sealed class GameCubeBuilderPaths {
     /// <param name="nativeExecutablePath">Packaged-mode native DOL output path staged by the builder.</param>
     /// <param name="nativeApploaderImagePath">Packaged-mode GameCube apploader image output path staged by the builder.</param>
     /// <param name="nativeGenericBootImagePath">Packaged-mode GameCube generic boot image header staged by the builder.</param>
+    /// <param name="memoryCardDiagnosticJournalEnabled">True when the optional memory-card diagnostic journal should be compiled into the native runtime.</param>
+    /// <param name="nintendontHandoffDiagnosticEnabled">True when the optional Nintendont DOL-entry handoff diagnostic should be compiled into the native runtime.</param>
+    /// <param name="firstFrameTraceDiagnosticEnabled">True when the optional first-frame runtime trace should be compiled into the native runtime.</param>
+    /// <param name="exceptionScreenDiagnosticEnabled">True when the optional native PowerPC exception screen should be compiled into the native runtime.</param>
+    /// <param name="generatedRuntimeModuleRegistrationEnabled">True when generated runtime modules should be registered during core initialization.</param>
+    /// <param name="systemReportEnabled">True when libogc system reports should be sent to their configured output.</param>
+    /// <param name="directFrameDiagnosticEnabled">True when fixed XFB breadcrumbs and the VI watchdog should be compiled into the native runtime.</param>
+    /// <param name="logoAnimationDiagnosticEnabled">True when discontinuous rotating-logo samples should latch a fixed XFB code.</param>
+    /// <param name="inputTraceDiagnosticEnabled">True when the first nonzero GameCube controller state should be reported.</param>
     public GameCubeBuilderPaths(
         string repositoryRootPath,
         string generatedCoreRootPath,
@@ -100,7 +209,16 @@ public sealed class GameCubeBuilderPaths {
         string discImagePath,
         string nativeExecutablePath,
         string nativeApploaderImagePath,
-        string nativeGenericBootImagePath) {
+        string nativeGenericBootImagePath,
+        bool memoryCardDiagnosticJournalEnabled = false,
+        bool nintendontHandoffDiagnosticEnabled = false,
+        bool firstFrameTraceDiagnosticEnabled = false,
+        bool exceptionScreenDiagnosticEnabled = false,
+        bool generatedRuntimeModuleRegistrationEnabled = true,
+        bool systemReportEnabled = true,
+        bool directFrameDiagnosticEnabled = false,
+        bool logoAnimationDiagnosticEnabled = false,
+        bool inputTraceDiagnosticEnabled = false) {
         RepositoryRootPath = string.IsNullOrWhiteSpace(repositoryRootPath)
             ? throw new ArgumentException("Repository root path is required.", nameof(repositoryRootPath))
             : repositoryRootPath;
@@ -125,6 +243,15 @@ public sealed class GameCubeBuilderPaths {
         NativeGenericBootImagePath = string.IsNullOrWhiteSpace(nativeGenericBootImagePath)
             ? throw new ArgumentException("Native generic boot image path is required.", nameof(nativeGenericBootImagePath))
             : nativeGenericBootImagePath;
+        MemoryCardDiagnosticJournalEnabled = memoryCardDiagnosticJournalEnabled;
+        NintendontHandoffDiagnosticEnabled = nintendontHandoffDiagnosticEnabled;
+        FirstFrameTraceDiagnosticEnabled = firstFrameTraceDiagnosticEnabled;
+        ExceptionScreenDiagnosticEnabled = exceptionScreenDiagnosticEnabled;
+        GeneratedRuntimeModuleRegistrationEnabled = generatedRuntimeModuleRegistrationEnabled;
+        SystemReportEnabled = systemReportEnabled;
+        DirectFrameDiagnosticEnabled = directFrameDiagnosticEnabled;
+        LogoAnimationDiagnosticEnabled = logoAnimationDiagnosticEnabled;
+        InputTraceDiagnosticEnabled = inputTraceDiagnosticEnabled;
     }
 
     /// <summary>
@@ -166,6 +293,51 @@ public sealed class GameCubeBuilderPaths {
     /// Gets the packaged-mode GameCube generic boot image header output path staged by the builder.
     /// </summary>
     public string NativeGenericBootImagePath { get; }
+
+    /// <summary>
+    /// Gets whether the optional memory-card diagnostic journal is enabled for this native build.
+    /// </summary>
+    public bool MemoryCardDiagnosticJournalEnabled { get; }
+
+    /// <summary>
+    /// Gets whether the optional Nintendont DOL-entry handoff diagnostic is enabled for this native build.
+    /// </summary>
+    public bool NintendontHandoffDiagnosticEnabled { get; }
+
+    /// <summary>
+    /// Gets whether the optional one-frame runtime boundary trace is enabled for this native build.
+    /// </summary>
+    public bool FirstFrameTraceDiagnosticEnabled { get; }
+
+    /// <summary>
+    /// Gets whether the optional native PowerPC exception screen is enabled for this build.
+    /// </summary>
+    public bool ExceptionScreenDiagnosticEnabled { get; }
+
+    /// <summary>
+    /// Gets whether generated runtime modules are registered after engine-core initialization.
+    /// </summary>
+    public bool GeneratedRuntimeModuleRegistrationEnabled { get; }
+
+    /// <summary>
+    /// Gets whether libogc system reports remain enabled in the native executable.
+    /// </summary>
+    public bool SystemReportEnabled { get; }
+
+    /// <summary>
+    /// Gets whether the native direct-frame diagnostic is enabled for this build.
+    /// </summary>
+    public bool DirectFrameDiagnosticEnabled { get; }
+
+    /// <summary>
+    /// Gets whether discontinuous rotating-logo samples latch a fixed XFB diagnostic code in the native executable.
+    /// </summary>
+    public bool LogoAnimationDiagnosticEnabled { get; }
+
+    /// <summary>
+    /// Gets whether the first nonzero GameCube controller state is reported to the configured system report sink.
+    /// </summary>
+    public bool InputTraceDiagnosticEnabled { get; }
 
     /// <summary>
     /// Gets the generated-core root relative to the repository root for Docker path mapping.

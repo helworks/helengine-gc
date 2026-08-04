@@ -14,10 +14,28 @@
 #include <ogc/pad.h>
 #include <ogc/system.h>
 
+#include "platform/gamecube/GameCubeDiscReader.hpp"
+
+#if HELENGINE_GAMECUBE_EXCEPTION_SCREEN_DIAGNOSTIC
+#include <cstdio>
+
+#include <ogc/console.h>
+#include <tuxedo/ppc/context.h>
+
+#include "platform/gamecube/GameCubeExceptionDiagnostics.hpp"
+#endif
+
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+#include "platform/gamecube/GameCubeMemoryCardDiagnosticJournal.hpp"
+#endif
+
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
 #include "Core.hpp"
 #include "CoreInitializationOptions.hpp"
 #include "HostFileSystemContentStreamSource.hpp"
+#include "CameraComponent.hpp"
+#include "IRoundedRectDrawable2D.hpp"
+#include "LoadedSceneRecord.hpp"
 #include "PlatformInfo.hpp"
 #if HELENGINE_GAMECUBE_HAS_GENERATED_RUNTIME_MODULE_REGISTRATION
 #include "GeneratedRuntimeModuleRegistration.hpp"
@@ -32,6 +50,7 @@
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 #include "platform/gamecube/GameCubeRenderManager3D.hpp"
 #include "platform/gamecube/GameCubeSceneBootstrap.hpp"
+#include "platform/gamecube/GameCubeSceneTransitionTraceDiagnostics.hpp"
 #endif
 
 namespace {
@@ -146,15 +165,45 @@ namespace helengine::gamecube {
 #endif
     }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+    GameCubeApplication* GameCubeApplication::DirectFrameDiagnosticApplication = nullptr;
+    VIRetraceCallback GameCubeApplication::PreviousDirectFrameDiagnosticRetraceCallback = nullptr;
+
+    /// Updates the active direct-frame checkpoint from a GameCube native rendering boundary.
+    void ReportDirectFrameDiagnosticCode(uint16_t code) {
+        if (GameCubeApplication::DirectFrameDiagnosticApplication != nullptr) {
+            GameCubeApplication::DirectFrameDiagnosticApplication->DisplayDirectFrameDiagnosticCode(code);
+        }
+    }
+#endif
+
+#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC
+    GameCubeApplication* GameCubeApplication::LogoAnimationDiagnosticApplication = nullptr;
+
+    /// Latches one rotating-logo anomaly code for presentation after the current normal frame completes.
+    void LatchLogoAnimationDiagnosticCode(uint16_t code) {
+        GameCubeApplication* const application = GameCubeApplication::LogoAnimationDiagnosticApplication;
+        if (application != nullptr
+            && (!application->LogoAnimationDiagnosticLatched
+                || (application->LogoAnimationDiagnosticCode == 0xA000U && code != 0xA000U))) {
+            application->LogoAnimationDiagnosticCode = code;
+            application->LogoAnimationDiagnosticLatched = true;
+        }
+    }
+#endif
+
     /// Creates the GameCube application with no initialized native or engine state.
     GameCubeApplication::GameCubeApplication()
         : RenderMode(nullptr)
         , FrameBuffers { nullptr, nullptr }
         , FrameBufferIndex(0U)
-        , ClearColor { 0x00, 0xFF, 0x00, 0xFF }
+        , ClearColor { 0xFF, 0x00, 0xFF, 0xFF }
         , BootPhase(GameCubeBootPhase::NativeVideo)
         , EngineInitialized(false)
+        , GraphicsInitialized(false)
         , PresentedFrameCount(0)
+        , PreviousFrameTicks(0U)
+        , LastElapsedFrameSeconds(0.0)
         , VerifiedFrameCount(0)
         , UpdateCompletedSincePresent(false)
         , DrawCompletedSincePresent(false)
@@ -162,13 +211,30 @@ namespace helengine::gamecube {
         , FirstUpdateCompletedReported(false)
         , FirstDrawBeginReported(false)
         , FirstDrawCompletedReported(false)
+        , FirstFrameTraceCompleted(false)
         , VerificationProbeFailed(false)
         , VerificationCenterVisibleOnce(false)
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        , DirectFrameDiagnosticHeartbeat(0U)
+        , DirectFrameDiagnosticObservedHeartbeat(0U)
+        , DirectFrameDiagnosticStalledRetraceCount(0U)
+        , DirectFrameDiagnosticCode(0x0000U)
+#endif
+#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC
+        , LogoAnimationDiagnosticLatched(false)
+        , LogoAnimationDiagnosticCode(0x0000U)
+#endif
         , VerificationMarkerVisibleOnce(false)
         , VerificationMissingSampleCount(0U)
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+        , MemoryCardDiagnosticJournal(nullptr)
+        , HasRecordedCoreUpdate(false)
+        , HasRecordedCoreDraw(false)
+#endif
         , MinimalSampleVertices { 0, 15, 0, -15, -15, 0, 15, -15, 0 }
         , MinimalSampleColors { 255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255 }
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
+        , SceneTransitionTraceDiagnostics(nullptr)
         , EngineCore(nullptr)
         , EngineRenderManager3D(nullptr)
         , EngineRenderManager2D(nullptr)
@@ -181,13 +247,29 @@ namespace helengine::gamecube {
 
     /// Releases generated-core bridge objects after the application loop finishes.
     GameCubeApplication::~GameCubeApplication() {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        if (DirectFrameDiagnosticApplication == this) {
+            VIDEO_SetPostRetraceCallback(PreviousDirectFrameDiagnosticRetraceCallback);
+            DirectFrameDiagnosticApplication = nullptr;
+            PreviousDirectFrameDiagnosticRetraceCallback = nullptr;
+        }
+#endif
+#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC
+        if (LogoAnimationDiagnosticApplication == this) {
+            LogoAnimationDiagnosticApplication = nullptr;
+        }
+#endif
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
         delete EngineCore;
+        delete SceneTransitionTraceDiagnostics;
         delete EngineInputManager;
         delete EngineAudioBackend;
         delete EngineRenderManager2D;
         delete EngineRenderManager3D;
         delete EnginePlatformInfo;
+#endif
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+        delete MemoryCardDiagnosticJournal;
 #endif
     }
 
@@ -212,13 +294,36 @@ namespace helengine::gamecube {
             return 1;
         }
 
+#if HELENGINE_GAMECUBE_EXCEPTION_SCREEN_DIAGNOSTIC
+        GameCubeExceptionDiagnostics::Install(this);
+#endif
+
         SetBootPhase(GameCubeBootPhase::NativeGraphics, GXColor { 0x00, 0x00, 0xFF, 0xFF });
+        PresentBootFrame();
         if (!InitializeGraphics()) {
             FailBootPhase(GameCubeBootPhase::NativeGraphics, GXColor { 0x80, 0x00, 0x80, 0xFF });
             if (IsVerificationBuild()) {
                 return GetVerificationExitCode();
             }
             return 1;
+        }
+
+        if (!VerifyNintendontHandoff()) {
+            while (true) {
+                PresentBootFrame();
+            }
+        }
+
+#if HELENGINE_GAMECUBE_NINTENDONT_HANDOFF_DIAGNOSTIC
+        while (true) {
+            PresentBootFrame();
+        }
+#endif
+
+        if (!InitializeMemoryCardDiagnosticJournal()) {
+            while (true) {
+                PresentBootFrame();
+            }
         }
 
 #if !HELENGINE_GAMECUBE_HAS_GENERATED_CORE || HELENGINE_GAMECUBE_MINIMAL_SAMPLE
@@ -288,9 +393,18 @@ namespace helengine::gamecube {
             }
             return 1;
         }
+
+        PresentFirstFrameTraceCheckpoint(GXColor { 0x20, 0x40, 0xFF, 0xFF });
 #endif
 
         while (true) {
+#if HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC
+            if (FirstFrameTraceCompleted) {
+                while (true) {
+                    PresentBootFrame();
+                }
+            }
+#endif
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
             if (!UpdateEngineCore()) {
                 if (IsVerificationBuild()) {
@@ -339,6 +453,14 @@ namespace helengine::gamecube {
         VIDEO_SetNextFramebuffer(FrameBuffers[0]);
         VIDEO_SetBlack(FALSE);
         VIDEO_Flush();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        DirectFrameDiagnosticApplication = this;
+        PreviousDirectFrameDiagnosticRetraceCallback = VIDEO_SetPostRetraceCallback(HandleDirectFrameDiagnosticRetrace);
+        DisplayDirectFrameDiagnosticCode(0x0001U);
+#endif
+#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC
+        LogoAnimationDiagnosticApplication = this;
+#endif
         VIDEO_WaitVSync();
 
         if (RenderMode->viTVMode & VI_NON_INTERLACE) {
@@ -346,6 +468,231 @@ namespace helengine::gamecube {
         }
         return true;
     }
+
+    /// Presents the current boot-phase color through VI or GX, depending on which native subsystem is ready.
+    void GameCubeApplication::PresentBootFrame() {
+        if (!GraphicsInitialized) {
+            PresentVideoBootFrame();
+            return;
+        }
+
+        FrameBufferIndex ^= 1U;
+        GX_SetCopyClear(ClearColor, 0x00FFFFFF);
+        GX_CopyDisp(FrameBuffers[FrameBufferIndex], GX_TRUE);
+        GX_DrawDone();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        WriteDirectFrameDiagnosticCode(DirectFrameDiagnosticCode);
+#endif
+#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC && !HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        if (LogoAnimationDiagnosticLatched) {
+            WriteDirectFrameDiagnosticCode(LogoAnimationDiagnosticCode);
+        }
+#endif
+        VIDEO_SetNextFramebuffer(FrameBuffers[FrameBufferIndex]);
+        VIDEO_Flush();
+        VIDEO_WaitVSync();
+    }
+
+    /// Presents one timed first-frame trace checkpoint when the optional runtime trace is enabled.
+    void GameCubeApplication::PresentFirstFrameTraceCheckpoint(GXColor color) {
+#if HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC
+        SetClearColor(color);
+        for (uint32_t presentationIndex = 0U; presentationIndex < FirstFrameTraceCheckpointPresentationCount; ++presentationIndex) {
+            PresentBootFrame();
+        }
+#else
+        static_cast<void>(color);
+#endif
+    }
+
+#if HELENGINE_GAMECUBE_EXCEPTION_SCREEN_DIAGNOSTIC
+    /// Presents one fatal PowerPC exception report through the active VI framebuffer and does not return.
+    void GameCubeApplication::PresentExceptionDiagnostics(
+        unsigned exceptionId,
+        const PPCContext* context,
+        uint32_t faultAddress,
+        uint32_t dataStorageInterruptStatus,
+        int32_t sceneListCount,
+        int32_t sceneListCapacity,
+        const void* sceneListData) {
+        const uint32_t programCounter = context != nullptr ? context->pc : 0U;
+        void* frameBuffer = FrameBuffers[FrameBufferIndex];
+        if (RenderMode == nullptr || frameBuffer == nullptr) {
+            while (true) {
+            }
+        }
+
+        VIDEO_ClearFrameBuffer(RenderMode, frameBuffer, COLOR_BLACK);
+        CON_Init(
+            frameBuffer,
+            16,
+            16,
+            static_cast<int>(RenderMode->fbWidth) - 32,
+            static_cast<int>(RenderMode->xfbHeight) - 32,
+            static_cast<int>(RenderMode->fbWidth) * 2);
+        std::printf("HELENGINE GAMECUBE EXCEPTION\n\n");
+        std::printf("EXCEPTION: %u\n", exceptionId);
+        std::printf("PC:        %08lX\n", static_cast<unsigned long>(programCounter));
+        std::printf("FAULT:     %08lX\n", static_cast<unsigned long>(faultAddress));
+        std::printf("DSISR:     %08lX\n\n", static_cast<unsigned long>(dataStorageInterruptStatus));
+        std::printf("SCENE LIST COUNT:    %ld\n", static_cast<long>(sceneListCount));
+        std::printf("SCENE LIST CAPACITY: %ld\n", static_cast<long>(sceneListCapacity));
+        std::printf("SCENE LIST DATA:     %08lX\n", static_cast<unsigned long>(reinterpret_cast<uintptr_t>(sceneListData)));
+        VIDEO_SetNextFramebuffer(frameBuffer);
+        VIDEO_SetBlack(FALSE);
+        VIDEO_Flush();
+        while (true) {
+            VIDEO_WaitVSync();
+        }
+    }
+#endif
+
+    /// Presents the current boot-phase color through VI without submitting GX work, for diagnostics that isolate the display-copy pipeline.
+    void GameCubeApplication::PresentVideoBootFrame() {
+        const uint32_t videoClearColor = ConvertToVideoClearColor(ClearColor);
+        VIDEO_ClearFrameBuffer(RenderMode, FrameBuffers[0], videoClearColor);
+        VIDEO_ClearFrameBuffer(RenderMode, FrameBuffers[1], videoClearColor);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        WriteDirectFrameDiagnosticCode(DirectFrameDiagnosticCode);
+#endif
+        FrameBufferIndex ^= 1U;
+        VIDEO_SetNextFramebuffer(FrameBuffers[FrameBufferIndex]);
+        VIDEO_Flush();
+        VIDEO_WaitVSync();
+    }
+
+    /// Converts one RGB diagnostic color into the packed YCbYCr framebuffer value required by VIDEO_ClearFrameBuffer.
+    uint32_t GameCubeApplication::ConvertToVideoClearColor(const GXColor& color) {
+        const double red = static_cast<double>(color.r);
+        const double green = static_cast<double>(color.g);
+        const double blue = static_cast<double>(color.b);
+        const uint8_t luminance = static_cast<uint8_t>(std::clamp(static_cast<int32_t>(16.0 + (0.257 * red) + (0.504 * green) + (0.098 * blue)), 0, 255));
+        const uint8_t chromaBlue = static_cast<uint8_t>(std::clamp(static_cast<int32_t>(128.0 - (0.148 * red) - (0.291 * green) + (0.439 * blue)), 0, 255));
+        const uint8_t chromaRed = static_cast<uint8_t>(std::clamp(static_cast<int32_t>(128.0 + (0.439 * red) - (0.368 * green) - (0.071 * blue)), 0, 255));
+        return (static_cast<uint32_t>(luminance) << 24)
+            | (static_cast<uint32_t>(chromaBlue) << 16)
+            | (static_cast<uint32_t>(luminance) << 8)
+            | static_cast<uint32_t>(chromaRed);
+    }
+
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+    /// Records a numeric native checkpoint and makes it visible without using GX, fonts, or the generated engine.
+    void GameCubeApplication::DisplayDirectFrameDiagnosticCode(uint16_t code) {
+        DirectFrameDiagnosticCode = code;
+        AdvanceDirectFrameDiagnosticHeartbeat();
+        WriteDirectFrameDiagnosticCode(code);
+    }
+
+    /// Advances the native progress counter observed by the VI retrace watchdog.
+    void GameCubeApplication::AdvanceDirectFrameDiagnosticHeartbeat() {
+        DirectFrameDiagnosticHeartbeat++;
+    }
+
+    /// Handles one VI retrace and replaces a stale checkpoint with DEAD when native progress has stopped.
+    void GameCubeApplication::HandleDirectFrameDiagnosticRetrace(uint32_t retraceCount) {
+        static_cast<void>(retraceCount);
+        GameCubeApplication* const application = DirectFrameDiagnosticApplication;
+        if (application == nullptr) {
+            return;
+        }
+
+        const uint32_t heartbeat = application->DirectFrameDiagnosticHeartbeat;
+        if (heartbeat == application->DirectFrameDiagnosticObservedHeartbeat) {
+            application->DirectFrameDiagnosticStalledRetraceCount++;
+            if (application->DirectFrameDiagnosticStalledRetraceCount == DirectFrameDiagnosticStallRetraceLimit) {
+                application->WriteDirectFrameDiagnosticCode(0xDEADU);
+            }
+        } else {
+            application->DirectFrameDiagnosticObservedHeartbeat = heartbeat;
+            application->DirectFrameDiagnosticStalledRetraceCount = 0U;
+        }
+
+        if (PreviousDirectFrameDiagnosticRetraceCallback != nullptr) {
+            PreviousDirectFrameDiagnosticRetraceCallback(retraceCount);
+        }
+    }
+
+    
+#endif
+
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC || HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC
+    /// Writes the current four-digit native checkpoint into both external framebuffers.
+    void GameCubeApplication::WriteDirectFrameDiagnosticCode(uint16_t code) {
+        if (RenderMode == nullptr || FrameBuffers[0] == nullptr || FrameBuffers[1] == nullptr) {
+            return;
+        }
+
+        constexpr uint32_t foregroundColor = 0xEB80EB80U;
+        constexpr uint32_t backgroundColor = 0x10801080U;
+        constexpr uint32_t horizontalScale = 3U;
+        constexpr uint32_t verticalScale = 4U;
+        constexpr uint32_t glyphWidth = 3U;
+        constexpr uint32_t glyphHeight = 5U;
+        constexpr uint32_t glyphGap = 2U;
+        constexpr uint32_t margin = 8U;
+        constexpr uint32_t digitCount = 4U;
+        const uint32_t framebufferWordWidth = static_cast<uint32_t>(RenderMode->fbWidth) / 2U;
+        const uint32_t framebufferHeight = static_cast<uint32_t>(RenderMode->xfbHeight);
+        const uint32_t overlayWidth = (digitCount * glyphWidth * horizontalScale) + ((digitCount - 1U) * glyphGap);
+        const uint32_t overlayHeight = glyphHeight * verticalScale;
+
+        if (framebufferWordWidth <= margin + overlayWidth || framebufferHeight <= margin + overlayHeight) {
+            return;
+        }
+
+        for (uint32_t framebufferIndex = 0U; framebufferIndex < 2U; framebufferIndex++) {
+            volatile uint32_t* const framebufferWords = static_cast<volatile uint32_t*>(FrameBuffers[framebufferIndex]);
+            for (uint32_t y = 0U; y < overlayHeight; y++) {
+                volatile uint32_t* const row = framebufferWords + ((margin + y) * framebufferWordWidth) + margin;
+                for (uint32_t x = 0U; x < overlayWidth; x++) {
+                    row[x] = backgroundColor;
+                }
+            }
+
+            for (uint32_t digitIndex = 0U; digitIndex < digitCount; digitIndex++) {
+                const uint32_t shift = (digitCount - 1U - digitIndex) * 4U;
+                const uint8_t hexDigit = static_cast<uint8_t>((code >> shift) & 0x0FU);
+                const uint32_t digitStartX = margin + (digitIndex * ((glyphWidth * horizontalScale) + glyphGap));
+                for (uint32_t glyphRow = 0U; glyphRow < glyphHeight; glyphRow++) {
+                    const uint8_t glyphBits = GetDirectFrameDiagnosticGlyphRow(hexDigit, static_cast<uint8_t>(glyphRow));
+                    for (uint32_t verticalOffset = 0U; verticalOffset < verticalScale; verticalOffset++) {
+                        volatile uint32_t* const row = framebufferWords + ((margin + (glyphRow * verticalScale) + verticalOffset) * framebufferWordWidth) + digitStartX;
+                        for (uint32_t glyphColumn = 0U; glyphColumn < glyphWidth; glyphColumn++) {
+                            const bool foreground = (glyphBits & (1U << (glyphWidth - 1U - glyphColumn))) != 0U;
+                            const uint32_t pixelColor = foreground ? foregroundColor : backgroundColor;
+                            for (uint32_t horizontalOffset = 0U; horizontalOffset < horizontalScale; horizontalOffset++) {
+                                row[(glyphColumn * horizontalScale) + horizontalOffset] = pixelColor;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Returns the three-bit row pattern for one hexadecimal glyph in the native checkpoint overlay.
+    uint8_t GameCubeApplication::GetDirectFrameDiagnosticGlyphRow(uint8_t hexDigit, uint8_t row) {
+        static constexpr uint8_t glyphRows[16][5] = {
+            { 0x07U, 0x05U, 0x05U, 0x05U, 0x07U },
+            { 0x02U, 0x06U, 0x02U, 0x02U, 0x07U },
+            { 0x07U, 0x01U, 0x07U, 0x04U, 0x07U },
+            { 0x07U, 0x01U, 0x07U, 0x01U, 0x07U },
+            { 0x05U, 0x05U, 0x07U, 0x01U, 0x01U },
+            { 0x07U, 0x04U, 0x07U, 0x01U, 0x07U },
+            { 0x07U, 0x04U, 0x07U, 0x05U, 0x07U },
+            { 0x07U, 0x01U, 0x02U, 0x02U, 0x02U },
+            { 0x07U, 0x05U, 0x07U, 0x05U, 0x07U },
+            { 0x07U, 0x05U, 0x07U, 0x01U, 0x07U },
+            { 0x02U, 0x05U, 0x07U, 0x05U, 0x05U },
+            { 0x06U, 0x05U, 0x06U, 0x05U, 0x06U },
+            { 0x07U, 0x04U, 0x04U, 0x04U, 0x07U },
+            { 0x06U, 0x05U, 0x05U, 0x05U, 0x06U },
+            { 0x07U, 0x04U, 0x07U, 0x04U, 0x07U },
+            { 0x07U, 0x04U, 0x07U, 0x04U, 0x04U }
+        };
+        return hexDigit < 16U && row < 5U ? glyphRows[hexDigit][row] : 0U;
+    }
+#endif
 
     /// Initializes the minimal-sample triangle state used to validate the host loop with a known-good GX sample.
     bool GameCubeApplication::InitializeMinimalSample() {
@@ -433,16 +780,110 @@ namespace helengine::gamecube {
         GX_SetCopyClear(GXColor { 0x00, 0x00, 0x00, 0xFF }, 0x00FFFFFF);
         GX_CopyDisp(FrameBuffers[0], GX_TRUE);
         GX_CopyDisp(FrameBuffers[0], GX_TRUE);
+        GraphicsInitialized = true;
+
+        return true;
+    }
+
+    /// Initializes the optional persistent diagnostic journal after video and GX are ready.
+    bool GameCubeApplication::InitializeMemoryCardDiagnosticJournal() {
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+        SetBootPhase(GameCubeBootPhase::NativeGraphics, GXColor { 0xFF, 0x80, 0x20, 0xFF });
+        PresentBootFrame();
+        MemoryCardDiagnosticJournal = new GameCubeMemoryCardDiagnosticJournal();
+        if (!MemoryCardDiagnosticJournal->Initialize()) {
+            const GameCubeMemoryCardDiagnosticFailure failure = MemoryCardDiagnosticJournal->GetInitializationFailure();
+            const s32 resultCode = MemoryCardDiagnosticJournal->GetInitializationResultCode();
+            delete MemoryCardDiagnosticJournal;
+            MemoryCardDiagnosticJournal = nullptr;
+            FailBootPhase(GameCubeBootPhase::NativeGraphics, GetMemoryCardDiagnosticFailureColor(failure, resultCode));
+            PresentBootFrame();
+            return false;
+        }
+#endif
+
+        return true;
+    }
+
+    /// Resolves the persistent diagnostic color assigned to one failed CARD initialization operation.
+    GXColor GameCubeApplication::GetMemoryCardDiagnosticFailureColor(GameCubeMemoryCardDiagnosticFailure failure, s32 resultCode) const {
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+        if (failure == GameCubeMemoryCardDiagnosticFailure::CardMount) {
+            switch (resultCode) {
+                case CARD_ERROR_BUSY:
+                    return GXColor { 0xFF, 0x20, 0x20, 0xFF };
+                case CARD_ERROR_WRONGDEVICE:
+                    return GXColor { 0xFF, 0xFF, 0x20, 0xFF };
+                case CARD_ERROR_NOCARD:
+                    return GXColor { 0x20, 0x20, 0xFF, 0xFF };
+                case CARD_ERROR_IOERROR:
+                    return GXColor { 0xFF, 0xFF, 0xFF, 0xFF };
+                case CARD_ERROR_BROKEN:
+                    return GXColor { 0x20, 0xFF, 0xFF, 0xFF };
+                case CARD_ERROR_ENCODING:
+                    return GXColor { 0xA0, 0x20, 0xFF, 0xFF };
+                case CARD_ERROR_CANCELED:
+                    return GXColor { 0xFF, 0x60, 0x20, 0xFF };
+                case CARD_ERROR_FATAL_ERROR:
+                    return GXColor { 0xFF, 0xFF, 0x80, 0xFF };
+                default:
+                    return GXColor { 0xFF, 0x20, 0xFF, 0xFF };
+            }
+        }
+
+        switch (failure) {
+            case GameCubeMemoryCardDiagnosticFailure::CardInit:
+                return GXColor { 0xFF, 0x20, 0x20, 0xFF };
+            case GameCubeMemoryCardDiagnosticFailure::CardProbe:
+                return GXColor { 0x20, 0x20, 0xFF, 0xFF };
+            case GameCubeMemoryCardDiagnosticFailure::CardMount:
+                return GXColor { 0xFF, 0x20, 0xFF, 0xFF };
+            case GameCubeMemoryCardDiagnosticFailure::CardSectorSize:
+                return GXColor { 0xFF, 0xFF, 0x20, 0xFF };
+            case GameCubeMemoryCardDiagnosticFailure::CardOpen:
+                return GXColor { 0x20, 0xFF, 0xFF, 0xFF };
+            case GameCubeMemoryCardDiagnosticFailure::CardCreate:
+                return GXColor { 0xFF, 0x60, 0x20, 0xFF };
+            case GameCubeMemoryCardDiagnosticFailure::CardRead:
+                return GXColor { 0xA0, 0x20, 0xFF, 0xFF };
+            case GameCubeMemoryCardDiagnosticFailure::CardWrite:
+                return GXColor { 0x20, 0xFF, 0x80, 0xFF };
+            case GameCubeMemoryCardDiagnosticFailure::None:
+                return GXColor { 0xFF, 0xFF, 0xFF, 0xFF };
+        }
+#else
+        (void)failure;
+        (void)resultCode;
+#endif
+
+        return GXColor { 0xFF, 0xFF, 0xFF, 0xFF };
+    }
+
+    /// Verifies that Nintendont's temporary DOL-entry trampoline completed before the generated game entry began executing.
+    bool GameCubeApplication::VerifyNintendontHandoff() {
+#if HELENGINE_GAMECUBE_NINTENDONT_HANDOFF_DIAGNOSTIC
+        const volatile uint32_t* const handoffStatusAddress = reinterpret_cast<const volatile uint32_t*>(NintendontHandoffStatusAddress);
+        const uint32_t handoffStatus = *handoffStatusAddress;
+        if (handoffStatus == NintendontTrampolinePendingStatus) {
+            FailBootPhase(GameCubeBootPhase::NativeGraphics, GXColor { 0xFF, 0x20, 0x20, 0xFF });
+            PresentBootFrame();
+            return false;
+        } else if (handoffStatus < NintendontGameEntryMinimum || handoffStatus >= NintendontGameEntryMaximumExclusive) {
+            FailBootPhase(GameCubeBootPhase::NativeGraphics, GXColor { 0xFF, 0x20, 0xFF, 0xFF });
+            PresentBootFrame();
+            return false;
+        }
+
+        SetBootPhase(GameCubeBootPhase::NativeGraphics, GXColor { 0xFF, 0x80, 0x20, 0xFF });
+        PresentBootFrame();
+#endif
 
         return true;
     }
 
     /// Initializes the DVD interface used by packaged-disc boots before any content reads occur.
     bool GameCubeApplication::InitializePackagedDisc() {
-        DVD_Init();
-        const s32 mountResult = DVD_Mount();
-        SYS_Report("[GC] DVD_Mount result: %ld\n", static_cast<long>(mountResult));
-        return mountResult >= 0;
+        return GameCubeDiscReader::Initialize();
     }
 
     /// Reads one byte range from the mounted GameCube disc using aligned sector transfers.
@@ -465,10 +906,8 @@ namespace helengine::gamecube {
             return false;
         }
 
-        bool readSucceeded = true;
-        if (__io_gcdvd.readSectors == nullptr || !__io_gcdvd.readSectors(static_cast<sec_t>(firstSectorIndex), static_cast<sec_t>(sectorCount), sectorBuffer)) {
-            readSucceeded = false;
-        } else {
+        const bool readSucceeded = GameCubeDiscReader::ReadBytes(sectorBuffer, firstSectorIndex * DiscSectorSize, sectorCount * DiscSectorSize);
+        if (readSucceeded) {
             std::memcpy(destination, sectorBuffer + firstSectorByteOffset, length);
         }
 
@@ -676,11 +1115,25 @@ namespace helengine::gamecube {
         try {
             initializationStage = "ConstructCore";
             SetBootPhase(GameCubeBootPhase::CoreConstruction, GXColor { 0xFF, 0xFF, 0x00, 0xFF });
+            PresentBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA001U);
+#endif
             EngineCore = new Core();
 
             initializationStage = "ReadInitializationOptions";
             SetBootPhase(GameCubeBootPhase::CoreOptions, GXColor { 0xFF, 0x80, 0x00, 0xFF });
+            PresentBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA002U);
+#endif
             CoreInitializationOptions* options = EngineCore->get_InitializationOptions();
+            initializationStage = "ReadInitializationOptionsCompleted";
+            SetBootPhase(GameCubeBootPhase::CoreOptions, GXColor { 0x80, 0xFF, 0x00, 0xFF });
+            PresentBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA003U);
+#endif
             if (options == nullptr) {
                 FailBootPhase(GameCubeBootPhase::CoreOptions, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
                 return false;
@@ -688,19 +1141,63 @@ namespace helengine::gamecube {
 
             initializationStage = "ConfigureSceneBootstrap";
             SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0x00, 0x40, 0x80, 0xFF });
+            PresentVideoBootFrame();
 #if HELENGINE_GAMECUBE_PACKAGED_DISC_BOOT
-            if (!GameCubeSceneBootstrap::InitializePackagedDisc()) {
+            initializationStage = "InitializePackagedDisc";
+            SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0xFF, 0xFF, 0xFF, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA004U);
+#endif
+            if (!GameCubeSceneBootstrap::InitializePackagedDiscInterface()) {
                 FailBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
-                SYS_Report("[GC] Packaged DVD mount failed.\n");
                 return false;
             }
+            initializationStage = "VerifyPackagedDiscReadiness";
+            SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0xFF, 0xFF, 0x00, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA005U);
+#endif
+            if (!GameCubeSceneBootstrap::VerifyPackagedDiscReadiness()) {
+                FailBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
+                SYS_Report("[GC] Packaged disc readiness validation failed.\n");
+                return false;
+            }
+            initializationStage = "PackagedDiscReadinessVerified";
+            SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0x00, 0xFF, 0xFF, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA006U);
+#endif
             const std::string packagedContentRootPath = GameCubeSceneBootstrap::GetPackagedContentRootPath();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA007U);
+#endif
             SYS_Report("[GC] Packaged content root: %s\n", packagedContentRootPath.c_str());
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA008U);
+#endif
             options->ContentStreamSource = new HostFileSystemContentStreamSource(packagedContentRootPath);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA009U);
+#endif
             options->SceneCatalog = GameCubeSceneBootstrap::CreatePackagedSceneCatalog();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA00AU);
+#endif
             options->StandardPlatformInputConfiguration = GameCubeSceneBootstrap::CreatePackagedStandardPlatformInputConfiguration();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA00BU);
+#endif
             const std::string packagedStartupSceneId = GameCubeSceneBootstrap::GetPackagedStartupSceneId();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA00CU);
+#endif
             SYS_Report("[GC] Packaged startup scene id: %s\n", packagedStartupSceneId.c_str());
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA00DU);
+#endif
             SYS_Report("[GC] Runtime build stamp: %s\n", BuildStamp);
 #else
             options->ContentStreamSource = new HostFileSystemContentStreamSource(".");
@@ -711,28 +1208,135 @@ namespace helengine::gamecube {
             options->UpdateListInitialCapacity = 64;
             options->RenderList2DInitialCapacity = 64;
             options->RenderList3DInitialCapacity = 64;
+#if HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC
+            options->CommitPendingSceneOperationsDuringDraw = false;
+#endif
+#if HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC || HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            SceneTransitionTraceDiagnostics = new GameCubeSceneTransitionTraceDiagnostics(this);
+            options->set_RuntimeDiagnosticsProvider(SceneTransitionTraceDiagnostics);
+#endif
 
-            initializationStage = "ConstructBridgeServices";
-            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x00, 0xFF, 0xFF, 0xFF });
+            initializationStage = "ConstructRenderManager3D";
+            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x00, 0x00, 0xFF, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA00EU);
+#endif
             EngineRenderManager3D = new GameCubeRenderManager3D();
+
+            initializationStage = "ConstructRenderManager2D";
+            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA00FU);
+#endif
             EngineRenderManager2D = new GameCubeRenderManager2D();
+
+            initializationStage = "ConnectRenderManagers";
+            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0xFF, 0x00, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA010U);
+#endif
             EngineRenderManager3D->SetOverlayRenderManager2D(EngineRenderManager2D);
-            EngineInputManager = new GameCubeInputManager();
+
+            initializationStage = "InitializePlatformInput";
+            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0x80, 0x00, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA011U);
+#endif
+            GameCubeInputManager::InitializePlatformInput(
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+                MemoryCardDiagnosticJournal
+#else
+                nullptr
+#endif
+            );
+
+            initializationStage = "ConstructInputManager";
+            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x80, 0x00, 0xFF, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA012U);
+#endif
+            EngineInputManager = new GameCubeInputManager(
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+                MemoryCardDiagnosticJournal
+#else
+                nullptr
+#endif
+            );
+
+            initializationStage = "ConstructAudioBackend";
+            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA013U);
+#endif
             EngineAudioBackend = new GameCubeAudioBackend();
-            EnginePlatformInfo = new PlatformInfo("gamecube", "gc-headless");
+
+            initializationStage = "ConstructPlatformInfo";
+            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0xFF, 0xFF, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA014U);
+#endif
+            EnginePlatformInfo = new PlatformInfo("gamecube", "1.0.0");
 
             initializationStage = "AddPrimaryWindow";
-            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0x00, 0x00, 0xFF, 0xFF });
+            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0x00, 0x40, 0xFF, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA015U);
+#endif
             EngineRenderManager3D->AddWindow(0, RenderMode->fbWidth, RenderMode->efbHeight);
+
+            initializationStage = "SetPresentedFrameSize";
+            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x80, 0x00, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA016U);
+#endif
             EngineRenderManager3D->SetPresentedFrameSize(static_cast<uint16_t>(RenderMode->fbWidth), static_cast<uint16_t>(RenderMode->efbHeight));
+
             initializationStage = "InitializeCore";
+            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA017U);
+#endif
             EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA018U);
+#endif
             EngineCore->SetAudioBackend(EngineAudioBackend);
+            initializationStage = "InitializeCoreCompleted";
+            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA019U);
+#endif
+            PresentVideoBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA01AU);
+#endif
             SYS_Report("[GC] Engine core initialized.\n");
-#if HELENGINE_GAMECUBE_HAS_GENERATED_RUNTIME_MODULE_REGISTRATION
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA01BU);
+#endif
+#if HELENGINE_GAMECUBE_HAS_GENERATED_RUNTIME_MODULE_REGISTRATION && HELENGINE_GAMECUBE_GENERATED_RUNTIME_MODULE_REGISTRATION_ENABLED
             initializationStage = "RegisterGeneratedRuntimeModules";
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA01CU);
+#endif
             RegisterGeneratedRuntimeModules(EngineCore);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA01DU);
+#endif
             SYS_Report("[GC] Generated runtime modules registered.\n");
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA01EU);
+#endif
 #endif
         }
         catch (const std::exception& exception) {
@@ -763,6 +1367,10 @@ namespace helengine::gamecube {
 
         try {
             SetBootPhase(GameCubeBootPhase::SceneLoad, GXColor { 0x40, 0x40, 0xFF, 0xFF });
+            PresentBootFrame();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA01FU);
+#endif
 #if HELENGINE_GAMECUBE_PACKAGED_DISC_BOOT
             if (EngineCore->get_SceneManager() == nullptr) {
                 throw std::runtime_error("Packaged GameCube boot requires a runtime scene manager.");
@@ -770,13 +1378,25 @@ namespace helengine::gamecube {
 
             const std::string runtimeTestSceneOverride = GetRuntimeTestSceneOverride();
             if (runtimeTestSceneOverride == "slope") {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xA020U);
+#endif
                 GameCubeCubeTestSceneInstaller::InstallSlopeScene();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xA021U);
+#endif
                 SYS_Report("[GC] Runtime slope test scene installed.\n");
             } else if (!runtimeTestSceneOverride.empty()) {
                 throw std::runtime_error(std::string("Unsupported GameCube runtime test scene override: ") + runtimeTestSceneOverride);
             } else {
                 const std::string packagedStartupSceneId = GameCubeSceneBootstrap::GetPackagedStartupSceneId();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xA022U);
+#endif
                 EngineCore->get_SceneManager()->LoadScene(packagedStartupSceneId, SceneLoadMode::Single);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xA023U);
+#endif
                 SYS_Report("[GC] Packaged runtime startup scene queued.\n");
             }
 #else
@@ -791,8 +1411,13 @@ namespace helengine::gamecube {
                 SYS_Report("[GC] Runtime cube-test scene installed.\n");
             }
 #endif
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xA024U);
+#endif
             EngineInitialized = true;
             PresentedFrameCount = 0;
+            PreviousFrameTicks = 0U;
+            LastElapsedFrameSeconds = 0.0;
             VerifiedFrameCount = 0;
             UpdateCompletedSincePresent = false;
             DrawCompletedSincePresent = false;
@@ -800,7 +1425,7 @@ namespace helengine::gamecube {
             FirstUpdateCompletedReported = false;
             FirstDrawBeginReported = false;
             FirstDrawCompletedReported = false;
-            SetBootPhase(GameCubeBootPhase::Running, GXColor { 0x00, 0xFF, 0x00, 0xFF });
+            SetBootPhase(GameCubeBootPhase::Running, GXColor { 0xFF, 0x00, 0xFF, 0xFF });
             return true;
         }
         catch (const std::exception& exception) {
@@ -904,19 +1529,54 @@ namespace helengine::gamecube {
         try {
             SetBootPhase(GameCubeBootPhase::CoreUpdate, GXColor { 0x00, 0xA0, 0x00, 0xFF });
             if (!FirstUpdateBeginReported) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xB001U);
+#endif
                 SYS_Report("[GC] First update begin.\n");
                 FirstUpdateBeginReported = true;
             }
+            PresentFirstFrameTraceCheckpoint(GXColor { 0xA0, 0x20, 0xFF, 0xFF });
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xB002U);
+#endif
             EngineRenderManager2D->BeginFrame();
-            EngineCore->Update();
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+            if (!HasRecordedCoreUpdate && MemoryCardDiagnosticJournal != nullptr) {
+                MemoryCardDiagnosticJournal->Record(GameCubeMemoryCardDiagnosticStage::CoreUpdateBegin, 0);
+            }
+#endif
+            PresentFirstFrameTraceCheckpoint(GXColor { 0x20, 0xE0, 0xFF, 0xFF });
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xB003U);
+#endif
+            const double elapsedSeconds = MeasureElapsedFrameSeconds();
+            EngineCore->Update(elapsedSeconds);
+            LastElapsedFrameSeconds = elapsedSeconds;
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+            if (!HasRecordedCoreUpdate && MemoryCardDiagnosticJournal != nullptr) {
+                MemoryCardDiagnosticJournal->Record(GameCubeMemoryCardDiagnosticStage::CoreUpdateComplete, 0);
+                HasRecordedCoreUpdate = true;
+            }
+#endif
             if (EngineRenderManager2D != nullptr) {
+                PresentFirstFrameTraceCheckpoint(GXColor { 0xFF, 0xE0, 0x20, 0xFF });
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xB004U);
+#endif
                 EngineRenderManager2D->FlushReleasedTextures();
             }
             if (EngineRenderManager3D != nullptr) {
+                PresentFirstFrameTraceCheckpoint(GXColor { 0xFF, 0x80, 0x20, 0xFF });
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xB005U);
+#endif
                 EngineRenderManager3D->FlushReleasedAssets();
             }
             UpdateCompletedSincePresent = true;
             if (!FirstUpdateCompletedReported) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xB006U);
+#endif
                 SYS_Report("[GC] First update completed.\n");
                 FirstUpdateCompletedReported = true;
             }
@@ -950,6 +1610,118 @@ namespace helengine::gamecube {
         return true;
     }
 
+    /// Measures elapsed frame time with libogc's monotonic GameCube timebase.
+    double GameCubeApplication::MeasureElapsedFrameSeconds() {
+        const u64 currentFrameTicks = gettime();
+        if (PreviousFrameTicks == 0U) {
+            PreviousFrameTicks = currentFrameTicks;
+            return 0.0;
+        }
+
+        const double elapsedSeconds = ticks_to_millisecs(currentFrameTicks - PreviousFrameTicks) / 1000.0;
+        PreviousFrameTicks = currentFrameTicks;
+        return elapsedSeconds;
+    }
+
+    /// Reports the GameCube host clock and scene state at a low fixed cadence when direct diagnostics are enabled.
+    void GameCubeApplication::ReportRuntimeFrameTelemetry(double elapsedSeconds) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC && HELENGINE_GAMECUBE_HAS_GENERATED_CORE
+        if ((PresentedFrameCount % 60U) != 0U || EngineCore == nullptr) {
+            return;
+        }
+
+        SceneManager* sceneManager = EngineCore->get_SceneManager();
+        List<LoadedSceneRecord*>* loadedScenes = sceneManager != nullptr
+            ? sceneManager->get_LoadedScenes()
+            : nullptr;
+        const int32_t loadedSceneCount = loadedScenes != nullptr
+            ? loadedScenes->get_Count()
+            : -1;
+        const std::string firstSceneId = loadedScenes != nullptr
+                && loadedScenes->get_Count() > 0
+                && (*loadedScenes)[0] != nullptr
+            ? (*loadedScenes)[0]->get_SceneId()
+            : "<none>";
+        const std::string secondSceneId = loadedScenes != nullptr
+                && loadedScenes->get_Count() > 1
+                && (*loadedScenes)[1] != nullptr
+            ? (*loadedScenes)[1]->get_SceneId()
+            : "<none>";
+        const int32_t sceneTransitionActive = sceneManager != nullptr && sceneManager->get_IsSceneTransitionActive()
+            ? 1
+            : 0;
+        SYS_Report(
+            "[GC] Runtime telemetry frame=%lu hostMs=%.3f coreMs=%.3f scenes=%ld transition=%ld scene0=%s scene1=%s\n",
+            static_cast<unsigned long>(PresentedFrameCount),
+            elapsedSeconds * 1000.0,
+            EngineCore->get_FrameDeltaSeconds() * 1000.0,
+            static_cast<long>(loadedSceneCount),
+            static_cast<long>(sceneTransitionActive),
+            firstSceneId.c_str(),
+            secondSceneId.c_str());
+
+        const std::vector<GameCubeSpriteDrawCommand>& spriteQueue = EngineRenderManager2D->GetSpriteQueue();
+        const std::vector<GameCubeTextDrawCommand>& textQueue = EngineRenderManager2D->GetTextQueue();
+        const std::vector<GameCubeRoundedRectDrawCommand>& roundedRectQueue = EngineRenderManager2D->GetRoundedRectQueue();
+        SYS_Report(
+            "[GC] 2D queue counts sprites=%lu text=%lu rectangles=%lu\n",
+            static_cast<unsigned long>(spriteQueue.size()),
+            static_cast<unsigned long>(textQueue.size()),
+            static_cast<unsigned long>(roundedRectQueue.size()));
+
+        GXColor centerColor {};
+        GXColor markerColor {};
+        GXColor backgroundColor {};
+        GX_DrawDone();
+        GX_PeekARGB(ProbeCenterSampleX, ProbeCenterSampleY, &centerColor);
+        GX_PeekARGB(ProbeMarkerSampleX, ProbeMarkerSampleY, &markerColor);
+        GX_PeekARGB(ProbeBackgroundSampleX, ProbeBackgroundSampleY, &backgroundColor);
+        SYS_Report(
+            "[GC] EFB pixels frame=%lu center=(%02X,%02X,%02X,%02X) marker=(%02X,%02X,%02X,%02X) background=(%02X,%02X,%02X,%02X)\n",
+            static_cast<unsigned long>(PresentedFrameCount),
+            centerColor.r,
+            centerColor.g,
+            centerColor.b,
+            centerColor.a,
+            markerColor.r,
+            markerColor.g,
+            markerColor.b,
+            markerColor.a,
+            backgroundColor.r,
+            backgroundColor.g,
+            backgroundColor.b,
+            backgroundColor.a);
+
+        constexpr std::size_t RectangleTelemetryEdgeCount = 3U;
+        for (std::size_t rectangleIndex = 0; rectangleIndex < roundedRectQueue.size(); rectangleIndex++) {
+            if (rectangleIndex >= RectangleTelemetryEdgeCount
+                && rectangleIndex + RectangleTelemetryEdgeCount < roundedRectQueue.size()) {
+                continue;
+            }
+
+            const GameCubeRoundedRectDrawCommand& rectangleCommand = roundedRectQueue[rectangleIndex];
+            if (rectangleCommand.Drawable == nullptr) {
+                continue;
+            }
+
+            const auto fillColor = rectangleCommand.Drawable->get_FillColor();
+            const int32_t cameraDrawOrder = rectangleCommand.Camera != nullptr
+                ? static_cast<int32_t>(rectangleCommand.Camera->get_CameraDrawOrder())
+                : -1;
+            SYS_Report(
+                "[GC] 2D rectangle index=%lu cameraOrder=%ld rgba=(%u,%u,%u,%u)\n",
+                static_cast<unsigned long>(rectangleIndex),
+                static_cast<long>(cameraDrawOrder),
+                static_cast<unsigned int>(fillColor.X),
+                static_cast<unsigned int>(fillColor.Y),
+                static_cast<unsigned int>(fillColor.Z),
+                static_cast<unsigned int>(fillColor.W));
+        }
+#else
+        static_cast<void>(elapsedSeconds);
+#endif
+    }
+
     /// Draws one engine frame when the generated core was initialized successfully.
     bool GameCubeApplication::DrawEngineCore() {
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
@@ -961,17 +1733,51 @@ namespace helengine::gamecube {
         try {
             SetBootPhase(GameCubeBootPhase::CoreDraw, GXColor { 0x00, 0x60, 0x00, 0xFF });
             if (!FirstDrawBeginReported) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xB007U);
+#endif
                 SYS_Report("[GC] First draw begin.\n");
                 FirstDrawBeginReported = true;
             }
-#if HELENGINE_GAMECUBE_MINIMAL_SAMPLE
-            EngineCore->Draw();
-            DrawCompletedSincePresent = true;
-#else
-            EngineCore->Draw();
-            DrawCompletedSincePresent = true;
+            PresentFirstFrameTraceCheckpoint(GXColor { 0xFF, 0x20, 0xC0, 0xFF });
+#if HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC
+            PresentFirstFrameTraceCheckpoint(GXColor { 0xFF, 0x00, 0xC0, 0xFF });
+            auto* loadedScenes = EngineCore->get_SceneManager()->get_LoadedScenes();
+            loadedScenes->set_Capacity(loadedScenes->get_Count() + 1);
+#if HELENGINE_GAMECUBE_EXCEPTION_SCREEN_DIAGNOSTIC
+            GameCubeExceptionDiagnostics::CaptureSceneListState(
+                loadedScenes->get_Count(),
+                loadedScenes->get_Capacity(),
+                loadedScenes->data());
 #endif
+            PresentFirstFrameTraceCheckpoint(GXColor { 0x00, 0xFF, 0xFF, 0xFF });
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xB008U);
+#endif
+            EngineCore->CompleteFrameBoundary();
+            PresentFirstFrameTraceCheckpoint(GXColor { 0x20, 0x60, 0xFF, 0xFF });
+#endif
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+            if (!HasRecordedCoreDraw && MemoryCardDiagnosticJournal != nullptr) {
+                MemoryCardDiagnosticJournal->Record(GameCubeMemoryCardDiagnosticStage::CoreDrawBegin, 0);
+            }
+#endif
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            DisplayDirectFrameDiagnosticCode(0xB009U);
+#endif
+            EngineCore->Draw();
+            ReportRuntimeFrameTelemetry(LastElapsedFrameSeconds);
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+            if (!HasRecordedCoreDraw && MemoryCardDiagnosticJournal != nullptr) {
+                MemoryCardDiagnosticJournal->Record(GameCubeMemoryCardDiagnosticStage::CoreDrawComplete, 0);
+                HasRecordedCoreDraw = true;
+            }
+#endif
+            DrawCompletedSincePresent = true;
             if (!FirstDrawCompletedReported) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                DisplayDirectFrameDiagnosticCode(0xB00AU);
+#endif
                 SYS_Report("[GC] First draw completed.\n");
                 FirstDrawCompletedReported = true;
             }
@@ -1008,6 +1814,10 @@ namespace helengine::gamecube {
 
     /// Presents one fallback frame to the active framebuffer.
     void GameCubeApplication::PresentFrame() {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        AdvanceDirectFrameDiagnosticHeartbeat();
+#endif
+        PresentFirstFrameTraceCheckpoint(GXColor { 0x20, 0xA0, 0xFF, 0xFF });
         const GXColor visibleColor = ResolvePresentedClearColor();
         PresentedFrameCount++;
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
@@ -1052,9 +1862,21 @@ namespace helengine::gamecube {
         GX_SetAlphaUpdate(GX_TRUE);
         GX_CopyDisp(FrameBuffers[FrameBufferIndex], GX_TRUE);
         GX_DrawDone();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        WriteDirectFrameDiagnosticCode(DirectFrameDiagnosticCode);
+#endif
+#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC && !HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        if (LogoAnimationDiagnosticLatched) {
+            WriteDirectFrameDiagnosticCode(LogoAnimationDiagnosticCode);
+        }
+#endif
         VIDEO_SetNextFramebuffer(FrameBuffers[FrameBufferIndex]);
         VIDEO_Flush();
         VIDEO_WaitVSync();
+#if HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC
+        PresentFirstFrameTraceCheckpoint(GXColor { 0xFF, 0xFF, 0xFF, 0xFF });
+        FirstFrameTraceCompleted = true;
+#endif
     }
 
     /// Resolves the currently visible diagnostic color for the next presented frame.

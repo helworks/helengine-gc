@@ -11,11 +11,11 @@ class float4x4;
 namespace helengine::gamecube {
     class GameCubeFramePlan;
 
-    /// Resolves generated runtime state into the first backend-local GameCube frame plan.
+    /// Resolves generated runtime state into ordered backend-local GameCube frame plans.
     class GameCubeSceneRenderBridge {
     public:
-        /// Builds one strict frame plan for the active camera and visible opaque drawables, or returns null when no active camera is available yet.
-        GameCubeFramePlan* BuildFramePlan(RendererBackendCapabilityProfile* capabilities, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight);
+        /// Builds one strict frame plan for every enabled runtime camera and its visible opaque drawables.
+        List<GameCubeFramePlan*>* BuildFramePlans(RendererBackendCapabilityProfile* capabilities, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight);
 
         /// Returns whether the current runtime state exposes at least one enabled camera the GameCube backend can render.
         bool HasActiveCamera();
@@ -23,8 +23,11 @@ namespace helengine::gamecube {
         /// Tracks whether the first extracted frame-plan counts were already reported for runtime lighting diagnosis.
         bool HasLoggedFirstFramePlanState = false;
 
-        /// Resolves the first enabled runtime camera the GameCube backend is willing to render.
-        CameraComponent* ResolveActiveCamera();
+        /// Builds one strict frame plan for one enabled runtime camera.
+        GameCubeFramePlan* BuildFramePlanForCamera(CameraComponent* camera, RendererBackendCapabilityProfile* capabilities, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight);
+
+        /// Orders extracted camera plans from the lowest authored draw order to the highest while preserving equal-order insertion order.
+        void SortFramePlansByCameraDrawOrder(List<GameCubeFramePlan*>* framePlans);
 
         /// Copies the ordered visible 3D queue for one camera into a backend-local list.
         List<IDrawable3D*>* SnapshotVisibleDrawables(CameraComponent* camera);

@@ -28,6 +28,10 @@
 #define DI_ALIGN_SIZE	(1UL << DI_ALIGN_SHIFT)
 #define DI_ALIGN_MASK	(~((1 << DI_ALIGN_SHIFT) - 1))
 
+/* Nintendont temporarily redirects the DOL header entry point through a low-memory handoff stub before it transfers control to the original entry point. */
+#define NINTENDONT_TEMPORARY_ENTRY_MIN 0x80001000
+#define NINTENDONT_TEMPORARY_ENTRY_MAX 0x80003000
+
 #define di_align(addr)	(void *) \
 			((((unsigned long)(addr)) + \
 				 DI_ALIGN_SIZE - 1) & DI_ALIGN_MASK)
@@ -135,6 +139,13 @@ static int al_load_dol_sects_bitmap(struct dol_header *h)
 	return sects_bitmap;
 }
 
+/* Accepts Nintendont's low-memory handoff stub while retaining ordinary DOL entry validation for all other entry points. */
+static int al_is_nintendont_temporary_entry_point(uint32_t entry_point)
+{
+	return entry_point >= NINTENDONT_TEMPORARY_ENTRY_MIN
+		&& entry_point < NINTENDONT_TEMPORARY_ENTRY_MAX;
+}
+
 static void al_check_dol(struct dol_header *h)
 {
 	int i, valid = 0;
@@ -171,6 +182,10 @@ static void al_check_dol(struct dol_header *h)
 			    dol_sect_size(h, i))
 				valid = 1;
 		}
+	}
+
+	if (al_is_nintendont_temporary_entry_point(h->entry_point)) {
+		valid = 1;
 	}
 
 	if (h->address_bss != 0 && !(h->address_bss & 0x80000000)) {

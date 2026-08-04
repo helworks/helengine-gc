@@ -1,5 +1,7 @@
 #include "platform/gamecube/GameCubeRenderManager3D.hpp"
 
+#include "platform/gamecube/GameCubeApplication.hpp"
+
 #include <algorithm>
 
 #include <ogc/system.h>
@@ -298,33 +300,60 @@ namespace helengine::gamecube {
             throw new InvalidOperationException("GameCubeRenderManager3D requires one presented framebuffer height before Draw().");
         }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD001U);
+#endif
         OverlayRenderManager2D->Draw();
-        const bool has2DDrawables = OverlayRenderManager2D->HasCapturedDrawables();
-        GameCubeFramePlan* framePlan = SceneRenderBridge->BuildFramePlan(CapabilityProfile, MainWindowSize.X, MainWindowSize.Y, PresentedFrameWidth, PresentedFrameHeight);
-        if (framePlan == nullptr) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD002U);
+#endif
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD003U);
+#endif
+        List<GameCubeFramePlan*>* framePlans = SceneRenderBridge->BuildFramePlans(CapabilityProfile, MainWindowSize.X, MainWindowSize.Y, PresentedFrameWidth, PresentedFrameHeight);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD004U);
+#endif
+        if (framePlans->get_Count() == 0) {
             HasRenderedSceneValue = false;
+            delete framePlans;
             return;
         }
 
-        const bool has3DDrawables = framePlan->DrawableSubmissions->get_Count() > 0;
-        if (!has3DDrawables && !has2DDrawables) {
-            HasRenderedSceneValue = false;
-            delete framePlan;
-            return;
-        }
+        HasRenderedSceneValue = false;
+        RasterRenderer->BeginOverlayFrame();
+        for (int32_t framePlanIndex = 0; framePlanIndex < framePlans->get_Count(); framePlanIndex++) {
+            GameCubeFramePlan* framePlan = (*framePlans)[framePlanIndex];
+            if (framePlan == nullptr) {
+                continue;
+            }
 
-        if (has3DDrawables) {
-            ExtractedFrameCount++;
-            HasRenderedSceneValue = RasterRenderer->DrawFrame(framePlan);
-        } else {
-            HasRenderedSceneValue = false;
-        }
+            if (framePlan->DrawableSubmissions->get_Count() > 0) {
+                ExtractedFrameCount++;
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+                ReportDirectFrameDiagnosticCode(0xD005U);
+#endif
+            }
 
-        if (has2DDrawables) {
-            RasterRenderer->Render2D(framePlan, *OverlayRenderManager2D, MainWindowSize.X, MainWindowSize.Y);
+            if (framePlan->DrawableSubmissions->get_Count() > 0) {
+                HasRenderedSceneValue = RasterRenderer->DrawFrame(framePlan) || HasRenderedSceneValue;
+            } else {
+                RasterRenderer->PrepareOverlayViewport(framePlan);
+            }
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD006U);
+#endif
+            RasterRenderer->Render2D(framePlan, *OverlayRenderManager2D);
         }
+        RasterRenderer->EndOverlayFrame();
 
-        delete framePlan;
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD007U);
+#endif
+        for (int32_t framePlanIndex = 0; framePlanIndex < framePlans->get_Count(); framePlanIndex++) {
+            delete (*framePlans)[framePlanIndex];
+        }
+        delete framePlans;
     }
 
     /// Registers the 2D overlay render manager that should be captured and rasterized inside the shared 3D draw call.

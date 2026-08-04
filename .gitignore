@@ -1,6 +1,8 @@
 build/
+bin/
 obj/
 tmp/
+.codex-tmp/
 *.elf
 *.map
 .worktrees/

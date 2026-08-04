@@ -22,7 +22,8 @@
 namespace helengine::gamecube {
     /// Creates the GameCube 2D render bridge.
     GameCubeRenderManager2D::GameCubeRenderManager2D()
-        : RenderManager2D() {
+        : RenderManager2D()
+        , ActiveCaptureCamera(nullptr) {
     }
 
     /// Builds one GameCube-native runtime texture from generated texture asset metadata.
@@ -117,8 +118,11 @@ namespace helengine::gamecube {
                 continue;
             }
 
+            ActiveCaptureCamera = camera;
             camera->get_RenderQueue2D()->VisitOrdered(this);
         }
+
+        ActiveCaptureCamera = nullptr;
     }
 
     /// Visits one ordered 2D drawable from the active camera queue.
@@ -148,11 +152,39 @@ namespace helengine::gamecube {
         SpriteQueue.clear();
         TextQueue.clear();
         RoundedRectQueue.clear();
+        ActiveCaptureCamera = nullptr;
     }
 
     /// Returns whether the current frame captured any 2D draw requests.
     bool GameCubeRenderManager2D::HasCapturedDrawables() const {
         return !SpriteQueue.empty() || !TextQueue.empty() || !RoundedRectQueue.empty();
+    }
+
+    /// Returns whether one camera submitted any 2D draw requests during the current frame.
+    bool GameCubeRenderManager2D::HasCapturedDrawablesForCamera(CameraComponent* camera) const {
+        if (camera == nullptr) {
+            throw new ArgumentNullException("camera");
+        }
+
+        for (const GameCubeSpriteDrawCommand& command : SpriteQueue) {
+            if (command.Camera == camera) {
+                return true;
+            }
+        }
+
+        for (const GameCubeTextDrawCommand& command : TextQueue) {
+            if (command.Camera == camera) {
+                return true;
+            }
+        }
+
+        for (const GameCubeRoundedRectDrawCommand& command : RoundedRectQueue) {
+            if (command.Camera == camera) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// Returns the captured sprite draw requests for the current frame.
@@ -174,26 +206,32 @@ namespace helengine::gamecube {
     void GameCubeRenderManager2D::DrawSprite(ISpriteDrawable2D* sprite) {
         if (sprite == nullptr) {
             throw new ArgumentNullException("sprite");
+        } else if (ActiveCaptureCamera == nullptr) {
+            throw new InvalidOperationException("GameCube sprite capture requires an active source camera.");
         }
 
-        SpriteQueue.push_back(GameCubeSpriteDrawCommand { sprite });
+        SpriteQueue.push_back(GameCubeSpriteDrawCommand { ActiveCaptureCamera, sprite });
     }
 
     /// Accepts a text draw request without issuing native rendering yet.
     void GameCubeRenderManager2D::DrawText(ITextDrawable2D* text) {
         if (text == nullptr) {
             throw new ArgumentNullException("text");
+        } else if (ActiveCaptureCamera == nullptr) {
+            throw new InvalidOperationException("GameCube text capture requires an active source camera.");
         }
 
-        TextQueue.push_back(GameCubeTextDrawCommand { text });
+        TextQueue.push_back(GameCubeTextDrawCommand { ActiveCaptureCamera, text });
     }
 
     /// Accepts a rounded-rectangle draw request without issuing native rendering yet.
     void GameCubeRenderManager2D::DrawRoundedRect(IRoundedRectDrawable2D* shape) {
         if (shape == nullptr) {
             throw new ArgumentNullException("shape");
+        } else if (ActiveCaptureCamera == nullptr) {
+            throw new InvalidOperationException("GameCube rounded-rectangle capture requires an active source camera.");
         }
 
-        RoundedRectQueue.push_back(GameCubeRoundedRectDrawCommand { shape });
+        RoundedRectQueue.push_back(GameCubeRoundedRectDrawCommand { ActiveCaptureCamera, shape });
     }
 }

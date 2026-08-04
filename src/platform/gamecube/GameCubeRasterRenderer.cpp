@@ -36,6 +36,7 @@
 #include "TextLayoutUtils.hpp"
 #include "int2.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
+#include "platform/gamecube/GameCubeApplication.hpp"
 #include "platform/gamecube/GameCubeMeshCache.hpp"
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 #include "platform/gamecube/GameCubeRuntimeMaterial.hpp"
@@ -49,6 +50,69 @@ namespace {
     constexpr u8 OpaqueMeshColorGreen = 255;
     constexpr u8 OpaqueMeshColorBlue = 255;
     constexpr u8 OpaqueMeshColorAlpha = 255;
+
+#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC
+    /// Samples a rotating 2D sprite and latches a code when its submitted rotation is discontinuous before GX presentation.
+    /// <param name="rotation">Submitted clockwise sprite rotation in radians.</param>
+    void ReportLogoAnimationDiscontinuity(float rotation) {
+        constexpr float stationaryDeltaThreshold = 0.001f;
+        constexpr float largeDeltaThreshold = 0.10f;
+        constexpr uint32_t rapidDirectionChangeWindow = 8U;
+        constexpr uint32_t rapidDirectionChangeLimit = 3U;
+        constexpr float fullRotation = 6.28318530717958647692f;
+        constexpr float halfRotation = fullRotation * 0.5f;
+
+        if (std::fabs(rotation) < stationaryDeltaThreshold) {
+            return;
+        }
+
+        static bool hasPreviousRotation = false;
+        static float previousRotation = 0.0f;
+        static int32_t previousDirection = 0;
+        static uint32_t sampleCount = 0U;
+        static uint32_t lastDirectionChangeSample = 0U;
+        static uint32_t rapidDirectionChangeCount = 0U;
+
+        sampleCount++;
+        if (!hasPreviousRotation) {
+            helengine::gamecube::LatchLogoAnimationDiagnosticCode(0xA000U);
+            previousRotation = rotation;
+            hasPreviousRotation = true;
+            return;
+        }
+
+        float delta = rotation - previousRotation;
+        previousRotation = rotation;
+        while (delta > halfRotation) {
+            delta -= fullRotation;
+        }
+        while (delta < -halfRotation) {
+            delta += fullRotation;
+        }
+
+        if (std::fabs(delta) < stationaryDeltaThreshold) {
+            return;
+        }
+        if (std::fabs(delta) > largeDeltaThreshold) {
+            helengine::gamecube::LatchLogoAnimationDiagnosticCode(0xA101U);
+            return;
+        }
+
+        const int32_t direction = delta > 0.0f ? 1 : -1;
+        if (previousDirection != 0 && direction != previousDirection) {
+            if (sampleCount - lastDirectionChangeSample <= rapidDirectionChangeWindow) {
+                rapidDirectionChangeCount++;
+            } else {
+                rapidDirectionChangeCount = 1U;
+            }
+            lastDirectionChangeSample = sampleCount;
+            if (rapidDirectionChangeCount >= rapidDirectionChangeLimit) {
+                helengine::gamecube::LatchLogoAnimationDiagnosticCode(0xA102U);
+            }
+        }
+        previousDirection = direction;
+    }
+#endif
 }
 
 namespace helengine::gamecube {
@@ -58,6 +122,10 @@ namespace helengine::gamecube {
         , HasLoggedFirstTexturedDraw(false)
         , HasLoggedFirstLightingState(false)
         , HasLoggedFirstLitDraw(false)
+        , HasSubmittedOverlayGxProbe(false)
+        , HasLoggedOverlayRectangle(false)
+        , HasLoggedOverlayQueueSummary(false)
+        , ReportedCameraPlanClasses(0U)
         , CachedTextLayouts()
         , RoundedRectOutlineScratch()
         , ActiveTextLayoutFrameId(0U) {
@@ -76,6 +144,34 @@ namespace helengine::gamecube {
         }
 
         CameraClearSettings clearSettings = framePlan->Camera->get_ClearSettings();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        const uint8_t cameraDrawOrder = framePlan->Camera->get_CameraDrawOrder();
+        const uint8_t cameraPlanClass = cameraDrawOrder == 0U
+            ? 0x01U
+            : cameraDrawOrder == 0xFFU
+                ? 0x02U
+                : 0x04U;
+        if ((ReportedCameraPlanClasses & cameraPlanClass) == 0U) {
+            SYS_Report(
+                "[GC] Camera plan order=%u logical=(%.1f,%.1f,%.1f,%.1f) physical=(%.1f,%.1f,%.1f,%.1f) clearColor=%d clearDepth=%d\n",
+                static_cast<unsigned int>(cameraDrawOrder),
+                framePlan->LogicalViewport.X,
+                framePlan->LogicalViewport.Y,
+                framePlan->LogicalViewport.Z,
+                framePlan->LogicalViewport.W,
+                framePlan->PhysicalViewport.X,
+                framePlan->PhysicalViewport.Y,
+                framePlan->PhysicalViewport.Z,
+                framePlan->PhysicalViewport.W,
+                clearSettings.get_ClearColorEnabled() ? 1 : 0,
+                clearSettings.get_ClearDepthEnabled() ? 1 : 0);
+            ReportedCameraPlanClasses |= cameraPlanClass;
+        }
+#endif
+
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD100U);
+#endif
         GX_SetCopyClear(ResolveClearColor(clearSettings), ResolveClearDepth(clearSettings));
         GX_SetViewport(framePlan->PhysicalViewport.X, framePlan->PhysicalViewport.Y, framePlan->PhysicalViewport.Z, framePlan->PhysicalViewport.W, 0.0f, 1.0f);
         GX_SetScissor(
@@ -88,6 +184,9 @@ namespace helengine::gamecube {
 
         Mtx44 projectionMatrix;
         CopyProjectionMatrixToGx(framePlan->Projection, projectionMatrix);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD101U);
+#endif
         GX_LoadProjectionMtx(projectionMatrix, GX_PERSPECTIVE);
 
         if (framePlan->DrawableSubmissions->get_Count() <= 0) {
@@ -100,6 +199,9 @@ namespace helengine::gamecube {
                 continue;
             }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD102U);
+#endif
             GameCubeRuntimeModel* runtimeModel = MeshCache->Resolve(submission->get_Drawable()->get_Model());
             if (runtimeModel == nullptr) {
                 throw new InvalidOperationException("GameCube mesh cache must resolve runtime models for extracted drawable submissions.");
@@ -120,76 +222,165 @@ namespace helengine::gamecube {
                 throw new InvalidOperationException("GameCube drawable submissions require a parent entity.");
             }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD103U);
+#endif
             DrawSubmesh(framePlan, submission, runtimeModel, (*submeshes)[submeshIndex], entity);
         }
 
         return true;
     }
 
-    /// Draws the captured 2D overlay drawables for the current frame through GX using the active frame-plan camera to resolve 2D-only background clears.
-    void GameCubeRasterRenderer::Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight) {
+    /// Establishes the viewport and scissor for a camera whose frame contains only 2D content.
+    void GameCubeRasterRenderer::PrepareOverlayViewport(GameCubeFramePlan* framePlan) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
-        } else if (!renderManager2D.HasCapturedDrawables()) {
-            return;
         }
 
-        Mtx44 projectionMatrix;
-        guOrtho(
-            projectionMatrix,
-            0.0f,
-            static_cast<float>(frameHeight),
-            0.0f,
-            static_cast<float>(frameWidth),
-            -1.0f,
-            1.0f);
-        GX_LoadProjectionMtx(projectionMatrix, GX_ORTHOGRAPHIC);
+        GX_SetViewport(framePlan->PhysicalViewport.X, framePlan->PhysicalViewport.Y, framePlan->PhysicalViewport.Z, framePlan->PhysicalViewport.W, 0.0f, 1.0f);
+        GX_SetScissor(
+            static_cast<u32>(framePlan->PhysicalViewport.X),
+            static_cast<u32>(framePlan->PhysicalViewport.Y),
+            static_cast<u32>(framePlan->PhysicalViewport.Z),
+            static_cast<u32>(framePlan->PhysicalViewport.W));
+    }
 
-        Mtx identityMatrix = {
-            { 1.0f, 0.0f, 0.0f, 0.0f },
-            { 0.0f, 1.0f, 0.0f, 0.0f },
-            { 0.0f, 0.0f, 1.0f, 0.0f }
-        };
-        GX_LoadPosMtxImm(identityMatrix, GX_PNMTX0);
-        GX_SetCurrentMtx(GX_PNMTX0);
+    /// Starts the shared overlay frame so text-layout cache state remains valid across every camera plan.
+    void GameCubeRasterRenderer::BeginOverlayFrame() {
+        ActiveTextLayoutFrameId++;
+    }
 
+    /// Completes the shared overlay frame and discards text-layout cache entries not used by any camera plan.
+    void GameCubeRasterRenderer::EndOverlayFrame() {
+        PruneTextLayoutCache();
+    }
+
+    /// Draws the captured 2D overlay drawables for one camera through GX.
+    void GameCubeRasterRenderer::Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        }
+
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD610U);
+#endif
+        Configure2DProjection(framePlan);
         if (framePlan->DrawableSubmissions->get_Count() <= 0) {
             CameraClearSettings clearSettings = framePlan->Camera->get_ClearSettings();
-            GXColor clearColor = ResolveClearColor(clearSettings);
+            if (clearSettings.get_ClearColorEnabled()) {
+                Configure2DPipeline(false);
+                float x = 0.0f;
+                float y = 0.0f;
+                float width = framePlan->LogicalViewport.Z;
+                float height = framePlan->LogicalViewport.W;
+                TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);
+                DrawSolidQuad2D(x, y, width, height, ResolveClearColor(clearSettings));
+            }
+        }
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD611U);
+        if (!HasSubmittedOverlayGxProbe && framePlan->Camera->get_CameraDrawOrder() == 0U) {
             Configure2DPipeline(false);
-            const float viewportScissorX = framePlan->PhysicalViewport.X;
-            const float viewportScissorY = framePlan->PhysicalViewport.Y;
-            const float viewportScissorWidth = framePlan->PhysicalViewport.Z;
-            const float viewportScissorHeight = framePlan->PhysicalViewport.W;
-            GX_SetScissor(
-                static_cast<u32>(viewportScissorX),
-                static_cast<u32>(viewportScissorY),
-                static_cast<u32>(viewportScissorWidth),
-                static_cast<u32>(viewportScissorHeight));
-
-            float x = 0.0f;
-            float y = 0.0f;
-            float width = framePlan->LogicalViewport.Z;
-            float height = framePlan->LogicalViewport.W;
-            TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);
-            DrawSolidQuad2D(x, y, width, height, clearColor);
+            DrawSolidQuad2D(0.0f, 0.0f, 64.0f, 64.0f, GXColor { 0xFF, 0x00, 0x00, 0xFF });
+            GXColor probeColor {};
+            GX_DrawDone();
+            GX_PeekARGB(24U, 24U, &probeColor);
+            SYS_Report(
+                "[GC] Overlay GX probe cameraOrder=%u logical=(%.1f,%.1f,%.1f,%.1f) physical=(%.1f,%.1f,%.1f,%.1f)\n",
+                static_cast<unsigned int>(framePlan->Camera->get_CameraDrawOrder()),
+                framePlan->LogicalViewport.X,
+                framePlan->LogicalViewport.Y,
+                framePlan->LogicalViewport.Z,
+                framePlan->LogicalViewport.W,
+                framePlan->PhysicalViewport.X,
+                framePlan->PhysicalViewport.Y,
+                framePlan->PhysicalViewport.Z,
+                framePlan->PhysicalViewport.W);
+            SYS_Report(
+                "[GC] Overlay EFB after probe topLeft=(%02X,%02X,%02X,%02X)\n",
+                probeColor.r,
+                probeColor.g,
+                probeColor.b,
+                probeColor.a);
+            HasSubmittedOverlayGxProbe = true;
         }
+#endif
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD612U);
+#endif
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD620U);
+#endif
+        std::size_t roundedRectCount = 0U;
         for (const GameCubeRoundedRectDrawCommand& command : renderManager2D.GetRoundedRectQueue()) {
-            RenderRoundedRect2D(framePlan, command, frameWidth, frameHeight);
-        }
+            if (command.Camera != framePlan->Camera) {
+                continue;
+            }
 
+            roundedRectCount++;
+            RenderRoundedRect2D(framePlan, command);
+        }
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD621U);
+#endif
+
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD630U);
+#endif
+        std::size_t spriteCount = 0U;
         for (const GameCubeSpriteDrawCommand& command : renderManager2D.GetSpriteQueue()) {
-            RenderSprite2D(framePlan, command, frameWidth, frameHeight);
-        }
+            if (command.Camera != framePlan->Camera) {
+                continue;
+            }
 
-        ActiveTextLayoutFrameId++;
+            spriteCount++;
+            RenderSprite2D(framePlan, command);
+        }
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD631U);
+#endif
+
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD640U);
+#endif
+        std::size_t textCount = 0U;
         for (const GameCubeTextDrawCommand& command : renderManager2D.GetTextQueue()) {
-            RenderText2D(framePlan, command, frameWidth, frameHeight);
-        }
-        PruneTextLayoutCache();
+            if (command.Camera != framePlan->Camera) {
+                continue;
+            }
 
-        GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+            textCount++;
+            RenderText2D(framePlan, command);
+        }
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD641U);
+        if (!HasLoggedOverlayQueueSummary && framePlan->Camera->get_CameraDrawOrder() == 0U) {
+            GXColor probeColor {};
+            GX_DrawDone();
+            GX_PeekARGB(24U, 24U, &probeColor);
+            SYS_Report(
+                "[GC] Overlay queue summary cameraOrder=0 rectangles=%lu sprites=%lu text=%lu\n",
+                static_cast<unsigned long>(roundedRectCount),
+                static_cast<unsigned long>(spriteCount),
+                static_cast<unsigned long>(textCount));
+            SYS_Report(
+                "[GC] Overlay EFB after camera order=0 topLeft=(%02X,%02X,%02X,%02X)\n",
+                probeColor.r,
+                probeColor.g,
+                probeColor.b,
+                probeColor.a);
+            HasLoggedOverlayQueueSummary = true;
+        }
+#endif
+        GX_SetScissor(
+            static_cast<u32>(framePlan->PhysicalViewport.X),
+            static_cast<u32>(framePlan->PhysicalViewport.Y),
+            static_cast<u32>(framePlan->PhysicalViewport.Z),
+            static_cast<u32>(framePlan->PhysicalViewport.W));
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD650U);
+#endif
     }
 
     /// Configures the GX state used by the current opaque mesh path.
@@ -408,6 +599,32 @@ namespace helengine::gamecube {
         return static_cast<uint32_t>(clearSettings.get_ClearDepth() * 16777215.0f);
     }
 
+    /// Loads the viewport-relative orthographic projection without replacing the camera viewport or scissor established by its frame pass.
+    void GameCubeRasterRenderer::Configure2DProjection(GameCubeFramePlan* framePlan) {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        }
+
+        Mtx44 projectionMatrix;
+        guOrtho(
+            projectionMatrix,
+            0.0f,
+            framePlan->PhysicalViewport.W,
+            0.0f,
+            framePlan->PhysicalViewport.Z,
+            -1.0f,
+            1.0f);
+        GX_LoadProjectionMtx(projectionMatrix, GX_ORTHOGRAPHIC);
+
+        Mtx identityMatrix = {
+            { 1.0f, 0.0f, 0.0f, 0.0f },
+            { 0.0f, 1.0f, 0.0f, 0.0f },
+            { 0.0f, 0.0f, 1.0f, 0.0f }
+        };
+        GX_LoadPosMtxImm(identityMatrix, GX_PNMTX0);
+        GX_SetCurrentMtx(GX_PNMTX0);
+    }
+
     /// Copies one generated affine matrix directly into a GX position matrix without runtime reinterpretation.
     void GameCubeRasterRenderer::CopyAffineMatrixToGx(const float4x4& source, Mtx& destination) {
         destination[0][0] = source.M11;
@@ -456,8 +673,8 @@ namespace helengine::gamecube {
 
         const float horizontalScale = framePlan->PhysicalViewport.Z / framePlan->LogicalViewport.Z;
         const float verticalScale = framePlan->PhysicalViewport.W / framePlan->LogicalViewport.W;
-        x = framePlan->PhysicalViewport.X + (x * horizontalScale);
-        y = framePlan->PhysicalViewport.Y + (y * verticalScale);
+        x *= horizontalScale;
+        y *= verticalScale;
         width *= horizontalScale;
         height *= verticalScale;
     }
@@ -695,6 +912,9 @@ namespace helengine::gamecube {
         const float baseOffsetY = triangleIndex == 0 ? 0.0f : 3.2f;
         const float offsetY = ((frameIndex % 1800U) < 900U ? 0.0f : 0.25f) + baseOffsetY;
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD104U);
+#endif
         float4x4 modelViewMatrix;
         BuildBadCaptureModelViewMatrix(framePlan, entity, modelViewMatrix);
         modelViewMatrix.M41 += offsetX;
@@ -754,6 +974,9 @@ namespace helengine::gamecube {
         }
 
         const bool expectsTexture = !gameCubeRuntimeMaterial->GetTextureRelativePath().empty();
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD105U);
+#endif
         GameCubeRuntimeTexture* boundTexture = expectsTexture
             ? ResolveBoundTexture(gameCubeRuntimeMaterial)
             : nullptr;
@@ -768,6 +991,9 @@ namespace helengine::gamecube {
 
         const bool useTexturedBranch = boundTexture != nullptr;
         if (useTexturedBranch) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD106U);
+#endif
             GX_LoadTexObj(boundTexture->GetNativeTextureObject(), GX_TEXMAP0);
         }
 
@@ -778,10 +1004,16 @@ namespace helengine::gamecube {
 
         GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));
         if (useLitBranch) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD107U);
+#endif
             LoadNormalMatrix(nativeModelViewMatrix);
             ConfigureLitPipeline(useTexturedBranch, true);
             DrawCachedLitSubmesh(framePlan, entity, gameCubeRuntimeMaterial, cachedMeshData, runtimeSubmesh, useTexturedBranch);
         } else {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD108U);
+#endif
             ConfigurePipeline(useTexturedBranch, true);
             BindCachedMeshArrays(cachedMeshData, useTexturedBranch);
             DrawCachedSubmesh(gameCubeRuntimeMaterial, cachedMeshData, runtimeSubmesh, useTexturedBranch);
@@ -849,12 +1081,18 @@ namespace helengine::gamecube {
         GXLightObj lightObject;
         GXColor ambientColor;
         bool hasDirectionalLight = false;
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD109U);
+#endif
         ConfigureDirectionalLight(framePlan, lightObject, ambientColor, hasDirectionalLight);
         const float3 baseColor = material->GetBaseColor();
         GX_SetChanMatColor(GX_COLOR0A0, ConvertLightingColorToGx(baseColor));
 
         if (!HasLoggedFirstLitDraw) {
             HasLoggedFirstLitDraw = true;
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD10AU);
+#endif
             SYS_Report(
                 "[GC] First lit draw: baseColor=(%.3f, %.3f, %.3f) textured=%d hasDirectional=%d ambientGx=(%u, %u, %u) indices=%ld\n",
                 baseColor.X,
@@ -868,6 +1106,9 @@ namespace helengine::gamecube {
                 static_cast<long>(indexCount));
         }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD10BU);
+#endif
         GX_Begin(GX_TRIANGLES, GX_VTXFMT0, indexCount);
         for (int32_t indexOffset = 0; indexOffset < indexCount; indexOffset++) {
             const uint16_t cachedIndex = (*cachedMeshData->Indices16)[indexStart + indexOffset];
@@ -883,12 +1124,38 @@ namespace helengine::gamecube {
     }
 
     /// Draws one captured rounded rectangle through the current 2D GX path.
-    void GameCubeRasterRenderer::RenderRoundedRect2D(GameCubeFramePlan* framePlan, const GameCubeRoundedRectDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight) {
+    void GameCubeRasterRenderer::RenderRoundedRect2D(GameCubeFramePlan* framePlan, const GameCubeRoundedRectDrawCommand& command) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
         }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD622U);
+#endif
         IRoundedRectDrawable2D* drawable = command.Drawable;
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        if (!HasLoggedOverlayRectangle) {
+            if (drawable == nullptr) {
+                SYS_Report("[GC] Overlay first rectangle drawable=null\n");
+            } else if (drawable->get_Parent() == nullptr) {
+                SYS_Report("[GC] Overlay first rectangle parent=null\n");
+            } else {
+                const int2 firstRectangleSize = drawable->get_Size();
+                const byte4 firstRectangleFillColor = drawable->get_FillColor();
+                SYS_Report(
+                    "[GC] Overlay first rectangle parentEnabled=%d hierarchyEnabled=%d size=(%ld,%ld) fill=(%u,%u,%u,%u)\n",
+                    drawable->get_Parent()->get_Enabled() ? 1 : 0,
+                    drawable->get_Parent()->get_IsHierarchyEnabled() ? 1 : 0,
+                    static_cast<long>(firstRectangleSize.X),
+                    static_cast<long>(firstRectangleSize.Y),
+                    static_cast<unsigned int>(firstRectangleFillColor.X),
+                    static_cast<unsigned int>(firstRectangleFillColor.Y),
+                    static_cast<unsigned int>(firstRectangleFillColor.Z),
+                    static_cast<unsigned int>(firstRectangleFillColor.W));
+            }
+            HasLoggedOverlayRectangle = true;
+        }
+#endif
         if (drawable == nullptr || drawable->get_Parent() == nullptr || !drawable->get_Parent()->get_Enabled()) {
             return;
         }
@@ -898,13 +1165,24 @@ namespace helengine::gamecube {
             return;
         }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD623U);
+#endif
         float4 clipRect;
-        if (TryResolveClipRect(drawable->get_Parent(), clipRect)) {
-            ApplyClipScissor(framePlan, clipRect, frameWidth, frameHeight);
+        const bool hasClipRect = TryResolveClipRect(drawable->get_Parent(), clipRect);
+        if (hasClipRect) {
+            ApplyClipScissor(framePlan, clipRect);
         } else {
-            GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+            GX_SetScissor(
+                static_cast<u32>(framePlan->PhysicalViewport.X),
+                static_cast<u32>(framePlan->PhysicalViewport.Y),
+                static_cast<u32>(framePlan->PhysicalViewport.Z),
+                static_cast<u32>(framePlan->PhysicalViewport.W));
         }
 
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD624U);
+#endif
         Configure2DPipeline(false);
         const float3 position = drawable->get_Parent()->get_Position();
         const float horizontalScale = framePlan->PhysicalViewport.Z / framePlan->LogicalViewport.Z;
@@ -920,7 +1198,13 @@ namespace helengine::gamecube {
         const GXColor fillColor = ConvertByteColorToGx(drawable->get_FillColor());
         const GXColor borderColor = ConvertByteColorToGx(drawable->get_BorderColor());
 
-        if (borderThickness > 0.0f) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+        ReportDirectFrameDiagnosticCode(0xD625U);
+#endif
+        if (borderColor.a != 0U && borderThickness > 0.0f) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD626U);
+#endif
             DrawRoundedPolygon2D(
                 x,
                 y,
@@ -929,13 +1213,19 @@ namespace helengine::gamecube {
                 radius,
                 drawable->get_Corners(),
                 borderColor);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD627U);
+#endif
         }
 
         const float innerX = x + borderThickness;
         const float innerY = y + borderThickness;
         const float innerWidth = width - (borderThickness * 2.0f);
         const float innerHeight = height - (borderThickness * 2.0f);
-        if (innerWidth > 0.0f && innerHeight > 0.0f) {
+        if (fillColor.a != 0U && innerWidth > 0.0f && innerHeight > 0.0f) {
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD628U);
+#endif
             DrawRoundedPolygon2D(
                 innerX,
                 innerY,
@@ -944,11 +1234,14 @@ namespace helengine::gamecube {
                 std::max(0.0f, radius - borderThickness),
                 drawable->get_Corners(),
                 fillColor);
+#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
+            ReportDirectFrameDiagnosticCode(0xD629U);
+#endif
         }
     }
 
     /// Draws one captured sprite through the current 2D GX path.
-    void GameCubeRasterRenderer::RenderSprite2D(GameCubeFramePlan* framePlan, const GameCubeSpriteDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight) {
+    void GameCubeRasterRenderer::RenderSprite2D(GameCubeFramePlan* framePlan, const GameCubeSpriteDrawCommand& command) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
         }
@@ -976,9 +1269,13 @@ namespace helengine::gamecube {
 
         float4 clipRect;
         if (TryResolveClipRect(drawable->get_Parent(), clipRect)) {
-            ApplyClipScissor(framePlan, clipRect, frameWidth, frameHeight);
+            ApplyClipScissor(framePlan, clipRect);
         } else {
-            GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+            GX_SetScissor(
+                static_cast<u32>(framePlan->PhysicalViewport.X),
+                static_cast<u32>(framePlan->PhysicalViewport.Y),
+                static_cast<u32>(framePlan->PhysicalViewport.Z),
+                static_cast<u32>(framePlan->PhysicalViewport.W));
         }
 
         Configure2DPipeline(true);
@@ -990,13 +1287,16 @@ namespace helengine::gamecube {
         orientation.Normalize();
         float3 rotatedRight = float4::RotateVector(float3(1.0f, 0.0f, 0.0f), orientation);
         const float rotation = std::atan2(rotatedRight.Y, rotatedRight.X);
+#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC
+        ReportLogoAnimationDiscontinuity(rotation);
+#endif
         const float centerX = x + (width * 0.5f);
         const float centerY = y + (height * 0.5f);
         DrawTransformedTexturedQuad2D(centerX, centerY, width, height, rotation, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);
     }
 
     /// Draws one captured text drawable through the current 2D GX path.
-    void GameCubeRasterRenderer::RenderText2D(GameCubeFramePlan* framePlan, const GameCubeTextDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight) {
+    void GameCubeRasterRenderer::RenderText2D(GameCubeFramePlan* framePlan, const GameCubeTextDrawCommand& command) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
         }
@@ -1018,9 +1318,13 @@ namespace helengine::gamecube {
 
         float4 clipRect;
         if (TryResolveClipRect(drawable->get_Parent(), clipRect)) {
-            ApplyClipScissor(framePlan, clipRect, frameWidth, frameHeight);
+            ApplyClipScissor(framePlan, clipRect);
         } else {
-            GX_SetScissor(0U, 0U, frameWidth, frameHeight);
+            GX_SetScissor(
+                static_cast<u32>(framePlan->PhysicalViewport.X),
+                static_cast<u32>(framePlan->PhysicalViewport.Y),
+                static_cast<u32>(framePlan->PhysicalViewport.Z),
+                static_cast<u32>(framePlan->PhysicalViewport.W));
         }
 
         Configure2DPipeline(true);
@@ -1033,6 +1337,27 @@ namespace helengine::gamecube {
         const float3 position = drawable->get_Parent()->get_Position();
         const double baseX = std::round(position.X);
         const double baseY = std::round(position.Y);
+
+        const float2 shadowOffset = drawable->get_ShadowOffset();
+        if (shadowOffset.X != 0.0f || shadowOffset.Y != 0.0f) {
+            const GXColor shadowColor = ConvertByteColorToGx(drawable->get_ShadowColor());
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, shadowOffset, shadowColor);
+        }
+
+        const float outlineScale = drawable->get_OutlineScale();
+        if (outlineScale > 0.0f) {
+            const GXColor outlineColor = ConvertByteColorToGx(drawable->get_OutlineColor());
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(-outlineScale, 0.0f), outlineColor);
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(outlineScale, 0.0f), outlineColor);
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, -outlineScale), outlineColor);
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, outlineScale), outlineColor);
+        }
+
+        DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, 0.0f), glyphColor);
+    }
+
+    /// Draws one already-resolved text layout at one authored effect offset and color without allocating frame-time state.
+    void GameCubeRasterRenderer::DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, double fontScale, double baseX, double baseY, const float2& passOffset, GXColor glyphColor) {
         const double lineHeight = std::max(static_cast<double>(font->get_LineHeight()) * fontScale, 1.0);
         double offsetX = 0.0;
         double offsetY = 0.0;
@@ -1055,8 +1380,8 @@ namespace helengine::gamecube {
                 continue;
             }
 
-            float glyphX = static_cast<float>(baseX + offsetX);
-            float glyphY = static_cast<float>(baseY + std::round(offsetY) + (glyph.OffsetY * fontScale));
+            float glyphX = static_cast<float>(baseX + passOffset.X + offsetX);
+            float glyphY = static_cast<float>(baseY + passOffset.Y + std::round(offsetY) + (glyph.OffsetY * fontScale));
             float glyphWidth = static_cast<float>(glyph.SourceRect.Z * font->get_AtlasWidth() * fontScale);
             float glyphHeight = static_cast<float>(glyph.SourceRect.W * font->get_AtlasHeight() * fontScale);
             TransformLogicalRectToPhysicalViewport(framePlan, glyphX, glyphY, glyphWidth, glyphHeight);
@@ -1329,7 +1654,7 @@ namespace helengine::gamecube {
     }
 
     /// Applies one resolved clip rectangle as the active GX scissor state.
-    void GameCubeRasterRenderer::ApplyClipScissor(GameCubeFramePlan* framePlan, const float4& clipRect, uint16_t frameWidth, uint16_t frameHeight) {
+    void GameCubeRasterRenderer::ApplyClipScissor(GameCubeFramePlan* framePlan, const float4& clipRect) {
         if (framePlan == nullptr) {
             throw new ArgumentNullException("framePlan");
         }
@@ -1339,10 +1664,14 @@ namespace helengine::gamecube {
         float width = clipRect.Z;
         float height = clipRect.W;
         TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);
-        const int32_t left = std::max(0, static_cast<int32_t>(std::floor(x)));
-        const int32_t top = std::max(0, static_cast<int32_t>(std::floor(y)));
-        const int32_t right = std::min(static_cast<int32_t>(frameWidth), static_cast<int32_t>(std::ceil(x + width)));
-        const int32_t bottom = std::min(static_cast<int32_t>(frameHeight), static_cast<int32_t>(std::ceil(y + height)));
+        const int32_t viewportLeft = static_cast<int32_t>(framePlan->PhysicalViewport.X);
+        const int32_t viewportTop = static_cast<int32_t>(framePlan->PhysicalViewport.Y);
+        const int32_t viewportRight = viewportLeft + static_cast<int32_t>(framePlan->PhysicalViewport.Z);
+        const int32_t viewportBottom = viewportTop + static_cast<int32_t>(framePlan->PhysicalViewport.W);
+        const int32_t left = std::max(viewportLeft, viewportLeft + static_cast<int32_t>(std::floor(x)));
+        const int32_t top = std::max(viewportTop, viewportTop + static_cast<int32_t>(std::floor(y)));
+        const int32_t right = std::min(viewportRight, viewportLeft + static_cast<int32_t>(std::ceil(x + width)));
+        const int32_t bottom = std::min(viewportBottom, viewportTop + static_cast<int32_t>(std::ceil(y + height)));
         const u32 scissorWidth = right > left ? static_cast<u32>(right - left) : 0U;
         const u32 scissorHeight = bottom > top ? static_cast<u32>(bottom - top) : 0U;
         GX_SetScissor(static_cast<u32>(left), static_cast<u32>(top), scissorWidth, scissorHeight);

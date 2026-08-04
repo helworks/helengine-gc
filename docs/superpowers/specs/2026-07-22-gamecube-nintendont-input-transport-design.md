@@ -6,16 +6,16 @@ Allow packaged GameCube builds to continue past controller initialization in Nin
 
 ## Problem
 
-`GameCubeInputManager` calls libogc `PAD_Init()`. On the tested vWii/Nintendont launch path this waits indefinitely on the serial interface. Retail GameCube executables avoid this because Nintendont recognizes their SDK pad routines and injects its own reader while loading the DOL. The libogc routine is not one of the recognized code paths.
+`GameCubeInputManager` calls libogc `PAD_Init()`. On the tested vWii/Nintendont launch path the call does not return. Nintendont's log shows that it did not recognize or patch the libogc SI/PAD routines, unlike retail Nintendo-SDK-shaped controller routines.
 
 ## Design
 
 `GameCubeInputManager` owns two input transports selected during platform-input initialization:
 
 - The real-GameCube transport uses `PAD_Init`, `PAD_ScanPads`, and the existing libogc reads.
-- The Nintendont transport never initializes the serial interface. It reads the four `PADStatus` records maintained by Nintendont at its virtual-pad buffer, invalidates the cache before each read, and maps the first record into the existing `InputFrameState` contract.
+- The Nintendont transport never initializes libogc serial-interface input. It marks Nintendont's `SIInited` flag ready, invokes Nintendont's preloaded `PadStub` at `0x93000000` to refresh the four `PADStatus` records in its virtual-pad buffer, and maps the first record into the existing `InputFrameState` contract.
 
-The mode decision is based on a Nintendont-specific marker that is safe to inspect before the virtual pad buffer is accessed. The Nintendont buffer is not touched on physical GameCube hardware.
+The mode decision first reads the PowerPC data-BAT registers without dereferencing Nintendont memory. Original GameCube Gekko (PVR `0x00083214`) has only the lower four data-BAT pairs; Wii-family processors expose eight, and Nintendont maps MEM2 through a high pair on vWii. The decision therefore reads four pairs on Gekko and eight on every other supported processor. It accepts the Nintendont transport only when the documented `SIInited` address at `0x93003060` resolves through a valid supervisor mapping into Wii MEM2's physical `0x10000000`-`0x13FFFFFF` range. `SIInited` cannot be a presence test because stock Nintendont initializes it to zero and sets it only through its retail `SIInit` patch; the application writes the same ready value after the safe mapping decision. The Nintendont buffer is therefore not touched on physical GameCube hardware.
 
 ## Data Flow
 

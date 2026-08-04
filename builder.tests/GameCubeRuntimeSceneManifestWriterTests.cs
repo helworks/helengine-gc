@@ -23,14 +23,20 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
             "gamecube",
             "1.0.0",
             StartupSceneId,
-            [
-                new PlatformBuildScene(
-                    StartupSceneId,
-                    "Demo Disc Main Menu",
-                    "Scenes/DemoDiscMainMenu.helen",
-                    [],
-                    [new KeyValuePair<string, string>("cooked-relative-path", StartupSceneCookedRelativePath)])
-            ],
+                [
+                    new PlatformBuildScene(
+                        StartupSceneId,
+                        "Demo Disc Main Menu",
+                        "Scenes/DemoDiscMainMenu.helen",
+                        [],
+                        [new KeyValuePair<string, string>("cooked-relative-path", StartupSceneCookedRelativePath)]),
+                    new PlatformBuildScene(
+                        "HelenOfCodeSplash",
+                        "Helen of Code Splash",
+                        "Scenes/HelenOfCodeSplash.helen",
+                        [],
+                        [new KeyValuePair<string, string>("cooked-relative-path", "cooked/scenes/helenofcodesplash.hasset")])
+                ],
             Array.Empty<PlatformBuildAsset>(),
             Array.Empty<PlatformBuildArtifact>(),
             Array.Empty<PlatformBuildCodeModule>(),
@@ -46,6 +52,7 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
             Assert.Contains("he_get_runtime_gamecube_scene_entries", header, StringComparison.Ordinal);
 
             string source = File.ReadAllText(Path.Combine(outputRootPath, "runtime", "gamecube_runtime_scene_manifest.inl"));
+            Assert.Contains("kRuntimeGameCubeStartupSceneId[] = \"HelenOfCodeSplash\"", source, StringComparison.Ordinal);
             Assert.Contains("\"Scenes/DemoDiscMainMenu.helen\"", source, StringComparison.Ordinal);
             Assert.Contains("\"" + CanonicalStartupSceneCookedRelativePath + "\"", source, StringComparison.Ordinal);
         } finally {

@@ -58,6 +58,49 @@ public sealed class GameCubePlatformCookWorkItemExecutorTests {
     }
 
     /// <summary>
+    /// Ensures an unreadable imported texture identifies its authored source path in the cook failure.
+    /// </summary>
+    [Fact]
+    public void Execute_WhenTextureSourceIsUnreadable_ReportsAuthoredSourcePath() {
+        string workspacePath = Path.Combine(Path.GetTempPath(), "gamecube-platform-cook-work-item-tests", Guid.NewGuid().ToString("N"));
+        string projectRootPath = Path.Combine(workspacePath, "project");
+        string stagingRootPath = Path.Combine(workspacePath, "staging");
+        string sourceTexturePath = Path.Combine(projectRootPath, "assets", "Images", "Menu", "unreadable.png");
+        string sourceAssetPath = "Images/Menu/unreadable.png";
+
+        try {
+            Directory.CreateDirectory(Path.GetDirectoryName(sourceTexturePath) ?? throw new InvalidOperationException("Texture source directory path could not be resolved."));
+            File.WriteAllBytes(sourceTexturePath, [0x00, 0x01, 0x02, 0x03]);
+
+            GameCubePlatformCookWorkItemExecutor executor = new GameCubePlatformCookWorkItemExecutor();
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => executor.Execute(
+                [
+                    new PlatformCookWorkItem(
+                        "gamecube:texture:cooked/imported/unreadable-runtime.hasset",
+                        sourceAssetPath,
+                        "texture",
+                        "gamecube",
+                        "runtime-texture",
+                        "cooked/imported/unreadable-runtime.hasset",
+                        "runtime-texture:cooked/imported/unreadable-runtime.hasset",
+                        "sha256:source",
+                        "sha256:settings",
+                        "{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}",
+                        [new PlatformCookWorkItemMetadata("source-asset-id", sourceAssetPath)])
+                ],
+                projectRootPath,
+                stagingRootPath));
+
+            Assert.Contains(sourceAssetPath, exception.Message, StringComparison.Ordinal);
+            Assert.IsType<ArgumentException>(exception.InnerException);
+        } finally {
+            if (Directory.Exists(workspacePath)) {
+                Directory.Delete(workspacePath, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Ensures a texture work item can cook one serialized cached font-atlas texture asset into a prepacked GameCube payload.
     /// </summary>
     [Fact]

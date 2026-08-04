@@ -20,6 +20,54 @@ public sealed class GameCubeDockerNativeBuildExecutorTests {
     }
 
     /// <summary>
+    /// Ensures the native build receives the resolved memory-card diagnostic setting as an explicit preprocessor environment value.
+    /// </summary>
+    [Fact]
+    public void Source_ExportsResolvedMemoryCardDiagnosticJournalSetting() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+
+        Assert.Contains("HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL=", source, StringComparison.Ordinal);
+        Assert.Contains("paths.MemoryCardDiagnosticJournalEnabled", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the native build receives the resolved Nintendont handoff diagnostic setting as an explicit preprocessor environment value.
+    /// </summary>
+    [Fact]
+    public void Source_ExportsResolvedNintendontHandoffDiagnosticSetting() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+
+        Assert.Contains("HELENGINE_GAMECUBE_NINTENDONT_HANDOFF_DIAGNOSTIC=", source, StringComparison.Ordinal);
+        Assert.Contains("paths.NintendontHandoffDiagnosticEnabled", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the native build receives the resolved first-frame trace setting as an explicit preprocessor environment value.
+    /// </summary>
+    [Fact]
+    public void Source_ExportsResolvedFirstFrameTraceDiagnosticSetting() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+
+        Assert.Contains("HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC=", source, StringComparison.Ordinal);
+        Assert.Contains("paths.FirstFrameTraceDiagnosticEnabled", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures the native build receives the opt-in exception-screen diagnostic setting as an explicit preprocessor environment value.
+    /// </summary>
+    [Fact]
+    public void Source_ExportsResolvedExceptionScreenDiagnosticSetting() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+
+        Assert.Contains("HELENGINE_GAMECUBE_EXCEPTION_SCREEN_DIAGNOSTIC=", source, StringComparison.Ordinal);
+        Assert.Contains("paths.ExceptionScreenDiagnosticEnabled", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures external generated-core roots are mounted separately into Docker and exported through one absolute container path.
     /// </summary>
     [Fact]

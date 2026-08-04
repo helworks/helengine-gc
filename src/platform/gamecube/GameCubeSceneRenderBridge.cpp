@@ -29,8 +29,8 @@
 #include "runtime/native_exceptions.hpp"
 
 namespace helengine::gamecube {
-    /// Builds one strict frame plan for the active camera and visible opaque drawables, or returns null when no active camera is available yet.
-    GameCubeFramePlan* GameCubeSceneRenderBridge::BuildFramePlan(RendererBackendCapabilityProfile* capabilities, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight) {
+    /// Builds one strict frame plan for every enabled runtime camera and its visible opaque drawables.
+    List<GameCubeFramePlan*>* GameCubeSceneRenderBridge::BuildFramePlans(RendererBackendCapabilityProfile* capabilities, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight) {
         if (capabilities == nullptr) {
             throw new ArgumentNullException("capabilities");
         } else if (logicalWidth < 1) {
@@ -43,15 +43,53 @@ namespace helengine::gamecube {
             throw new ArgumentOutOfRangeException("physicalHeight");
         }
 
-        if (!HasActiveCamera()) {
-            return nullptr;
+        ObjectManager* objectManager = Core::get_Instance()->get_ObjectManager();
+        List<GameCubeFramePlan*>* framePlans = new List<GameCubeFramePlan*>();
+        List<ICamera*>* cameras = objectManager->get_Cameras();
+        for (int32_t cameraIndex = 0; cameraIndex < cameras->get_Count(); cameraIndex++) {
+            CameraComponent* camera = he_cpp_try_cast<CameraComponent>((*cameras)[cameraIndex]);
+            if (camera == nullptr || camera->get_Parent() == nullptr || !camera->get_Parent()->get_IsHierarchyEnabled()) {
+                continue;
+            }
+
+            framePlans->Add(BuildFramePlanForCamera(camera, capabilities, logicalWidth, logicalHeight, physicalWidth, physicalHeight));
+        }
+
+        SortFramePlansByCameraDrawOrder(framePlans);
+        return framePlans;
+    }
+
+    /// Orders extracted camera plans from the lowest authored draw order to the highest while preserving equal-order insertion order.
+    void GameCubeSceneRenderBridge::SortFramePlansByCameraDrawOrder(List<GameCubeFramePlan*>* framePlans) {
+        if (framePlans == nullptr) {
+            throw new ArgumentNullException("framePlans");
+        }
+
+        for (int32_t planIndex = 1; planIndex < framePlans->get_Count(); planIndex++) {
+            GameCubeFramePlan* framePlan = (*framePlans)[planIndex];
+            int32_t insertionIndex = planIndex - 1;
+            while (insertionIndex >= 0
+                && (*framePlans)[insertionIndex]->Camera->get_CameraDrawOrder() > framePlan->Camera->get_CameraDrawOrder()) {
+                (*framePlans)[insertionIndex + 1] = (*framePlans)[insertionIndex];
+                insertionIndex--;
+            }
+
+            (*framePlans)[insertionIndex + 1] = framePlan;
+        }
+    }
+
+    /// Builds one strict frame plan for one enabled runtime camera.
+    GameCubeFramePlan* GameCubeSceneRenderBridge::BuildFramePlanForCamera(CameraComponent* camera, RendererBackendCapabilityProfile* capabilities, int32_t logicalWidth, int32_t logicalHeight, int32_t physicalWidth, int32_t physicalHeight) {
+        if (camera == nullptr) {
+            throw new ArgumentNullException("camera");
+        } else if (capabilities == nullptr) {
+            throw new ArgumentNullException("capabilities");
         }
 
         ObjectManager* objectManager = Core::get_Instance()->get_ObjectManager();
-        CameraComponent* camera = ResolveActiveCamera();
         List<IDrawable3D*>* drawables = SnapshotVisibleDrawables(camera);
-        List<CameraComponent*>* cameras = new List<CameraComponent*>(1);
-        cameras->Add(camera);
+        List<CameraComponent*>* extractionCameras = new List<CameraComponent*>(1);
+        extractionCameras->Add(camera);
         List<LightComponent*>* lights = new List<LightComponent*>();
         List<AmbientLightComponent*>* ambientLights = objectManager->get_AmbientLights();
         for (int32_t lightIndex = 0; lightIndex < ambientLights->get_Count(); lightIndex++) {
@@ -64,7 +102,7 @@ namespace helengine::gamecube {
         }
 
         RenderFrameExtractionService extractor;
-        RenderFrameExtractionResult* extraction = extractor.Extract(cameras, drawables, lights, capabilities);
+        RenderFrameExtractionResult* extraction = extractor.Extract(extractionCameras, drawables, lights, capabilities);
         RenderFrame* frame = (*extraction->get_Frames())[0];
         if (frame->get_HasTransparentDrawables()) {
             throw new NotSupportedException("Transparent 3D submissions are not supported in the first GameCube renderer tier.");
@@ -92,7 +130,7 @@ namespace helengine::gamecube {
         return new GameCubeFramePlan(
             camera,
             extraction,
-            cameras,
+            extractionCameras,
             drawables,
             lights,
             frame->get_DrawableSubmissions(),
@@ -117,21 +155,6 @@ namespace helengine::gamecube {
         }
 
         return false;
-    }
-
-    /// Resolves the first enabled runtime camera the GameCube backend is willing to render.
-    CameraComponent* GameCubeSceneRenderBridge::ResolveActiveCamera() {
-        List<ICamera*>* cameras = Core::get_Instance()->get_ObjectManager()->get_Cameras();
-        for (int32_t index = 0; index < cameras->get_Count(); index++) {
-            CameraComponent* camera = he_cpp_try_cast<CameraComponent>((*cameras)[index]);
-            if (camera == nullptr || camera->get_Parent() == nullptr || !camera->get_Parent()->get_IsHierarchyEnabled()) {
-                continue;
-            }
-
-            return camera;
-        }
-
-        throw new InvalidOperationException("No active runtime camera is available for the GameCube frame plan.");
     }
 
     /// Copies the ordered visible 3D queue for one camera into a backend-local list.

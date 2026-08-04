@@ -90,6 +90,12 @@ public sealed class GameCubeRuntimeSceneManifestWriter {
             throw new InvalidOperationException("The build manifest did not define a GameCube startup scene id.");
         }
 
+        for (int index = 0; index < manifest.Scenes.Length; index++) {
+            if (string.Equals(manifest.Scenes[index].SceneId, "HelenOfCodeSplash", StringComparison.Ordinal)) {
+                return "HelenOfCodeSplash";
+            }
+        }
+
         return manifest.StartupSceneId;
     }
 

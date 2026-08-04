@@ -17,4 +17,16 @@ public sealed class GameCubeDiscReaderSourceTests {
         Assert.Contains("TryCompleteRead(discInterface);", source, StringComparison.Ordinal);
         Assert.Contains("return WaitForReadCompletion(discInterface);", source, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Ensures the direct-frame diagnostic build turns a non-completing DI request into a persistent reader-owned checkpoint.
+    /// </summary>
+    [Fact]
+    public void DiscReaderSource_LatchesDiagnosticCheckpointWhenPollingTimesOut() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscReader.cpp"));
+
+        Assert.Contains("DiscReadPollingIterationLimit", source, StringComparison.Ordinal);
+        Assert.Contains("ReportDirectFrameDiagnosticCode(0xD001U);", source, StringComparison.Ordinal);
+    }
 }

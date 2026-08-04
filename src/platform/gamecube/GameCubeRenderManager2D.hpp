@@ -7,22 +7,32 @@
 
 class RuntimeTexture;
 class IDrawable2D;
+class CameraComponent;
 
 namespace helengine::gamecube {
     /// Stores one captured sprite draw request for the current GameCube 2D frame.
     struct GameCubeSpriteDrawCommand {
+        /// Camera whose ordered queue submitted this sprite during the current frame.
+        CameraComponent* Camera;
+
         /// Pointer to the shared-engine sprite drawable submitted during the current frame.
         ISpriteDrawable2D* Drawable;
     };
 
     /// Stores one captured text draw request for the current GameCube 2D frame.
     struct GameCubeTextDrawCommand {
+        /// Camera whose ordered queue submitted this text drawable during the current frame.
+        CameraComponent* Camera;
+
         /// Pointer to the shared-engine text drawable submitted during the current frame.
         ITextDrawable2D* Drawable;
     };
 
     /// Stores one captured rounded-rectangle draw request for the current GameCube 2D frame.
     struct GameCubeRoundedRectDrawCommand {
+        /// Camera whose ordered queue submitted this rounded rectangle during the current frame.
+        CameraComponent* Camera;
+
         /// Pointer to the shared-engine rounded-rectangle drawable submitted during the current frame.
         IRoundedRectDrawable2D* Drawable;
     };
@@ -69,6 +79,9 @@ namespace helengine::gamecube {
         /// Returns whether the current frame captured any 2D draw requests.
         bool HasCapturedDrawables() const;
 
+        /// Returns whether one camera submitted any 2D draw requests during the current frame.
+        bool HasCapturedDrawablesForCamera(CameraComponent* camera) const;
+
         /// Returns the captured sprite draw requests for the current frame.
         const std::vector<GameCubeSpriteDrawCommand>& GetSpriteQueue() const;
 
@@ -87,6 +100,9 @@ namespace helengine::gamecube {
 
         /// Captured rounded-rectangle draw requests in shared-engine render order.
         std::vector<GameCubeRoundedRectDrawCommand> RoundedRectQueue;
+
+        /// Camera whose render queue is currently submitting commands into this frame capture.
+        CameraComponent* ActiveCaptureCamera;
 
         /// Runtime textures deferred until the renderer reaches a safe destruction boundary.
         std::vector<RuntimeTexture*> ReleasedTextures;

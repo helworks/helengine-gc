@@ -94,6 +94,42 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
         startInfo.ArgumentList.Add("HELENGINE_CORE_CPP_ROOT=" + generatedCoreContainerPath);
         startInfo.ArgumentList.Add("-e");
         startInfo.ArgumentList.Add("HELENGINE_GAMECUBE_BOOT_MODE=packaged-disc");
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL="
+            + (paths.MemoryCardDiagnosticJournalEnabled ? "1" : "0"));
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_NINTENDONT_HANDOFF_DIAGNOSTIC="
+            + (paths.NintendontHandoffDiagnosticEnabled ? "1" : "0"));
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC="
+            + (paths.FirstFrameTraceDiagnosticEnabled ? "1" : "0"));
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_EXCEPTION_SCREEN_DIAGNOSTIC="
+            + (paths.ExceptionScreenDiagnosticEnabled ? "1" : "0"));
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_GENERATED_RUNTIME_MODULE_REGISTRATION_ENABLED="
+            + (paths.GeneratedRuntimeModuleRegistrationEnabled ? "1" : "0"));
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_SYSTEM_REPORT_ENABLED="
+            + (paths.SystemReportEnabled ? "1" : "0"));
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC="
+            + (paths.DirectFrameDiagnosticEnabled ? "1" : "0"));
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC="
+            + (paths.LogoAnimationDiagnosticEnabled ? "1" : "0"));
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(
+            "HELENGINE_GAMECUBE_INPUT_TRACE_DIAGNOSTIC="
+            + (paths.InputTraceDiagnosticEnabled ? "1" : "0"));
         startInfo.ArgumentList.Add("helengine-gc");
         startInfo.ArgumentList.Add("make");
         startInfo.ArgumentList.Add("clean");

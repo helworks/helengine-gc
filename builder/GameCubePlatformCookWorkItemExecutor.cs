@@ -81,29 +81,38 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
             return textureAsset;
         }
 
-        using Bitmap sourceBitmap = new Bitmap(ResolveBitmapSourcePath(sourcePath));
-        int width = sourceBitmap.Width;
-        int height = sourceBitmap.Height;
-        if (width < 1 || height < 1 || width > ushort.MaxValue || height > ushort.MaxValue) {
-            throw new InvalidOperationException($"Texture source '{workItem.SourceAssetPath}' produced unsupported dimensions '{width}x{height}'.");
+        string bitmapSourcePath = ResolveBitmapSourcePath(sourcePath);
+        Bitmap sourceBitmap;
+        try {
+            sourceBitmap = new Bitmap(bitmapSourcePath);
+        } catch (ArgumentException exception) {
+            throw new InvalidOperationException($"Texture source '{workItem.SourceAssetPath}' could not be read from '{bitmapSourcePath}'.", exception);
         }
 
-        Rectangle bounds = new Rectangle(0, 0, width, height);
-        using Bitmap bitmap = sourceBitmap.Clone(bounds, PixelFormat.Format32bppArgb);
-        BitmapData bitmapData = bitmap.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-        try {
-            byte[] colors = ReadBitmapColors(bitmapData, width, height);
-            return new TextureAsset {
-                Id = ResolveMetadataValue(workItem, "source-asset-id"),
-                Width = (ushort)width,
-                Height = (ushort)height,
-                Colors = colors,
-                PaletteColors = Array.Empty<byte>(),
-                ColorFormat = TextureAssetColorFormat.Rgba32,
-                AlphaPrecision = TextureAssetAlphaPrecision.A8
-            };
-        } finally {
-            bitmap.UnlockBits(bitmapData);
+        using (sourceBitmap) {
+            int width = sourceBitmap.Width;
+            int height = sourceBitmap.Height;
+            if (width < 1 || height < 1 || width > ushort.MaxValue || height > ushort.MaxValue) {
+                throw new InvalidOperationException($"Texture source '{workItem.SourceAssetPath}' produced unsupported dimensions '{width}x{height}'.");
+            }
+
+            Rectangle bounds = new Rectangle(0, 0, width, height);
+            using Bitmap bitmap = sourceBitmap.Clone(bounds, PixelFormat.Format32bppArgb);
+            BitmapData bitmapData = bitmap.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try {
+                byte[] colors = ReadBitmapColors(bitmapData, width, height);
+                return new TextureAsset {
+                    Id = ResolveMetadataValue(workItem, "source-asset-id"),
+                    Width = (ushort)width,
+                    Height = (ushort)height,
+                    Colors = colors,
+                    PaletteColors = Array.Empty<byte>(),
+                    ColorFormat = TextureAssetColorFormat.Rgba32,
+                    AlphaPrecision = TextureAssetAlphaPrecision.A8
+                };
+            } finally {
+                bitmap.UnlockBits(bitmapData);
+            }
         }
     }
 

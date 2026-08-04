@@ -44,8 +44,17 @@ namespace helengine::gamecube {
         /// Draws one extracted camera frame through GX and reports whether this frame claimed scene presentation ownership.
         bool DrawFrame(GameCubeFramePlan* framePlan);
 
+        /// Establishes the viewport and scissor for a camera whose frame contains only 2D content.
+        void PrepareOverlayViewport(GameCubeFramePlan* framePlan);
+
+        /// Starts the shared overlay frame so text-layout cache state remains valid across every camera plan.
+        void BeginOverlayFrame();
+
+        /// Completes the shared overlay frame and discards text-layout cache entries not used by any camera plan.
+        void EndOverlayFrame();
+
         /// Draws the captured 2D overlay drawables for the current frame through GX using the active frame-plan camera to resolve 2D-only background clears.
-        void Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D, uint16_t frameWidth, uint16_t frameHeight);
+        void Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D);
     private:
         /// Stores one persistent wrapped-text result so unchanged UI labels do not rebuild layout every frame.
         struct CachedTextLayoutEntry {
@@ -80,6 +89,18 @@ namespace helengine::gamecube {
         /// Tracks whether the renderer already reported the first lit-material draw inputs.
         bool HasLoggedFirstLitDraw;
 
+        /// Tracks whether the direct-diagnostic build submitted its fixed opaque 2D GX probe.
+        bool HasSubmittedOverlayGxProbe;
+
+        /// Tracks whether the direct-diagnostic build reported its first captured overlay rectangle state.
+        bool HasLoggedOverlayRectangle;
+
+        /// Tracks whether the direct-diagnostic build reported the first camera-zero overlay queue summary.
+        bool HasLoggedOverlayQueueSummary;
+
+        /// Tracks the distinct camera-order classes already reported by direct renderer diagnostics.
+        uint8_t ReportedCameraPlanClasses;
+
         /// Persistent wrapped-text cache reused across overlay frames for stable menu labels.
         std::vector<CachedTextLayoutEntry> CachedTextLayouts;
 
@@ -106,6 +127,9 @@ namespace helengine::gamecube {
 
         /// Converts the authored runtime clear depth into GX packed depth.
         uint32_t ResolveClearDepth(CameraClearSettings clearSettings);
+
+        /// Loads the viewport-relative orthographic projection without replacing the camera viewport or scissor established by its frame pass.
+        void Configure2DProjection(GameCubeFramePlan* framePlan);
 
         /// Configures the GX state used by the current 2D overlay path.
         void Configure2DPipeline(bool useTexturedBranch);
@@ -171,13 +195,16 @@ namespace helengine::gamecube {
         void DrawSubmesh(GameCubeFramePlan* framePlan, RenderFrameDrawableSubmission* submission, GameCubeRuntimeModel* runtimeModel, RuntimeSubmesh* runtimeSubmesh, Entity* entity);
 
         /// Draws one captured rounded rectangle through the current 2D GX path.
-        void RenderRoundedRect2D(GameCubeFramePlan* framePlan, const GameCubeRoundedRectDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
+        void RenderRoundedRect2D(GameCubeFramePlan* framePlan, const GameCubeRoundedRectDrawCommand& command);
 
         /// Draws one captured sprite through the current 2D GX path.
-        void RenderSprite2D(GameCubeFramePlan* framePlan, const GameCubeSpriteDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
+        void RenderSprite2D(GameCubeFramePlan* framePlan, const GameCubeSpriteDrawCommand& command);
 
         /// Draws one captured text drawable through the current 2D GX path.
-        void RenderText2D(GameCubeFramePlan* framePlan, const GameCubeTextDrawCommand& command, uint16_t frameWidth, uint16_t frameHeight);
+        void RenderText2D(GameCubeFramePlan* framePlan, const GameCubeTextDrawCommand& command);
+
+        /// Draws one already-resolved text layout at one authored effect offset and color without allocating frame-time state.
+        void DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, double fontScale, double baseX, double baseY, const float2& passOffset, GXColor glyphColor);
 
         /// Resolves reusable text-layout content for one text drawable, rebuilding wrapped text only when authored inputs change.
         const std::string& ResolveTextLayoutContent(ITextDrawable2D* drawable, FontAsset* font, double fontScale);
@@ -210,6 +237,6 @@ namespace helengine::gamecube {
         bool TryResolveClipRect(Entity* entity, float4& clipRect);
 
         /// Applies one resolved clip rectangle as the active GX scissor state.
-        void ApplyClipScissor(GameCubeFramePlan* framePlan, const float4& clipRect, uint16_t frameWidth, uint16_t frameHeight);
+        void ApplyClipScissor(GameCubeFramePlan* framePlan, const float4& clipRect);
     };
 }
