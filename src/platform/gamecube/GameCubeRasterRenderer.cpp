@@ -194,7 +194,7 @@ namespace helengine::gamecube {
         }
 
         for (int32_t submissionIndex = 0; submissionIndex < framePlan->DrawableSubmissions->get_Count(); submissionIndex++) {
-            RenderFrameDrawableSubmission* submission = (*framePlan->DrawableSubmissions)[submissionIndex];
+            RenderFrameDrawableSubmission* submission = framePlan->DrawableSubmissions->get_Item(submissionIndex);
             if (submission == nullptr || submission->get_Drawable() == nullptr) {
                 continue;
             }
@@ -476,7 +476,7 @@ namespace helengine::gamecube {
         hasDirectionalLight = false;
 
         for (int32_t lightIndex = 0; lightIndex < framePlan->LightSubmissions->get_Count(); lightIndex++) {
-            RenderFrameLightSubmission* submission = (*framePlan->LightSubmissions)[lightIndex];
+            RenderFrameLightSubmission* submission = framePlan->LightSubmissions->get_Item(lightIndex);
             if (submission == nullptr) {
                 continue;
             }

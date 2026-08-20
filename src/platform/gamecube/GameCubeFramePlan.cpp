@@ -9,76 +9,43 @@
 #include "RenderFrameShadowCasterSubmission.hpp"
 
 namespace {
-    /// Releases the extracted render-frame graph owned by one GameCube frame plan.
+    /// Releases the extracted render-frame graph owned by one GameCube frame plan. The extraction
+    /// result disposes its frames and their submissions itself; batching metadata is the one graph
+    /// node the generated ownership model leaves to the caller, so it is deleted here first.
     void DeleteExtractionResult(RenderFrameExtractionResult*& extractionResult) {
         if (extractionResult == nullptr) {
             return;
         }
 
-        std::unordered_set<RenderFrameDrawableSubmission*> deletedDrawableSubmissions;
-        std::unordered_set<RenderFrameLightSubmission*> deletedLightSubmissions;
-        std::unordered_set<RenderFrameShadowCasterSubmission*> deletedShadowCasterSubmissions;
-        List<RenderFrame*>* frames = extractionResult->get_Frames();
+        std::unordered_set<RenderFrameBatchingMetadata*> deletedBatchingMetadata;
+        IReadOnlyList<RenderFrame*>* frames = extractionResult->get_Frames();
         if (frames != nullptr) {
             for (int32_t frameIndex = 0; frameIndex < frames->get_Count(); frameIndex++) {
-                RenderFrame* frame = (*frames)[frameIndex];
+                RenderFrame* frame = frames->get_Item(frameIndex);
                 if (frame == nullptr) {
                     continue;
                 }
 
-                List<RenderFrameDrawableSubmission*>* drawableSubmissions = frame->get_DrawableSubmissions();
-                if (drawableSubmissions != nullptr) {
-                    for (int32_t submissionIndex = 0; submissionIndex < drawableSubmissions->get_Count(); submissionIndex++) {
-                        RenderFrameDrawableSubmission* drawableSubmission = (*drawableSubmissions)[submissionIndex];
-                        if (drawableSubmission == nullptr || !deletedDrawableSubmissions.insert(drawableSubmission).second) {
-                            continue;
-                        }
-
-                        RenderFrameBatchingMetadata* batchingMetadata = drawableSubmission->get_BatchingMetadata();
-                        if (batchingMetadata != nullptr) {
-                            delete batchingMetadata;
-                        }
-
-                        delete drawableSubmission;
-                    }
-
-                    delete drawableSubmissions;
+                IReadOnlyList<RenderFrameDrawableSubmission*>* drawableSubmissions = frame->get_DrawableSubmissions();
+                if (drawableSubmissions == nullptr) {
+                    continue;
                 }
 
-                List<RenderFrameLightSubmission*>* lightSubmissions = frame->get_LightSubmissions();
-                if (lightSubmissions != nullptr) {
-                    for (int32_t submissionIndex = 0; submissionIndex < lightSubmissions->get_Count(); submissionIndex++) {
-                        RenderFrameLightSubmission* lightSubmission = (*lightSubmissions)[submissionIndex];
-                        if (lightSubmission == nullptr || !deletedLightSubmissions.insert(lightSubmission).second) {
-                            continue;
-                        }
-
-                        delete lightSubmission;
+                for (int32_t submissionIndex = 0; submissionIndex < drawableSubmissions->get_Count(); submissionIndex++) {
+                    RenderFrameDrawableSubmission* drawableSubmission = drawableSubmissions->get_Item(submissionIndex);
+                    if (drawableSubmission == nullptr) {
+                        continue;
                     }
 
-                    delete lightSubmissions;
-                }
-
-                List<RenderFrameShadowCasterSubmission*>* shadowCasterSubmissions = frame->get_ShadowCasterSubmissions();
-                if (shadowCasterSubmissions != nullptr) {
-                    for (int32_t submissionIndex = 0; submissionIndex < shadowCasterSubmissions->get_Count(); submissionIndex++) {
-                        RenderFrameShadowCasterSubmission* shadowCasterSubmission = (*shadowCasterSubmissions)[submissionIndex];
-                        if (shadowCasterSubmission == nullptr || !deletedShadowCasterSubmissions.insert(shadowCasterSubmission).second) {
-                            continue;
-                        }
-
-                        delete shadowCasterSubmission;
+                    RenderFrameBatchingMetadata* batchingMetadata = drawableSubmission->get_BatchingMetadata();
+                    if (batchingMetadata != nullptr && deletedBatchingMetadata.insert(batchingMetadata).second) {
+                        delete batchingMetadata;
                     }
-
-                    delete shadowCasterSubmissions;
                 }
-
-                delete frame;
             }
-
-            delete frames;
         }
 
+        extractionResult->Dispose();
         delete extractionResult;
         extractionResult = nullptr;
     }

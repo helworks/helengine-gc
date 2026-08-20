@@ -103,7 +103,7 @@ namespace helengine::gamecube {
 
         RenderFrameExtractionService extractor;
         RenderFrameExtractionResult* extraction = extractor.Extract(extractionCameras, drawables, lights, capabilities);
-        RenderFrame* frame = (*extraction->get_Frames())[0];
+        RenderFrame* frame = extraction->get_Frames()->get_Item(0);
         if (frame->get_HasTransparentDrawables()) {
             throw new NotSupportedException("Transparent 3D submissions are not supported in the first GameCube renderer tier.");
         }

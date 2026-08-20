@@ -323,6 +323,13 @@ public static class GameCubePlatformDefinitionFactory {
                             PlatformSettingKind.Text,
                             NativeFileSystemType,
                             true,
+                            []),
+                        new PlatformSettingDefinition(
+                            PlatformCodegenSettingIds.EnabledFeatures,
+                            "Enabled Features",
+                            PlatformSettingKind.Text,
+                            "host_file_system",
+                            true,
                             [])
                     ])
             ],

@@ -22,8 +22,8 @@ namespace helengine::gamecube {
             List<CameraComponent*>* cameras,
             List<IDrawable3D*>* drawables,
             List<LightComponent*>* lights,
-            List<RenderFrameDrawableSubmission*>* drawableSubmissions,
-            List<RenderFrameLightSubmission*>* lightSubmissions,
+            IReadOnlyList<RenderFrameDrawableSubmission*>* drawableSubmissions,
+            IReadOnlyList<RenderFrameLightSubmission*>* lightSubmissions,
             float4 logicalViewport,
             float4 physicalViewport,
             float4x4 view,
@@ -62,10 +62,10 @@ namespace helengine::gamecube {
         List<LightComponent*>* Lights;
 
         /// Opaque drawable submissions extracted from the generated runtime graph.
-        List<RenderFrameDrawableSubmission*>* DrawableSubmissions;
+        IReadOnlyList<RenderFrameDrawableSubmission*>* DrawableSubmissions;
 
         /// Light submissions extracted from the generated runtime graph for this frame.
-        List<RenderFrameLightSubmission*>* LightSubmissions;
+        IReadOnlyList<RenderFrameLightSubmission*>* LightSubmissions;
 
         /// Logical viewport resolved from the authored runtime viewport in shared-engine window space.
         float4 LogicalViewport;
