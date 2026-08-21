@@ -4,22 +4,81 @@
 #endif
 
 #include <gccore.h>
+#include <tuxedo/ppc/exception.h>
 
 #include "InputGamepadButton.hpp"
 #include "InputGamepadState.hpp"
 #include "runtime/array.hpp"
 
 namespace helengine::gamecube {
+    namespace {
+        constexpr std::uintptr_t NintendontPadReadStubAddress = 0x93000000U;
+        constexpr std::uintptr_t NintendontSiInitializedAddress = 0x93003060U;
+        constexpr std::uintptr_t NintendontVirtualPadBufferAddress = 0x93003100U;
+
+        using NintendontPadReadFunction = uint32_t (*)(uint32_t calledByGame);
+
+        bool UsesNintendontInputTransport = false;
+        volatile bool NintendontProbeFaulted = false;
+        PPCExcptPanicFn NintendontProbePreviousPanicFunction = nullptr;
+
+        /// Recovers from an unavailable Nintendont PadStub address while preserving the previously installed panic handler for every other fault.
+        void HandleNintendontProbeException(unsigned exceptionId, PPCContext* context) {
+            if (exceptionId == PPC_EXCPT_DSI && context != nullptr) {
+                NintendontProbeFaulted = true;
+                context->pc += sizeof(uint32_t);
+                return;
+            }
+
+            if (NintendontProbePreviousPanicFunction != nullptr) {
+                NintendontProbePreviousPanicFunction(exceptionId, context);
+            }
+        }
+
+        /// Determines whether Nintendont's documented virtual-controller PadStub is mapped without touching unsupported processor registers on GameCube hardware.
+        bool IsNintendontEnvironment() {
+            uint32_t nintendontPadStubInstruction = 0U;
+            NintendontProbeFaulted = false;
+            NintendontProbePreviousPanicFunction = PPCExcptCurPanicFn;
+            PPCExcptCurPanicFn = HandleNintendontProbeException;
+
+            const volatile uint32_t* const nintendontPadReadStub = reinterpret_cast<volatile const uint32_t*>(NintendontPadReadStubAddress);
+            asm volatile("lwz %0, 0(%1)" : "+r"(nintendontPadStubInstruction) : "b"(nintendontPadReadStub) : "memory");
+
+            PPCExcptCurPanicFn = NintendontProbePreviousPanicFunction;
+            NintendontProbePreviousPanicFunction = nullptr;
+            return !NintendontProbeFaulted && nintendontPadStubInstruction != 0U && nintendontPadStubInstruction != UINT32_MAX;
+        }
+
+        /// Marks Nintendont's serial-interface replacement ready so its PadStub can populate the shared virtual-controller buffer.
+        void InitializeNintendontInputTransport() {
+            volatile uint32_t* const nintendontSiInitialized = reinterpret_cast<volatile uint32_t*>(NintendontSiInitializedAddress);
+            *nintendontSiInitialized = 1U;
+            DCFlushRange(const_cast<uint32_t*>(nintendontSiInitialized), sizeof(uint32_t));
+            UsesNintendontInputTransport = true;
+        }
+
+        /// Refreshes Nintendont's four virtual controllers and returns the first controller slot in libogc's compatible PADStatus layout.
+        PADStatus CaptureNintendontPadStatus() {
+            const NintendontPadReadFunction nintendontPadRead = reinterpret_cast<NintendontPadReadFunction>(NintendontPadReadStubAddress);
+            nintendontPadRead(1U);
+
+            const PADStatus* const nintendontPadStatuses = reinterpret_cast<const PADStatus*>(NintendontVirtualPadBufferAddress);
+            return nintendontPadStatuses[0];
+        }
+    }
+
     /// Creates the GameCube input backend with background input disabled.
-    GameCubeInputManager::GameCubeInputManager(GameCubeMemoryCardDiagnosticJournal* diagnosticJournal) {
-        static_cast<void>(diagnosticJournal);
+    GameCubeInputManager::GameCubeInputManager(GameCubeMemoryCardDiagnosticJournal* diagnosticJournal)
+        : DiagnosticJournal(diagnosticJournal)
+        , HasRecordedNintendontPadRead(false) {
     }
 
     /// Releases the GameCube input backend.
     GameCubeInputManager::~GameCubeInputManager() {
     }
 
-    /// Initializes the standard controller transport used by GameCube software and Nintendont's patched hardware interface.
+    /// Selects Nintendont's virtual-controller transport when its PadStub is mapped, or initializes libogc PAD on physical GameCube hardware.
     void GameCubeInputManager::InitializePlatformInput(GameCubeMemoryCardDiagnosticJournal* diagnosticJournal) {
 #if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
         if (diagnosticJournal != nullptr) {
@@ -29,7 +88,12 @@ namespace helengine::gamecube {
         static_cast<void>(diagnosticJournal);
 #endif
 
-        PAD_Init();
+        UsesNintendontInputTransport = false;
+        if (IsNintendontEnvironment()) {
+            InitializeNintendontInputTransport();
+        } else {
+            PAD_Init();
+        }
 
 #if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
         if (diagnosticJournal != nullptr) {
@@ -41,14 +105,33 @@ namespace helengine::gamecube {
     /// Captures one bootstrap input frame with one shared gamepad state populated from controller port zero.
     InputFrameState GameCubeInputManager::CaptureFrame() {
         PADStatus padStatus {};
-        const uint32_t connectedChannels = PAD_ScanPads();
-        padStatus.button = PAD_ButtonsHeld(0);
-        padStatus.stickX = PAD_StickX(0);
-        padStatus.stickY = PAD_StickY(0);
-        padStatus.substickX = PAD_SubStickX(0);
-        padStatus.substickY = PAD_SubStickY(0);
-        padStatus.triggerL = PAD_TriggerL(0);
-        padStatus.triggerR = PAD_TriggerR(0);
+        uint32_t connectedChannels = 0U;
+        if (UsesNintendontInputTransport) {
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+            if (!HasRecordedNintendontPadRead && DiagnosticJournal != nullptr) {
+                DiagnosticJournal->Record(GameCubeMemoryCardDiagnosticStage::NintendontPadReadBegin, 0);
+            }
+#endif
+
+            padStatus = CaptureNintendontPadStatus();
+            connectedChannels = padStatus.err == PAD_ERR_NONE ? PAD_CHAN0_BIT : 0U;
+
+#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
+            if (!HasRecordedNintendontPadRead && DiagnosticJournal != nullptr) {
+                DiagnosticJournal->Record(GameCubeMemoryCardDiagnosticStage::NintendontPadReadComplete, 0);
+                HasRecordedNintendontPadRead = true;
+            }
+#endif
+        } else {
+            connectedChannels = PAD_ScanPads();
+            padStatus.button = PAD_ButtonsHeld(0);
+            padStatus.stickX = PAD_StickX(0);
+            padStatus.stickY = PAD_StickY(0);
+            padStatus.substickX = PAD_SubStickX(0);
+            padStatus.substickY = PAD_SubStickY(0);
+            padStatus.triggerL = PAD_TriggerL(0);
+            padStatus.triggerR = PAD_TriggerR(0);
+        }
         const bool hasActivePort0State = padStatus.button != 0U || padStatus.stickX != 0 || padStatus.stickY != 0 || padStatus.substickX != 0 || padStatus.substickY != 0 || padStatus.triggerL != 0 || padStatus.triggerR != 0;
         const bool port0Connected = (connectedChannels & PAD_CHAN0_BIT) != 0U || hasActivePort0State;
         padStatus.err = port0Connected ? PAD_ERR_NONE : PAD_ERR_NO_CONTROLLER;

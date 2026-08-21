@@ -104,6 +104,13 @@ public static class GameCubePlatformDefinitionFactory {
                     "default",
                     [
                         new PlatformSettingDefinition(
+                            "game-name",
+                            "Game Name",
+                            PlatformSettingKind.Text,
+                            "helengine",
+                            true,
+                            []),
+                        new PlatformSettingDefinition(
                             "texture-scale-percent",
                             "Texture Scale Percent",
                             PlatformSettingKind.Text,

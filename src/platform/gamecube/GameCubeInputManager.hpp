@@ -17,11 +17,17 @@ namespace helengine::gamecube {
         /// Releases the GameCube input backend.
         ~GameCubeInputManager();
 
-        /// Initializes the standard GameCube controller transport used by retail games and Nintendont's normal patch path.
+        /// Selects Nintendont's virtual-controller transport when available, or initializes libogc PAD on physical GameCube hardware.
         static void InitializePlatformInput(GameCubeMemoryCardDiagnosticJournal* diagnosticJournal);
 
         /// Captures one bootstrap input frame with default keyboard, mouse, and pointer state.
         InputFrameState CaptureFrame() override;
 
+    private:
+        /// Stores the optional durable boot journal used to bracket the first Nintendont PadStub invocation.
+        GameCubeMemoryCardDiagnosticJournal* DiagnosticJournal;
+
+        /// Stores whether the optional journal has already recorded a completed Nintendont PadStub invocation.
+        bool HasRecordedNintendontPadRead;
     };
 }

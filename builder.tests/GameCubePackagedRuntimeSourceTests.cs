@@ -195,7 +195,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
 
         Assert.Contains("#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL\n#include \"platform/gamecube/GameCubeMemoryCardDiagnosticJournal.hpp\"\n#endif", inputSource, StringComparison.Ordinal);
         Assert.Contains("#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL\n        if (diagnosticJournal != nullptr)", inputSource, StringComparison.Ordinal);
-        Assert.Contains("#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL\n        if (!HasRecordedNintendontPadRead && DiagnosticJournal != nullptr)", inputSource, StringComparison.Ordinal);
+        Assert.Contains("#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL\n            if (!HasRecordedNintendontPadRead && DiagnosticJournal != nullptr)", inputSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -583,16 +583,16 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
-    /// Ensures the retail input path exclusively uses libogc's controller API and does not depend on Nintendont private MEM2 transport addresses.
+    /// Ensures the retail input branch preserves libogc controller initialization and polling when the Nintendont probe fails.
     /// </summary>
     [Fact]
-    public void GameCubeInputManager_RetailInputPathAvoidsNintendontPrivateMemoryTransport() {
+    public void GameCubeInputManager_RetailInputBranchPreservesLibogcTransport() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
 
         Assert.Contains("PAD_Init();", source, StringComparison.Ordinal);
         Assert.Contains("PAD_ScanPads();", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("0x9300", source, StringComparison.Ordinal);
+        Assert.Contains("} else {\n            PAD_Init();\n        }", source, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1465,6 +1465,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("PPC_EXCPT_DSI", inputSource, StringComparison.Ordinal);
         Assert.Contains("context->pc += sizeof(uint32_t);", inputSource, StringComparison.Ordinal);
         Assert.Contains("asm volatile(\"lwz %0, 0(%1)\"", inputSource, StringComparison.Ordinal);
+        Assert.Contains("\"+r\"(nintendontPadStubInstruction)", inputSource, StringComparison.Ordinal);
         Assert.Contains("return !NintendontProbeFaulted && nintendontPadStubInstruction != 0U && nintendontPadStubInstruction != UINT32_MAX;", inputSource, StringComparison.Ordinal);
         Assert.Contains("constexpr std::uintptr_t NintendontVirtualPadBufferAddress = 0x93003100U;", inputSource, StringComparison.Ordinal);
         Assert.Contains("constexpr std::uintptr_t NintendontSiInitializedAddress = 0x93003060U;", inputSource, StringComparison.Ordinal);

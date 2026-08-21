@@ -144,7 +144,7 @@ public static class GameCubeBuildWorkspace {
         WritePhaseMarker(phaseMarkerPath, "native build completed");
         progressReporter.Report(new PlatformBuildProgressUpdate("Build Native Executable", "helengine_gc.dol", 2, 4, "Built packaged-mode GameCube native executable."));
 
-        GameCubeDiscSystemAreaOptions effectiveDiscSystemAreaOptions = discSystemAreaOptions ?? CreateConfiguredDiscSystemAreaOptions(request.Manifest, paths);
+        GameCubeDiscSystemAreaOptions effectiveDiscSystemAreaOptions = discSystemAreaOptions ?? CreateConfiguredDiscSystemAreaOptions(request.Manifest, paths, ResolveConfiguredDiscTitle(request));
         GameCubeDiscLayoutResult discLayout = new GameCubeDiscLayoutWriter().Write(paths.StagingRootPath, paths.NativeExecutablePath, paths.DiscRootPath, effectiveDiscSystemAreaOptions);
         WritePhaseMarker(phaseMarkerPath, "disc layout written");
         progressReporter.Report(new PlatformBuildProgressUpdate("Write Disc Layout", "disc-root", 3, 4, "Wrote extracted GameCube disc layout."));
@@ -184,7 +184,7 @@ public static class GameCubeBuildWorkspace {
     /// </summary>
     /// <param name="manifest">Manifest supplying project metadata for the disc header.</param>
     /// <returns>Configured extracted-disc system-area options.</returns>
-    static GameCubeDiscSystemAreaOptions CreateConfiguredDiscSystemAreaOptions(PlatformBuildManifest manifest, GameCubeBuilderPaths paths) {
+    static GameCubeDiscSystemAreaOptions CreateConfiguredDiscSystemAreaOptions(PlatformBuildManifest manifest, GameCubeBuilderPaths paths, string discTitle) {
         if (manifest == null) {
             throw new ArgumentNullException(nameof(manifest));
         } else if (paths == null) {
@@ -196,7 +196,22 @@ public static class GameCubeBuildWorkspace {
         return new GameCubeDiscSystemAreaOptions(
             apploaderPath,
             CreateDiscId(manifest.ProjectId),
-            manifest.ProjectId);
+            string.IsNullOrWhiteSpace(discTitle) ? manifest.ProjectId : discTitle);
+    }
+
+    /// <summary>
+    /// Resolves the editor-authored disc title from the selected build options, falling back to the project id.
+    /// </summary>
+    /// <param name="request">Resolved platform build request carrying selected build options.</param>
+    /// <returns>Authored disc title, or an empty string when none is selected.</returns>
+    static string ResolveConfiguredDiscTitle(PlatformBuildRequest request) {
+        if (request?.SelectedBuildOptionValues == null
+            || !request.SelectedBuildOptionValues.TryGetValue("game-name", out string gameName)
+            || string.IsNullOrWhiteSpace(gameName)) {
+            return string.Empty;
+        }
+
+        return gameName.Trim();
     }
 
     /// <summary>
