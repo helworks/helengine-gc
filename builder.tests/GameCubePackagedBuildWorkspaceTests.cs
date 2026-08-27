@@ -72,7 +72,9 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
-                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()));
+                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()),
+                Array.Empty<PlatformCookWorkItem>(),
+                PlatformBuildRuntimeFeatureManifest.Empty);
 
             PlatformBuildRequest request = new(
                 manifest,
@@ -191,7 +193,9 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
-                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()));
+                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()),
+                Array.Empty<PlatformCookWorkItem>(),
+                PlatformBuildRuntimeFeatureManifest.Empty);
 
             PlatformBuildRequest request = new(
                 manifest,
@@ -392,7 +396,9 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
-                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()));
+                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()),
+                Array.Empty<PlatformCookWorkItem>(),
+                PlatformBuildRuntimeFeatureManifest.Empty);
 
             PlatformBuildRequest request = new(
                 manifest,
@@ -493,7 +499,9 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                 ],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
-                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()));
+                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()),
+                Array.Empty<PlatformCookWorkItem>(),
+                PlatformBuildRuntimeFeatureManifest.Empty);
 
             PlatformBuildRequest request = new(
                 manifest,
@@ -601,7 +609,8 @@ public sealed class GameCubePackagedBuildWorkspaceTests {
                         "sha256:settings",
                         "{\"maxResolution\":0,\"colorFormat\":\"GxRgb5A3\",\"alphaPrecision\":\"A8\"}",
                         [new PlatformCookWorkItemMetadata("source-asset-id", "Images/Menu/logo.png")])
-                ]);
+                ],
+                PlatformBuildRuntimeFeatureManifest.Empty);
 
             PlatformBuildRequest request = new(
                 manifest,

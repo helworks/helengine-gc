@@ -41,7 +41,9 @@ public sealed class GameCubeRuntimeSceneManifestWriterTests {
             Array.Empty<PlatformBuildArtifact>(),
             Array.Empty<PlatformBuildCodeModule>(),
             Array.Empty<PlatformArtifactPlacement>(),
-            new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()));
+            new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()),
+            Array.Empty<PlatformCookWorkItem>(),
+            PlatformBuildRuntimeFeatureManifest.Empty);
 
         try {
             GameCubeRuntimeSceneManifestWriter writer = new();

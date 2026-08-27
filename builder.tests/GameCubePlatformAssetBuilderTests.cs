@@ -135,10 +135,11 @@ public sealed class GameCubePlatformAssetBuilderTests {
                 1,
                 "project",
                 "1.0.0",
-                "1.0.0",
-                "gamecube",
-                "1.0.0",
-                [
+            "1.0.0",
+            "gamecube",
+            "1.0.0",
+            "startup",
+            [
                     new PlatformBuildScene(
                         "startup",
                         "Startup",
@@ -153,7 +154,13 @@ public sealed class GameCubePlatformAssetBuilderTests {
                         "assets/textures/checker.png",
                         new PlatformBuildPayloadReference("checker-payload", "assets/textures/checker.png"),
                         [])
-                ]);
+                ],
+                Array.Empty<PlatformBuildArtifact>(),
+                Array.Empty<PlatformBuildCodeModule>(),
+                Array.Empty<PlatformArtifactPlacement>(),
+                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()),
+                Array.Empty<PlatformCookWorkItem>(),
+                PlatformBuildRuntimeFeatureManifest.Empty);
 
             PlatformBuildRequest request = new(
                 manifest,
@@ -238,7 +245,9 @@ public sealed class GameCubePlatformAssetBuilderTests {
                 [new PlatformBuildArtifact("cooked/scenes/rendering/cube_test.hasset", "scene-content-hash", "scene", "gamecube-default")],
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
-                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()));
+                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()),
+                Array.Empty<PlatformCookWorkItem>(),
+                PlatformBuildRuntimeFeatureManifest.Empty);
 
             PlatformBuildRequest request = new(
                 manifest,
