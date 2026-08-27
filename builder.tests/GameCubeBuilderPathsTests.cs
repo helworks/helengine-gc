@@ -81,7 +81,9 @@ public sealed class GameCubeBuilderPathsTests {
                     [],
                     [],
                     [],
-                    new PlatformContainerWritePlan("disc-layout", [])),
+                    new PlatformContainerWritePlan("disc-layout", []),
+                    [],
+                    PlatformBuildRuntimeFeatureManifest.Empty),
                 [new PlatformBuildTargetVariant("gamecube-default", "gamecube", "gamecube", "gamecube-default")],
                 [new PlatformCookProfile(
                     "gamecube-default",

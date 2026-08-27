@@ -80,7 +80,7 @@ public sealed class GameCubePlatformAssetBuilderTests {
                 [GameCubeMaterialSchemaIds.LightingModeFieldId] = "lit"
             }));
 
-        Assert.Empty(result.ReferencedShaderAssetIds);
+        Assert.Empty(result.ReferencedShaderDependencies);
 
         PlatformMaterialAsset cookedAsset = Assert.IsType<PlatformMaterialAsset>(AssetSerializer.DeserializeFromBytes(result.CookedMaterialBytes));
         Assert.Equal("gx", cookedAsset.RendererFamilyId);
