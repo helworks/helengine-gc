@@ -550,6 +550,58 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
+    /// Ensures the GameCube 2D bridge implements the generated core's renderer-owned texture-region hook and validates the native texture boundary before delegation.
+    /// </summary>
+    [Fact]
+    public void GameCubeRenderManager2DSource_ImplementsOwnedTextureRegionOverride() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string headerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.hpp"));
+        string source = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
+
+        Assert.Contains("void UpdateTextureRegionCore(::RuntimeTexture* texture, int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch) override;", headerSource, StringComparison.Ordinal);
+        Assert.Contains("void GameCubeRenderManager2D::UpdateTextureRegionCore(::RuntimeTexture* texture, int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch)", source, StringComparison.Ordinal);
+        Assert.Contains("texture->get_IsDisposed()", source, StringComparison.Ordinal);
+        Assert.Contains("he_cpp_try_cast<GameCubeRuntimeTexture>(texture)", source, StringComparison.Ordinal);
+        Assert.Contains("runtimeTexture->HasNativeTextureObject()", source, StringComparison.Ordinal);
+        Assert.Contains("runtimeTexture->UpdateRegionRgba8(x, y, width, height, rgba8, sourceRowPitch);", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures a GameCube RGBA8 region update rewrites only touched logical texels in the existing 4×4-tiled RGB5A3 allocation and flushes bounded cache ranges.
+    /// </summary>
+    [Fact]
+    public void GameCubeRuntimeTextureSource_UpdatesRgba8InPlaceUsingTiledRgb5A3Memory() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string headerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.hpp"));
+        string source = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.cpp"));
+        int updateStartIndex = source.IndexOf("void GameCubeRuntimeTexture::UpdateRegionRgba8", StringComparison.Ordinal);
+        Assert.True(updateStartIndex >= 0);
+        int updateEndIndex = source.IndexOf("\n    /// Returns whether a native GX texture object was initialized for this runtime texture.", updateStartIndex, StringComparison.Ordinal);
+        Assert.True(updateEndIndex > updateStartIndex);
+        string updateSource = source.Substring(updateStartIndex, updateEndIndex - updateStartIndex);
+
+        Assert.Contains("void UpdateRegionRgba8(int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch);", headerSource, StringComparison.Ordinal);
+        Assert.Contains("NativeTextureObjectInitialized", updateSource, StringComparison.Ordinal);
+        Assert.Contains("NativeTextureData", updateSource, StringComparison.Ordinal);
+        Assert.Contains("sourceRowPitch", updateSource, StringComparison.Ordinal);
+        Assert.Contains("blockY", updateSource, StringComparison.Ordinal);
+        Assert.Contains("blockX", updateSource, StringComparison.Ordinal);
+        Assert.Contains("innerY", updateSource, StringComparison.Ordinal);
+        Assert.Contains("innerX", updateSource, StringComparison.Ordinal);
+        Assert.Contains("EncodeRgb5A3Pixel", updateSource, StringComparison.Ordinal);
+        Assert.Contains("static_cast<std::size_t>(sourceRow) * static_cast<std::size_t>(sourceRowPitch)", updateSource, StringComparison.Ordinal);
+        Assert.Contains("DCFlushRange", updateSource, StringComparison.Ordinal);
+        Assert.Contains("GX_InvalidateTexAll();", updateSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("memalign", updateSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("GX_InitTexObj", updateSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResetNativeTextureData", updateSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("std::memset", updateSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Array", updateSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("new GameCube", updateSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("free(", updateSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Ensures the first GameCube lit branch does not inject an artificial minimum brightness when the shared light result is zero.
     /// </summary>
     [Fact]

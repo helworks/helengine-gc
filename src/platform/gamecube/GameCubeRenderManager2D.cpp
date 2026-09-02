@@ -77,6 +77,24 @@ namespace helengine::gamecube {
         }
     }
 
+    /// Validates one renderer-owned GameCube texture before forwarding a region upload into its native allocation.
+    void GameCubeRenderManager2D::UpdateTextureRegionCore(::RuntimeTexture* texture, int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch) {
+        if (texture == nullptr) {
+            throw new ArgumentNullException("texture");
+        } else if (texture->get_IsDisposed()) {
+            throw new InvalidOperationException("GameCube texture region updates cannot target a disposed texture.");
+        }
+
+        GameCubeRuntimeTexture* runtimeTexture = he_cpp_try_cast<GameCubeRuntimeTexture>(texture);
+        if (runtimeTexture == nullptr) {
+            throw new InvalidOperationException("GameCube texture region updates require GameCubeRuntimeTexture instances.");
+        } else if (!runtimeTexture->HasNativeTextureObject()) {
+            throw new InvalidOperationException("GameCube texture region updates require an initialized native texture.");
+        }
+
+        runtimeTexture->UpdateRegionRgba8(x, y, width, height, rgba8, sourceRowPitch);
+    }
+
     /// Releases one GameCube runtime texture previously created for one packaged scene asset.
     void GameCubeRenderManager2D::ReleaseTexture(RuntimeTexture* texture) {
         if (texture == nullptr) {

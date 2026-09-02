@@ -6,6 +6,7 @@
 #include <gccore.h>
 
 #include "RuntimeTexture.hpp"
+#include "runtime/array.hpp"
 
 class TextureAsset;
 
@@ -21,6 +22,9 @@ namespace helengine::gamecube {
 
         /// Encodes one shared-engine texture asset into the first supported GameCube GX texture format.
         void LoadFromRaw(TextureAsset* data);
+
+        /// Updates one RGBA8 logical pixel rectangle in the existing tiled GX RGB5A3 allocation.
+        void UpdateRegionRgba8(int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch);
 
         /// Returns whether a native GX texture object was initialized for this runtime texture.
         bool HasNativeTextureObject() const;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 
 #include <malloc.h>
 #include <ogc/cache.h>
@@ -75,6 +76,90 @@ namespace helengine::gamecube {
         }
 
         EncodeRgba32ToRgb5A3(data);
+    }
+
+    /// Updates one RGBA8 logical pixel rectangle in the existing tiled GX RGB5A3 allocation.
+    void GameCubeRuntimeTexture::UpdateRegionRgba8(int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch) {
+        if (!NativeTextureObjectInitialized || NativeTextureData == nullptr || NativeTextureDataSize == 0U) {
+            throw new InvalidOperationException("GameCube texture region updates require an initialized native texture.");
+        } else if (rgba8 == nullptr) {
+            throw new ArgumentNullException("rgba8");
+        } else if (x < 0) {
+            throw new ArgumentOutOfRangeException("x");
+        } else if (y < 0) {
+            throw new ArgumentOutOfRangeException("y");
+        } else if (width <= 0) {
+            throw new ArgumentOutOfRangeException("width");
+        } else if (height <= 0) {
+            throw new ArgumentOutOfRangeException("height");
+        }
+
+        const int32_t textureWidth = this->get_Width();
+        const int32_t textureHeight = this->get_Height();
+        if (textureWidth <= 0 || textureHeight <= 0) {
+            throw new InvalidOperationException("GameCube texture region updates require nonzero texture dimensions.");
+        }
+
+        const int64_t endX = static_cast<int64_t>(x) + static_cast<int64_t>(width);
+        const int64_t endY = static_cast<int64_t>(y) + static_cast<int64_t>(height);
+        if (endX > textureWidth) {
+            throw new ArgumentOutOfRangeException("width");
+        } else if (endY > textureHeight) {
+            throw new ArgumentOutOfRangeException("height");
+        } else if (width > std::numeric_limits<int32_t>::max() / 4) {
+            throw new ArgumentOutOfRangeException("width");
+        }
+
+        const std::size_t requiredRowBytes = static_cast<std::size_t>(width) * 4U;
+        if (sourceRowPitch < static_cast<int32_t>(requiredRowBytes)) {
+            throw new ArgumentOutOfRangeException("sourceRowPitch");
+        } else if (sourceRowPitch % 4 != 0) {
+            throw new ArgumentException("Source row pitch must be divisible by four for RGBA8 data.", "sourceRowPitch");
+        }
+
+        const std::size_t requiredSourceBytes = static_cast<std::size_t>(sourceRowPitch) * static_cast<std::size_t>(height - 1) + requiredRowBytes;
+        if (requiredSourceBytes > static_cast<std::size_t>(rgba8->Length)) {
+            throw new ArgumentException("Source buffer is shorter than the requested texture region.", "rgba8");
+        }
+
+        const uint32_t paddedWidth = (static_cast<uint32_t>(textureWidth) + 3U) & ~3U;
+        const uint32_t paddedHeight = (static_cast<uint32_t>(textureHeight) + 3U) & ~3U;
+        const uint32_t blockColumns = paddedWidth / 4U;
+        const std::size_t expectedNativeTextureDataSize = static_cast<std::size_t>(paddedWidth) * static_cast<std::size_t>(paddedHeight) * sizeof(uint16_t);
+        if (NativeTextureDataSize < expectedNativeTextureDataSize) {
+            throw new InvalidOperationException("GameCube texture region updates require a complete tiled native texture allocation.");
+        }
+
+        auto* destination = static_cast<uint16_t*>(NativeTextureData);
+        for (int32_t destinationY = y; destinationY < y + height; destinationY++) {
+            const uint32_t blockY = static_cast<uint32_t>(destinationY) / 4U;
+            const uint32_t innerY = static_cast<uint32_t>(destinationY) & 3U;
+            const std::size_t sourceRow = static_cast<std::size_t>(destinationY - y);
+            const std::size_t sourceRowOffset = static_cast<std::size_t>(sourceRow) * static_cast<std::size_t>(sourceRowPitch);
+            for (int32_t destinationX = x; destinationX < x + width; destinationX++) {
+                const uint32_t blockX = static_cast<uint32_t>(destinationX) / 4U;
+                const uint32_t innerX = static_cast<uint32_t>(destinationX) & 3U;
+                const std::size_t sourcePixelOffset = sourceRowOffset + static_cast<std::size_t>(destinationX - x) * 4U;
+                const std::size_t destinationPixelIndex = (static_cast<std::size_t>(blockY) * static_cast<std::size_t>(blockColumns) + static_cast<std::size_t>(blockX)) * 16U + static_cast<std::size_t>(innerY) * 4U + static_cast<std::size_t>(innerX);
+                destination[destinationPixelIndex] = EncodeRgb5A3Pixel(
+                    (*rgba8)[static_cast<int32_t>(sourcePixelOffset + 0U)],
+                    (*rgba8)[static_cast<int32_t>(sourcePixelOffset + 1U)],
+                    (*rgba8)[static_cast<int32_t>(sourcePixelOffset + 2U)],
+                    (*rgba8)[static_cast<int32_t>(sourcePixelOffset + 3U)]);
+            }
+        }
+
+        const uint32_t firstBlockX = static_cast<uint32_t>(x) / 4U;
+        const uint32_t lastBlockX = static_cast<uint32_t>(x + width - 1) / 4U;
+        const uint32_t firstBlockY = static_cast<uint32_t>(y) / 4U;
+        const uint32_t lastBlockY = static_cast<uint32_t>(y + height - 1) / 4U;
+        const std::size_t blockRowByteCount = static_cast<std::size_t>(lastBlockX - firstBlockX + 1U) * 16U * sizeof(uint16_t);
+        for (uint32_t blockY = firstBlockY; blockY <= lastBlockY; blockY++) {
+            const std::size_t firstBlockPixelIndex = (static_cast<std::size_t>(blockY) * static_cast<std::size_t>(blockColumns) + static_cast<std::size_t>(firstBlockX)) * 16U;
+            DCFlushRange(destination + firstBlockPixelIndex, static_cast<u32>(blockRowByteCount));
+        }
+
+        GX_InvalidateTexAll();
     }
 
     /// Returns whether a native GX texture object was initialized for this runtime texture.

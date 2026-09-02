@@ -49,6 +49,11 @@ namespace helengine::gamecube {
         /// Builds one GameCube-native runtime texture from one packaged cooked texture payload.
         RuntimeTexture* BuildTextureFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) override;
 
+    protected:
+        /// Validates one renderer-owned GameCube texture before forwarding a region upload into its native allocation.
+        void UpdateTextureRegionCore(::RuntimeTexture* texture, int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch) override;
+
+    public:
         /// Releases one GameCube runtime texture previously created for one packaged scene asset.
         void ReleaseTexture(RuntimeTexture* texture) override;
 
