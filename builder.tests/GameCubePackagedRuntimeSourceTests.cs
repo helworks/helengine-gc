@@ -1364,19 +1364,21 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
-    /// Ensures Nintendont is selected from its mapped low-memory marker before any private MEM2 address is used.
+    /// Ensures a Gekko PVR selects libogc PAD while a Wii-family PVR selects Nintendont before any private MEM2 address is used.
     /// </summary>
     [Fact]
-    public void GameCubeInputManagerSource_SelectsNintendontTransportFromSafeLowMemoryMarker() {
+    public void GameCubeInputManagerSource_SelectsNintendontTransportFromProcessorVersion() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         string inputSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
         string inputHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.hpp"));
 
         Assert.DoesNotContain("DetectNintendontInputTransport", inputHeaderSource, StringComparison.Ordinal);
         Assert.DoesNotContain("DetectHighDataBatSupport", inputHeaderSource, StringComparison.Ordinal);
-        Assert.Contains("constexpr std::uintptr_t NintendontHollywoodVersionAddress = 0x80003138U;", inputSource, StringComparison.Ordinal);
-        Assert.Contains("DCInvalidateRange(reinterpret_cast<void*>(NintendontHollywoodVersionAddress), sizeof(uint32_t));", inputSource, StringComparison.Ordinal);
-        Assert.Contains("return *reinterpret_cast<volatile const uint32_t*>(NintendontHollywoodVersionAddress) == 0x11U;", inputSource, StringComparison.Ordinal);
+        Assert.Contains("#include <ogc/machine/processor.h>", inputSource, StringComparison.Ordinal);
+        Assert.Contains("constexpr uint32_t GameCubeProcessorVersion = 0x00083214U;", inputSource, StringComparison.Ordinal);
+        Assert.Contains("return mfpvr() != GameCubeProcessorVersion;", inputSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("NintendontHollywoodVersionAddress", inputSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("0x80003138", inputSource, StringComparison.Ordinal);
         Assert.DoesNotContain("#include <tuxedo/ppc/exception.h>", inputSource, StringComparison.Ordinal);
         Assert.DoesNotContain("PPCExcptCurPanicFn", inputSource, StringComparison.Ordinal);
         Assert.DoesNotContain("PPC_EXCPT_DSI", inputSource, StringComparison.Ordinal);
@@ -1386,11 +1388,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("constexpr std::uintptr_t NintendontSiInitializedAddress = 0x93003060U;", inputSource, StringComparison.Ordinal);
         Assert.Contains("constexpr std::uintptr_t NintendontPadReadStubAddress = 0x93000000U;", inputSource, StringComparison.Ordinal);
         Assert.DoesNotContain("WiiMem2Physical", inputSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("PowerPcGekko", inputSource, StringComparison.Ordinal);
         Assert.DoesNotContain("PowerPcHighDataBat", inputSource, StringComparison.Ordinal);
         Assert.DoesNotContain("ReadDataBat", inputSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReadProcessorVersion", inputSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("mfspr %0", inputSource, StringComparison.Ordinal);
         Assert.Contains("*nintendontSiInitialized = 1U;", inputSource, StringComparison.Ordinal);
         Assert.Contains("DCFlushRange(const_cast<uint32_t*>(nintendontSiInitialized), sizeof(uint32_t));", inputSource, StringComparison.Ordinal);
         Assert.Contains("const NintendontPadReadFunction nintendontPadRead = reinterpret_cast<NintendontPadReadFunction>(NintendontPadReadStubAddress);", inputSource, StringComparison.Ordinal);
