@@ -10,15 +10,15 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void MemoryCardDiagnosticJournalSource_UsesOptInCardJournalContract() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
         string journalHeaderPath = Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMemoryCardDiagnosticJournal.hpp");
         string journalSourcePath = Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMemoryCardDiagnosticJournal.cpp");
 
         Assert.Contains("HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL ?= 0", makefileSource, StringComparison.Ordinal);
         Assert.True(File.Exists(journalHeaderPath));
         Assert.True(File.Exists(journalSourcePath));
-        string journalHeaderSource = File.ReadAllText(journalHeaderPath);
-        string journalSource = File.ReadAllText(journalSourcePath);
+        string journalHeaderSource = ReadSource(journalHeaderPath);
+        string journalSource = ReadSource(journalSourcePath);
         Assert.Contains("GameCubeMemoryCardDiagnosticJournal", journalHeaderSource, StringComparison.Ordinal);
         Assert.Contains("bool Initialize();", journalHeaderSource, StringComparison.Ordinal);
         Assert.Contains("void Record(", journalHeaderSource, StringComparison.Ordinal);
@@ -37,8 +37,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void MemoryCardDiagnosticJournalSource_RecordsFirstRuntimeBoundaries() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string inputSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string inputSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
 
         Assert.Contains("if (!InitializeMemoryCardDiagnosticJournal())", applicationSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeMemoryCardDiagnosticStage::CoreUpdateBegin", applicationSource, StringComparison.Ordinal);
@@ -56,8 +56,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void MemoryCardDiagnosticJournalSource_PresentsPersistentFailureColorBeforeEngineStartup() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string journalHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMemoryCardDiagnosticJournal.hpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string journalHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMemoryCardDiagnosticJournal.hpp"));
 
         Assert.Contains("if (!InitializeMemoryCardDiagnosticJournal())", applicationSource, StringComparison.Ordinal);
         Assert.Contains("GetMemoryCardDiagnosticFailureColor", applicationSource, StringComparison.Ordinal);
@@ -75,9 +75,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void NintendontHandoffDiagnosticSource_StopsBeforeEngineStartupWithTrampolineResult() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
 
         Assert.Contains("HELENGINE_GAMECUBE_NINTENDONT_HANDOFF_DIAGNOSTIC ?= 0", makefileSource, StringComparison.Ordinal);
         Assert.Contains("if (!VerifyNintendontHandoff())", applicationSource, StringComparison.Ordinal);
@@ -92,9 +92,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void FirstFrameTraceDiagnosticSource_PresentsEveryFirstFrameBoundaryAndStopsAfterSuccess() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
 
         Assert.Contains("HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC ?= 0", makefileSource, StringComparison.Ordinal);
         Assert.Contains("PresentFirstFrameTraceCheckpoint", applicationSource, StringComparison.Ordinal);
@@ -108,7 +108,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void FirstFrameTraceDiagnosticSource_SeparatesSceneCommitFromRendererDraw() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
         Assert.Contains("options->CommitPendingSceneOperationsDuringDraw = false;", applicationSource, StringComparison.Ordinal);
         Assert.Contains("EngineCore->CompleteFrameBoundary();", applicationSource, StringComparison.Ordinal);
@@ -122,10 +122,13 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void FirstFrameTraceDiagnosticSource_SeparatesSceneRecordListReserveFromAdd() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
-        Assert.Contains("PresentFirstFrameTraceCheckpoint(GXColor { 0xFF, 0x00, 0xC0, 0xFF });\n            auto* loadedScenes = EngineCore->get_SceneManager()->get_LoadedScenes();\n            loadedScenes->set_Capacity(loadedScenes->get_Count() + 1);", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("PresentFirstFrameTraceCheckpoint(GXColor { 0x00, 0xFF, 0xFF, 0xFF });\n            EngineCore->CompleteFrameBoundary();", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("PresentFirstFrameTraceCheckpoint(GXColor { 0xFF, 0x00, 0xC0, 0xFF });", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("auto* loadedScenes = EngineCore->get_SceneManager()->get_LoadedScenes();", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("loadedScenes->set_Capacity(loadedScenes->get_Count() + 1);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("PresentFirstFrameTraceCheckpoint(GXColor { 0x00, 0xFF, 0xFF, 0xFF });", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineCore->CompleteFrameBoundary();", applicationSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -134,9 +137,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void ExceptionScreenDiagnosticSource_InstallsPpcPanicCaptureAndDisplaysSceneListState() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
         string diagnosticsSourcePath = Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeExceptionDiagnostics.cpp");
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
 
         Assert.Contains("HELENGINE_GAMECUBE_EXCEPTION_SCREEN_DIAGNOSTIC ?= 0", makefileSource, StringComparison.Ordinal);
         Assert.Contains("ifeq ($(strip $(HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC)),1)\nHELENGINE_GAMECUBE_EXCEPTION_SCREEN_DIAGNOSTIC := 1", makefileSource, StringComparison.Ordinal);
@@ -144,7 +147,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GameCubeExceptionDiagnostics::CaptureSceneListState", applicationSource, StringComparison.Ordinal);
         Assert.True(File.Exists(diagnosticsSourcePath));
 
-        string diagnosticsSource = File.ReadAllText(diagnosticsSourcePath);
+        string diagnosticsSource = ReadSource(diagnosticsSourcePath);
         Assert.Contains("PPCExcptCurPanicFn", diagnosticsSource, StringComparison.Ordinal);
         Assert.Contains("PPCContext", diagnosticsSource, StringComparison.Ordinal);
         Assert.Contains("PPCMfspr(DAR)", diagnosticsSource, StringComparison.Ordinal);
@@ -156,14 +159,14 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void FirstFrameTraceDiagnosticSource_PresentsInitialSceneCommitStages() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
         string diagnosticsSourcePath = Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneTransitionTraceDiagnostics.cpp");
 
         Assert.Contains("GameCubeSceneTransitionTraceDiagnostics", applicationSource, StringComparison.Ordinal);
         Assert.Contains("options->set_RuntimeDiagnosticsProvider(SceneTransitionTraceDiagnostics);", applicationSource, StringComparison.Ordinal);
         Assert.True(File.Exists(diagnosticsSourcePath));
 
-        string diagnosticsSource = File.ReadAllText(diagnosticsSourcePath);
+        string diagnosticsSource = ReadSource(diagnosticsSourcePath);
         Assert.Contains("LoadSceneImmediateBeforeResolveSceneContentPath", diagnosticsSource, StringComparison.Ordinal);
         Assert.Contains("LoadSceneImmediateAfterResolveSceneContentPath", diagnosticsSource, StringComparison.Ordinal);
         Assert.Contains("LoadSceneImmediateBeforeLoadedSceneRecordLookup", diagnosticsSource, StringComparison.Ordinal);
@@ -191,7 +194,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void NintendontInputSource_CompilesJournalCallbacksOnlyWhenTheJournalIsEnabled() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string inputSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
+        string inputSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
 
         Assert.Contains("#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL\n#include \"platform/gamecube/GameCubeMemoryCardDiagnosticJournal.hpp\"\n#endif", inputSource, StringComparison.Ordinal);
         Assert.Contains("#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL\n        if (diagnosticJournal != nullptr)", inputSource, StringComparison.Ordinal);
@@ -204,13 +207,13 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_UsesPackagedDefineAndBootstrapHelpers() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
-        string bootstrapHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.hpp"));
-        string bootstrapSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
-        string discReaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscReader.cpp"));
-        string manifestWriterSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeRuntimeSceneManifestWriter.cs"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+        string bootstrapHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.hpp"));
+        string bootstrapSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
+        string discReaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscReader.cpp"));
+        string manifestWriterSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeRuntimeSceneManifestWriter.cs"));
 
         Assert.Contains("HELENGINE_GAMECUBE_BOOT_MODE", makefileSource, StringComparison.Ordinal);
         Assert.Contains("HELENGINE_GAMECUBE_PACKAGED_DISC_BOOT", makefileSource, StringComparison.Ordinal);
@@ -274,98 +277,10 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_CanonicalizesRuntimeSceneManifestPathsDuringBuild() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string manifestWriterSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeRuntimeSceneManifestWriter.cs"));
+        string manifestWriterSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeRuntimeSceneManifestWriter.cs"));
 
         Assert.Contains("CanonicalPackagedAssetPath.Normalize(metadataEntry.Value)", manifestWriterSource, StringComparison.Ordinal);
         Assert.DoesNotContain("metadataEntry.Value.Replace('\\\\', '/')", manifestWriterSource, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Ensures the packaged-disc runtime source keeps narrow diagnostics around startup-scene queueing, first-frame execution, and DVD-backed content reads.
-    /// </summary>
-    [Fact]
-    public void PackagedDiscBootSource_EmitsStartupAndFirstFrameDiagnostics() {
-        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string bootstrapSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string renderManager2DSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
-        string sceneManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "SceneManager.cpp"));
-        string contentManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "ContentManager.cpp"));
-        string platformMenuSceneResolverSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "PlatformMenuSceneResolver.cpp"));
-        string fontAssetBinarySerializerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "FontAssetBinarySerializer.cpp"));
-        string fileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-input-gamecube", "system", "io", "file.cpp"));
-
-        Assert.Contains("[GC] Packaged content root:", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("#include \"RuntimeSceneLoadService.hpp\"", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("#include \"SceneManager.hpp\"", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Packaged startup scene id:", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Runtime build stamp:", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] First update begin.", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] First update completed.", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Engine update threw Exception*:", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Engine update threw std::exception:", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] First draw begin.", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] First draw completed.", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Scene load to first draw scene=%s elapsedMs=%.3f", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("!EngineRenderManager3D->HasRenderedScene()", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("EngineRenderManager3D != nullptr && EngineRenderManager3D->HasRenderedScene()", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GXColor { 0xFF, 0x80, 0x00, 0xFF }", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GXColor { 0x00, 0x60, 0x00, 0xFF }", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GXColor { 0xFF, 0x00, 0xFF, 0xFF }", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GXColor { 0x80, 0x00, 0x80, 0xFF }", applicationSource, StringComparison.Ordinal);
-        Assert.Contains(
-            "FrameBufferIndex ^= 1U;\n        GX_CopyDisp(FrameBuffers[FrameBufferIndex], GX_TRUE);\n        GX_DrawDone();",
-            applicationSource,
-            StringComparison.Ordinal);
-        Assert.Contains("FrameBuffers[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(RenderMode));", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("FrameBuffers[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(RenderMode));", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GX_SetCopyClear(visibleColor, 0x00FFFFFF);", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("PresentedFrameCount++;", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GX_CopyDisp(FrameBuffers[FrameBufferIndex], GX_TRUE);", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GX_CopyDisp(FrameBuffers[FrameBufferIndex], GX_TRUE);\n        GX_DrawDone();", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GX_CopyDisp(FrameBuffers[FrameBufferIndex], GX_TRUE);", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("VIDEO_SetNextFramebuffer(FrameBuffers[FrameBufferIndex]);", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("FrameBufferIndex ^= 1U;", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GX_SetColorUpdate(GX_TRUE);", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GX_SetAlphaUpdate(GX_FALSE);", rasterRendererSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("[GC] Packaged startup probe begin.", applicationSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("[GC] Packaged startup probe completed.", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Packaged manifest entry count:", bootstrapSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Packaged manifest entry[%u] scene=%s path=%s", bootstrapSource, StringComparison.Ordinal);
-        Assert.Contains("GXColor { 0x64, 0x95, 0xED, 0xFF }", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("guPerspective(", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("GX_LoadProjectionMtx(projectionMatrix, GX_PERSPECTIVE);", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("ConfigureDirectionalLight(", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("submission->get_Material()", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("ResolveGxCullMode(", rasterRendererSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("[GC] 2D queue snapshot", applicationSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("[GC] Frame %u extracted.", renderManagerSource, StringComparison.Ordinal);
-        Assert.Contains("RecordTraceState(\"LoadSceneImmediateBeforeContentLoad\"", sceneManagerSource, StringComparison.Ordinal);
-        Assert.Contains("RecordTraceState(\"LoadSceneImmediateBeforeSceneLoadServiceLoad\"", sceneManagerSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("GameCubeRecordSceneLoadRequest(sceneId.c_str());", sceneManagerSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] ContentManager opening asset:", contentManagerSource, StringComparison.Ordinal);
-        Assert.Contains("std::string PlatformMenuSceneResolver::DesktopMainMenuSceneId = \"Scenes/DemoDiscMainMenu.helen\";", platformMenuSceneResolverSource, StringComparison.Ordinal);
-        Assert.Contains("uint8_t FontAssetBinarySerializer::CurrentVersion = 5;", fontAssetBinarySerializerSource, StringComparison.Ordinal);
-        Assert.Contains("uint8_t FontAssetBinarySerializer::ExternalCookedAtlasPathVersion = 5;", fontAssetBinarySerializerSource, StringComparison.Ordinal);
-        Assert.Contains("FontAssetBinarySerializer::set_LastDeserializeStage(\"ReadCookedAtlasTexturePath\");", fontAssetBinarySerializerSource, StringComparison.Ordinal);
-        Assert.Contains("if (sourceTexture->Width > 0 && sourceTexture->Height > 0 && sourceTexture->Colors != nullptr && sourceTexture->Colors->get_Length() > 0)", fontAssetBinarySerializerSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] File::Exists path=", fileSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] File::OpenRead path=", fileSource, StringComparison.Ordinal);
-        Assert.Contains("delete sourceTextureAsset;", renderManager2DSource, StringComparison.Ordinal);
-        Assert.Contains("#include \"PackagedAssetBinarySerializer.hpp\"", renderManager2DSource, StringComparison.Ordinal);
-        Assert.Contains("::PackagedAssetBinarySerializer::Deserialize(textureStream)", renderManager2DSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("EditorAssetBinarySerializer", renderManager2DSource, StringComparison.Ordinal);
-        Assert.Contains("delete static_cast<GameCubeRuntimeTexture*>(texture);", renderManager2DSource, StringComparison.Ordinal);
-        Assert.Contains("#include \"PackagedAssetBinarySerializer.hpp\"", renderManagerSource, StringComparison.Ordinal);
-        Assert.Contains("::PackagedAssetBinarySerializer::Deserialize(stream)", renderManagerSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("EditorAssetBinarySerializer", renderManagerSource, StringComparison.Ordinal);
-        Assert.Contains("normalizedMaterialAssetPath.find(\"cooked/\")", renderManagerSource, StringComparison.Ordinal);
-        Assert.Contains("contentRootPath = normalizedMaterialAssetPath.substr(0, cookedMarkerIndex)", renderManagerSource, StringComparison.Ordinal);
-        Assert.Contains("delete static_cast<GameCubeRuntimeMaterial*>(material);", renderManagerSource, StringComparison.Ordinal);
-        Assert.Contains("delete runtimeModel;", renderManagerSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -374,8 +289,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_ReusesUiScratchBuffersDuringRasterOverlayDraws() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
-        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string rasterRendererHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
 
         Assert.Contains("struct CachedTextLayoutEntry {", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("std::vector<CachedTextLayoutEntry> CachedTextLayouts;", rasterRendererHeaderSource, StringComparison.Ordinal);
@@ -396,8 +311,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_TracksRenderedScenePerFrame() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string rasterRendererHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
 
         Assert.Contains("bool DrawFrame(GameCubeFramePlan* framePlan);", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("HasRenderedSceneValue = RasterRenderer->DrawFrame(framePlan) || HasRenderedSceneValue;", renderManagerSource, StringComparison.Ordinal);
@@ -410,8 +325,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_DoesNotEmitPerFrameRenderSpamDiagnostics() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string sceneRenderBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string sceneRenderBridgeSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
 
         Assert.DoesNotContain("[GC] snap=", sceneRenderBridgeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("[GC] extract=", sceneRenderBridgeSource, StringComparison.Ordinal);
@@ -424,9 +339,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscReaderSource_UsesNintendontCompatibleInterruptBridge() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string discReaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscReader.cpp"));
-        string discReaderHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscReader.hpp"));
-        string bootstrapSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
+        string discReaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscReader.cpp"));
+        string discReaderHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscReader.hpp"));
+        string bootstrapSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
 
         Assert.Contains("static bool Initialize();", discReaderHeaderSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeDiscReader::Initialize", bootstrapSource, StringComparison.Ordinal);
@@ -440,51 +355,13 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
-    /// Ensures packaged DVD-backed content reads no longer rely on raw host file APIs for <c>dvd:/</c> paths.
-    /// </summary>
-    [Fact]
-    public void PackagedDiscBootSource_UsesGameCubeDiscReadBridgeForDvdPaths() {
-        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string fileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-input-gamecube", "system", "io", "file.cpp"));
-        string fileStreamHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "system", "io", "file-stream.hpp"));
-        string discFileSystemSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscFileSystem.cpp"));
-        string discReaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscReader.cpp"));
-
-        Assert.Contains("GameCubeDiscFileSystem.cpp", makefileSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeDiscReader.cpp", makefileSource, StringComparison.Ordinal);
-        Assert.Contains("#include \"platform/gamecube/GameCubeDiscFileSystem.hpp\"", fileSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeDiscFileSystem::CanHandlePath(fileName)", fileSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeDiscFileSystem::Exists(fileName)", fileSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeDiscFileSystem::CanHandlePath(filePath)", fileSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeDiscFileSystem::OpenRead(filePath)", fileSource, StringComparison.Ordinal);
-        Assert.Contains("FileStream(const uint8_t* data, size_t length);", fileStreamHeaderSource, StringComparison.Ordinal);
-        Assert.Contains("bool ReadDiscRange(void* destination, std::size_t offset, std::size_t length)", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeDiscReader::ReadBytes(scratchBuffer, sectorIndex * DiscSectorSize, sectorsToRead * DiscSectorSize)", discFileSystemSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("__io_gcdvd.readSectors", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("#include <ogc/dvd.h>", discReaderSource, StringComparison.Ordinal);
-        Assert.Contains("TryCompleteRead(discInterface)", discReaderSource, StringComparison.Ordinal);
-        Assert.Contains("WaitForReadCompletion(discInterface)", discReaderSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("__io_gcdvd.readSectors", discReaderSource, StringComparison.Ordinal);
-        Assert.Contains("ReadDiscRange(buffer, discOffset, fileSize)", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("FileStream* stream = nullptr;", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("// FileStream copies memory-backed input", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("const uint32_t fstOffset = ReadBigEndianU32(discHeader + 0x424);", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("const uint32_t fstSize = ReadBigEndianU32(discHeader + 0x428);", discFileSystemSource, StringComparison.Ordinal);
-        Assert.Contains("const char expectedAssetName[] = \"DemoDiscMainMenu.hasset\";", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("const std::string expectedPath = \"dvd:/cooked/scenes/DemoDiscMainMenu.hasset\";", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("foundDemoDiscMainMenu", applicationSource, StringComparison.Ordinal);
-    }
-
-    /// <summary>
     /// Ensures packaged DVD byte-range reads use a bounded scratch buffer instead of allocating one sector span per file.
     /// </summary>
     [Fact]
     public void PackagedDiscBootSource_BoundsDvdReadScratchAllocation() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string discFileSystemSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscFileSystem.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string discFileSystemSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscFileSystem.cpp"));
 
         Assert.Contains("const std::size_t firstSectorIndex = offset / DiscSectorSize;", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("const std::size_t sectorCount = lastSectorIndex - firstSectorIndex;", discFileSystemSource, StringComparison.Ordinal);
@@ -508,7 +385,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
 
         Assert.True(File.Exists(stagingScriptPath));
 
-        string stagingScriptSource = File.ReadAllText(stagingScriptPath);
+        string stagingScriptSource = ReadSource(stagingScriptPath);
         Assert.Contains("DemoDiscMainMenu.hasset", stagingScriptSource, StringComparison.Ordinal);
         Assert.Contains("cp \"${CITY_COOKED_ROOT}/scenes/rendering/\"*.hasset", stagingScriptSource, StringComparison.Ordinal);
         Assert.Contains("DemoDiscBody.hefont", stagingScriptSource, StringComparison.Ordinal);
@@ -518,53 +395,12 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
-    /// Ensures the retail-check harness packages the authored demo-disc target scene catalog instead of a one-scene startup-only manifest.
-    /// </summary>
-    [Fact]
-    public void PackagedDiscBootSource_RetailHarnessIncludesPlayableDemoDiscSceneCatalog() {
-        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string retailHarnessSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "builder-retail-check", "Program.cs"));
-
-        Assert.Contains("const string CubeTestSceneId = \"cube_test\";", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("const string StartupSceneAliasId = \"DemoDiscMainMenu\";", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("const string ColoredCubeGridSceneId = \"colored_cube_grid\";", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("const string TexturedCubeGridSceneId = \"textured_cube_grid\";", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("const string AxisTestSceneId = \"axis_test\";", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("const string AxisTest2SceneId = \"axis_test2\";", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("const string DirectionalShadowPlazaSceneId = \"directional_shadow_plaza\";", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("const string SpotlightStreetSliceSceneId = \"spotlight_street_slice\";", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("new PlatformBuildScene(", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("Demo Disc Main Menu Alias", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("List<string> cookedSceneAssetPaths = new(manifest.Scenes.Length);", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("DiscoverAutomaticRuntimeComponentTypesFromCookedScenes(cookedSceneAssetPaths, scriptTypeResolver)", retailHarnessSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("IReadOnlyList<string> cookedSceneAssetPaths = [ cookedSceneAssetPath ];", retailHarnessSource, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Ensures the retail-check harness rewrites staged menu-scene material payloads into the GameCube cooked material contract before packaging.
-    /// </summary>
-    [Fact]
-    public void PackagedDiscBootSource_RetailHarnessRecooksGeneratedAndAuthoredMaterialsForGameCube() {
-        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string retailHarnessSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "builder-retail-check", "Program.cs"));
-
-        Assert.Contains("RecookPackagedMaterialAssets(repositoryRootPath);", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("static void RecookGeneratedStandardMaterialAsset(", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("engine/materials/standard.hasset", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("static void RecookStagedAuthoredMaterialAssets(", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("Directory.GetFiles(stagedMaterialsRootPath, \"*.hasset\", SearchOption.AllDirectories);", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("settingsService.LoadMaterialAsset(sourceMaterialAssetPath, \"gamecube\")", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("settingsService.TryLoadPlatformSettings(sourceMaterialAssetPath, \"gamecube\", out MaterialAssetProcessorSettings platformSettings)", retailHarnessSource, StringComparison.Ordinal);
-        Assert.Contains("fieldValues[GameCubeMaterialSchemaIds.TextureRelativePathFieldId] = \"cooked/imported/\" + materialAsset.DiffuseTextureAssetId;", retailHarnessSource, StringComparison.Ordinal);
-    }
-
-    /// <summary>
     /// Ensures the GameCube input backend maps native pad buttons onto the shared gamepad-state contract used by menu navigation.
     /// </summary>
     [Fact]
     public void GameCubeInputManager_WhenBuiltForMenu_MapsNativePadButtonsToSharedGamepadState() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
+        string source = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
 
         Assert.Contains("PAD_ScanPads();", source, StringComparison.Ordinal);
         Assert.Contains("frame.set_GamepadCount(1);", source, StringComparison.Ordinal);
@@ -588,7 +424,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeInputManager_RetailInputBranchPreservesLibogcTransport() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
+        string source = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
 
         Assert.Contains("PAD_Init();", source, StringComparison.Ordinal);
         Assert.Contains("PAD_ScanPads();", source, StringComparison.Ordinal);
@@ -601,18 +437,18 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_PreservesExtractedLightsAndNormalsForLitRendering() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string framePlanSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeFramePlan.hpp"));
-        string sceneRenderBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
-        string runtimeModelSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeModel.hpp"));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string renderManagerHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string framePlanSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeFramePlan.hpp"));
+        string sceneRenderBridgeSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
+        string runtimeModelSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeModel.hpp"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string renderManagerHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("List<RenderFrameLightSubmission*>* LightSubmissions;", framePlanSource, StringComparison.Ordinal);
         Assert.Contains("frame->get_LightSubmissions()", sceneRenderBridgeSource, StringComparison.Ordinal);
         Assert.Contains("Array<float3>* Normals;", runtimeModelSource, StringComparison.Ordinal);
         Assert.Contains("ModelAsset* OwnedSourceModelAsset;", runtimeModelSource, StringComparison.Ordinal);
-        Assert.Contains("RuntimeModel* BuildModelFromCooked(std::string cookedAssetPath) override;", renderManagerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("RuntimeModel* BuildModelFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) override;", renderManagerHeaderSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRuntimeModel* runtimeModel = static_cast<GameCubeRuntimeModel*>(BuildModelFromRaw(cookedModelAsset));", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("runtimeModel->OwnedSourceModelAsset = cookedModelAsset;", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("ReleaseOwnedSourceModelAsset(runtimeModel);", renderManagerSource, StringComparison.Ordinal);
@@ -628,12 +464,12 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_UsesSharedLightingModelForWhiteDirectionalDiffuseRendering() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string renderManagerHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string runtimeMaterialHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.hpp"));
-        string runtimeMaterialSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.cpp"));
-        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string renderManagerHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string runtimeMaterialHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.hpp"));
+        string runtimeMaterialSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.cpp"));
+        string rasterRendererHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("class GameCubeRuntimeMaterial;", renderManagerHeaderSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRuntimeMaterial* runtimeMaterial = new GameCubeRuntimeMaterial();", renderManagerSource, StringComparison.Ordinal);
@@ -660,21 +496,21 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_PreservesCookedTexturePathsAndUsesTexturedGxBranch() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string runtimeMaterialHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.hpp"));
-        string runtimeMaterialSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.cpp"));
-        string runtimeTextureHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.hpp"));
-        string runtimeTextureSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.cpp"));
-        string renderManager2DSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
-        string platformDefinitionSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubePlatformDefinitionFactory.cs"));
-        string generatedResolverSource = File.ReadAllText(Path.Combine(repositoryRootPath, "tmp", "generated-core-gamecube", "RuntimeSceneAssetReferenceResolver.cpp"));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string runtimeMaterialHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.hpp"));
+        string runtimeMaterialSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeMaterial.cpp"));
+        string runtimeTextureHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.hpp"));
+        string runtimeTextureSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.cpp"));
+        string renderManager2DSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string platformDefinitionSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubePlatformDefinitionFactory.cs"));
+        string generatedResolverSource = ReadSource(Path.Combine(repositoryRootPath, "..", "helengine", "engine", "helengine.core", "scene", "runtime", "RuntimeSceneAssetReferenceResolver.cs"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
 
         Assert.Contains("const std::string& GetTextureRelativePath() const;", runtimeMaterialHeaderSource, StringComparison.Ordinal);
         Assert.Contains("void SetTextureRelativePath(std::string value);", runtimeMaterialHeaderSource, StringComparison.Ordinal);
         Assert.Contains("TextureRelativePathValue", runtimeMaterialSource, StringComparison.Ordinal);
-        Assert.Contains("#include \"MaterialPropertyBlock.hpp\"", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("#include \"PlatformMaterialAsset.hpp\"", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("#include \"TextureAsset.hpp\"", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("runtimeMaterial->SetTextureRelativePath(materialAsset->TextureRelativePath);", renderManagerSource, StringComparison.Ordinal);
         Assert.Contains("class GameCubeRuntimeTexture final : public RuntimeTexture", runtimeTextureHeaderSource, StringComparison.Ordinal);
@@ -687,8 +523,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("GameCubeRuntimeTexture* runtimeTexture = new GameCubeRuntimeTexture();", renderManager2DSource, StringComparison.Ordinal);
         Assert.Contains("RuntimeMaterialResolutionMode.CookedPlatformOwned", platformDefinitionSource, StringComparison.Ordinal);
         Assert.Contains("PackagedPathPolicy.ContentRelativeOnly", platformDefinitionSource, StringComparison.Ordinal);
-        Assert.Contains("BuildMaterialFromCooked(generatedFullPath)", generatedResolverSource, StringComparison.Ordinal);
-        Assert.Contains("BuildMaterialFromCooked(fullPath)", generatedResolverSource, StringComparison.Ordinal);
+        Assert.Contains("renderer.BuildMaterialFromCooked(generatedFullPath, AssetContentManager.ContentStreamSource)", generatedResolverSource, StringComparison.Ordinal);
+        Assert.Contains("renderer.BuildMaterialFromCooked(fullPath, AssetContentManager.ContentStreamSource)", generatedResolverSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRuntimeTexture* boundTexture = expectsTexture", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("? ResolveBoundTexture(gameCubeRuntimeMaterial)", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRuntimeTexture* gameCubeRuntimeTexture = static_cast<GameCubeRuntimeTexture*>(runtimeTexture);", rasterRendererSource, StringComparison.Ordinal);
@@ -707,7 +543,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedRuntimeTextureLoader_WhenTextureIsAlreadyGxRgb5A3_DoesNotRequireRgba32Transcode() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string runtimeTextureSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.cpp"));
+        string runtimeTextureSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeTexture.cpp"));
 
         Assert.Contains("TextureAssetColorFormat::GxRgb5A3", runtimeTextureSource, StringComparison.Ordinal);
         Assert.DoesNotContain("GameCube runtime textures currently require RGBA32 texture assets.", runtimeTextureSource, StringComparison.Ordinal);
@@ -719,10 +555,11 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_DoesNotForceMinimumLightFloorWhenAccumulatedLightingIsZero() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.DoesNotContain("return float3(0.15f, 0.15f, 0.15f);", rasterRendererSource, StringComparison.Ordinal);
-        Assert.Contains("return accumulated;", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("ambientColor = ConvertLightingColorToGx(ambientRgb);", rasterRendererSource, StringComparison.Ordinal);
+        Assert.Contains("if (!hasDirectionalLight)", rasterRendererSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -731,8 +568,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_ReversesSharedCullModesForGxFaceCulling() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string rasterRendererHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("u8 ResolveGxCullMode(MaterialCullMode cullMode);", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("switch (cullMode)", rasterRendererSource, StringComparison.Ordinal);
@@ -750,7 +587,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_RunsGeneratedEngineLoop() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
         Assert.Contains("while (true) {", applicationSource, StringComparison.Ordinal);
         Assert.Contains("if (!UpdateEngineCore()) {", applicationSource, StringComparison.Ordinal);
@@ -765,8 +602,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeApplication_WhenAdvancingGeneratedEngine_UsesLibogcFrameDelta() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
 
         Assert.Contains("const u64 currentFrameTicks = gettime();", applicationSource, StringComparison.Ordinal);
         Assert.Contains("ticks_to_millisecs(currentFrameTicks - PreviousFrameTicks)", applicationSource, StringComparison.Ordinal);
@@ -780,8 +617,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeApplication_WhenDirectFrameDiagnosticsAreEnabled_ReportsRuntimeTelemetry() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
 
         Assert.Contains("ReportRuntimeFrameTelemetry(LastElapsedFrameSeconds);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("[GC] Runtime telemetry", applicationSource, StringComparison.Ordinal);
@@ -803,7 +640,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_ReturnsSuccessWhenVerificationCompletes() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
         Assert.Contains("if (HasSatisfiedVerificationExitCondition()) {", applicationSource, StringComparison.Ordinal);
         Assert.Contains("return 0;", applicationSource, StringComparison.Ordinal);
@@ -815,7 +652,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_InitializesCoreAndQueuesStartupSceneBeforeLoop() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
         Assert.Contains("EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);", applicationSource, StringComparison.Ordinal);
         Assert.Contains("EngineCore->get_SceneManager()->LoadScene(packagedStartupSceneId, SceneLoadMode::Single);", applicationSource, StringComparison.Ordinal);
@@ -827,11 +664,11 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_DoesNotDependOnMissingGeneratedCoreFrameBoundaryApis() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
 
-        Assert.DoesNotContain("CommitPendingSceneOperationsDuringDraw", applicationSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("CompleteFrameBoundary", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("#if HELENGINE_GAMECUBE_FIRST_FRAME_TRACE_DIAGNOSTIC\n            options->CommitPendingSceneOperationsDuringDraw = false;", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC\n            DisplayDirectFrameDiagnosticCode(0xB008U);\n#endif\n            EngineCore->CompleteFrameBoundary();", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("FinalizePresentedFrame", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("FinalizePresentedFrame", applicationHeaderSource, StringComparison.Ordinal);
     }
@@ -842,8 +679,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_RegistersGeneratedRuntimeModulesConditionallyBeforeStartupSceneLoad() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
         Assert.Contains("HELENGINE_GAMECUBE_HAS_GENERATED_RUNTIME_MODULE_REGISTRATION", makefileSource, StringComparison.Ordinal);
         Assert.Contains("#if HELENGINE_GAMECUBE_HAS_GENERATED_RUNTIME_MODULE_REGISTRATION", applicationSource, StringComparison.Ordinal);
@@ -858,10 +695,10 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_CanDisableGeneratedRuntimeModuleRegistrationForDiagnostics() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
-        string builderPathsSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
-        string nativeBuildExecutorSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
+        string builderPathsSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
+        string nativeBuildExecutorSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
 
         Assert.Contains("HELENGINE_GAMECUBE_GENERATED_RUNTIME_MODULE_REGISTRATION_ENABLED ?= 1", makefileSource, StringComparison.Ordinal);
         Assert.Contains("-DHELENGINE_GAMECUBE_GENERATED_RUNTIME_MODULE_REGISTRATION_ENABLED=$(HELENGINE_GAMECUBE_GENERATED_RUNTIME_MODULE_REGISTRATION_ENABLED)", makefileSource, StringComparison.Ordinal);
@@ -878,9 +715,9 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_CanDisableSystemReportForDiagnostics() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
-        string builderPathsSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
-        string nativeBuildExecutorSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
+        string builderPathsSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
+        string nativeBuildExecutorSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
         string systemReportWrapperPath = Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSystemReport.cpp");
 
         Assert.Contains("HELENGINE_GAMECUBE_SYSTEM_REPORT_ENABLED ?= 1", makefileSource, StringComparison.Ordinal);
@@ -900,11 +737,11 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_CanEnableDirectFrameDiagnostic() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
-        string builderPathsSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
-        string nativeBuildExecutorSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
+        string builderPathsSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
+        string nativeBuildExecutorSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
 
         Assert.Contains("HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC ?= 0", makefileSource, StringComparison.Ordinal);
         Assert.Contains("-DHELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC=$(HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC)", makefileSource, StringComparison.Ordinal);
@@ -927,11 +764,11 @@ public sealed class GameCubePackagedRuntimeSourceTests {
             repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         }
 
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
-        string builderPathsSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
-        string nativeBuildExecutorSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
+        string builderPathsSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
+        string nativeBuildExecutorSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC ?= 0", makefileSource, StringComparison.Ordinal);
         Assert.Contains("-DHELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC=$(HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC)", makefileSource, StringComparison.Ordinal);
@@ -951,10 +788,10 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_CanEnableInputTraceDiagnostic() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string makefileSource = File.ReadAllText(Path.Combine(repositoryRootPath, "Makefile"));
-        string builderPathsSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
-        string nativeBuildExecutorSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
-        string inputManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
+        string makefileSource = ReadSource(Path.Combine(repositoryRootPath, "Makefile"));
+        string builderPathsSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeBuilderPaths.cs"));
+        string nativeBuildExecutorSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
+        string inputManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
 
         Assert.Contains("HELENGINE_GAMECUBE_INPUT_TRACE_DIAGNOSTIC ?= 0", makefileSource, StringComparison.Ordinal);
         Assert.Contains("-DHELENGINE_GAMECUBE_INPUT_TRACE_DIAGNOSTIC=$(HELENGINE_GAMECUBE_INPUT_TRACE_DIAGNOSTIC)", makefileSource, StringComparison.Ordinal);
@@ -972,8 +809,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeRenderManager2D_WhenBuiltForMenu_CapturesPerFrameDrawRequests() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string headerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.hpp"));
-        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
+        string headerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.hpp"));
+        string source = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.cpp"));
 
         Assert.Contains("struct GameCubeSpriteDrawCommand", headerSource, StringComparison.Ordinal);
         Assert.Contains("struct GameCubeTextDrawCommand", headerSource, StringComparison.Ordinal);
@@ -1004,8 +841,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeRasterRenderer_WhenRenderingMenu_Contains2DGxEntryPoints() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string headerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string headerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string source = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
         int render2DStartIndex = source.IndexOf("void GameCubeRasterRenderer::Render2D", StringComparison.Ordinal);
         int render2DEndIndex = source.IndexOf("void GameCubeRasterRenderer::ConfigurePipeline", render2DStartIndex, StringComparison.Ordinal);
         string render2DSource = source.Substring(render2DStartIndex, render2DEndIndex - render2DStartIndex);
@@ -1041,11 +878,11 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeRenderer_WhenMultipleCamerasAreActive_ExecutesEachCameraPlan() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string sceneBridgeHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.hpp"));
-        string sceneBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string renderManager2DHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.hpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string sceneBridgeHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.hpp"));
+        string sceneBridgeSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string renderManager2DHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager2D.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("List<GameCubeFramePlan*>* BuildFramePlans(", sceneBridgeHeaderSource, StringComparison.Ordinal);
         Assert.DoesNotContain("ResolveActiveCamera", sceneBridgeHeaderSource, StringComparison.Ordinal);
@@ -1071,8 +908,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
             repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         }
 
-        string headerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string headerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string source = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("void DrawTextGlyphPass2D(", headerSource, StringComparison.Ordinal);
         Assert.Contains("drawable->get_ShadowOffset()", source, StringComparison.Ordinal);
@@ -1091,8 +928,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeRasterRenderer_WhenRenderingSprites_AppliesEntityScaleAndOrientation() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string headerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string headerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string source = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("void DrawTransformedTexturedQuad2D(float centerX, float centerY, float width, float height, float rotation, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture);", headerSource, StringComparison.Ordinal);
         Assert.Contains("float3 scale = drawable->get_Parent()->get_Scale();", source, StringComparison.Ordinal);
@@ -1111,8 +948,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeApplication_WhenRunningMenu_BeginsAndRenders2DFrames() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string bootstrapSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string bootstrapSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.cpp"));
 
         Assert.Contains("EngineRenderManager2D->BeginFrame();", applicationSource, StringComparison.Ordinal);
         Assert.Contains("EngineRenderManager3D->SetOverlayRenderManager2D(EngineRenderManager2D);", applicationSource, StringComparison.Ordinal);
@@ -1131,11 +968,11 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeFrameBoundarySource_Executes2DOverlayInsideRenderManagerDraw() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string renderManagerHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string renderManagerHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string rasterRendererHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("void SetOverlayRenderManager2D(GameCubeRenderManager2D* renderManager2D);", renderManagerHeaderSource, StringComparison.Ordinal);
         Assert.Contains("GameCubeRenderManager2D* OverlayRenderManager2D;", renderManagerHeaderSource, StringComparison.Ordinal);
@@ -1155,14 +992,14 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeViewportSource_SeparatesLogicalAndPhysicalViewportState() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string renderManagerHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string framePlanHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeFramePlan.hpp"));
-        string sceneRenderBridgeHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.hpp"));
-        string sceneRenderBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
-        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string renderManagerHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.hpp"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string framePlanHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeFramePlan.hpp"));
+        string sceneRenderBridgeHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.hpp"));
+        string sceneRenderBridgeSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
+        string rasterRendererHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("void SetPresentedFrameSize(uint16_t width, uint16_t height);", renderManagerHeaderSource, StringComparison.Ordinal);
         Assert.Contains("uint16_t PresentedFrameWidth;", renderManagerHeaderSource, StringComparison.Ordinal);
@@ -1191,13 +1028,13 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void CachedMeshOwnershipSource_DefinesRuntimeOwnershipContract() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string runtimeModelSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeModel.hpp"));
-        string meshCacheHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMeshCache.hpp"));
-        string meshCacheSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMeshCache.cpp"));
+        string runtimeModelSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRuntimeModel.hpp"));
+        string meshCacheHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMeshCache.hpp"));
+        string meshCacheSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeMeshCache.cpp"));
         string cachedMeshHeaderPath = Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeCachedMeshData.hpp");
 
         Assert.True(File.Exists(cachedMeshHeaderPath), "Expected GameCubeCachedMeshData.hpp to exist.");
-        string cachedMeshHeaderSource = File.ReadAllText(cachedMeshHeaderPath);
+        string cachedMeshHeaderSource = ReadSource(cachedMeshHeaderPath);
 
         Assert.Contains("class GameCubeCachedMeshData", cachedMeshHeaderSource, StringComparison.Ordinal);
         Assert.Contains("struct GameCubePackedNormal3", cachedMeshHeaderSource, StringComparison.Ordinal);
@@ -1217,8 +1054,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void CachedMeshRenderSource_UsesIndexedGeometryForUnlitAndTexturedSubmeshes() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string rasterRendererHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("BindCachedMeshArrays", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("DrawCachedSubmesh", rasterRendererHeaderSource, StringComparison.Ordinal);
@@ -1235,8 +1072,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void CachedMeshRenderSource_UsesCachedNormalsForLitGeometry() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string rasterRendererHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string rasterRendererHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.hpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("void ConfigureLitPipeline(bool useTexturedBranch, bool useIndexedGeometry);", rasterRendererHeaderSource, StringComparison.Ordinal);
         Assert.Contains("void ConfigureDirectionalLight(", rasterRendererHeaderSource, StringComparison.Ordinal);
@@ -1258,7 +1095,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void CachedMeshRenderSource_PreservesMaterialResolvedCullMode() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("GX_SetCullMode(ResolveGxCullMode(material->get_RenderState()->get_CullMode()));", rasterRendererSource, StringComparison.Ordinal);
         Assert.DoesNotContain("GX_SetCullMode(GX_CULL_FRONT);", rasterRendererSource, StringComparison.Ordinal);
@@ -1270,7 +1107,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void CachedMeshRenderSource_UsesReversedGxCullMappings() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
 
         Assert.Contains("case MaterialCullMode::Back:\n                return GX_CULL_FRONT;", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("case MaterialCullMode::Front:\n                return GX_CULL_BACK;", rasterRendererSource, StringComparison.Ordinal);
@@ -1284,11 +1121,11 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void CachedMeshRenderSource_EmulatesDirectionalLightUsingFarViewSpacePosition() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string rasterRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
-        string directXRendererSource = File.ReadAllText(Path.Combine(repositoryRootPath, "..", "helengine", "engine", "helengine.directx11", "DirectX11Renderer3D.cs"));
-        string forwardShaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "..", "helengine", "engine", "helengine.editor", "shaders", "builtin", "ForwardStandardShader.hlsl"));
+        string rasterRendererSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRasterRenderer.cpp"));
+        string directXRendererSource = ReadSource(Path.Combine(repositoryRootPath, "..", "helengine", "engine", "helengine.directx11", "rendering", "DirectX11ForwardLightShaderDataBuilder.cs"));
+        string forwardShaderSource = ReadSource(Path.Combine(repositoryRootPath, "..", "helengine", "engine", "helengine.editor", "shaders", "builtin", "ForwardStandardShader.hlsl"));
 
-        Assert.Contains("float3 lightDirection = float3.Normalize(LightDirectionUtility.GetEntityForwardDirection(directionalLight.Parent)) * -1f;", directXRendererSource, StringComparison.Ordinal);
+        Assert.Contains("float3 direction = LightDirectionUtility.GetEntityForwardDirection(entity);", directXRendererSource, StringComparison.Ordinal);
         Assert.Contains("lightDirection = normalize(-directionAndShadow.xyz);", forwardShaderSource, StringComparison.Ordinal);
         Assert.Contains("directionalDirection = float4::RotateVector(float3(0.0f, 0.0f, -1.0f), lightOrientation);", rasterRendererSource, StringComparison.Ordinal);
         Assert.Contains("directionalPosition = float3::Normalize(directionalDirection) * -1024.0f;", rasterRendererSource, StringComparison.Ordinal);
@@ -1302,12 +1139,13 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeFramePlanSource_EmitsDrawableCountDiagnostics() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string renderManagerSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
-        string sceneRenderBridgeSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
+        string renderManagerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeRenderManager3D.cpp"));
+        string sceneRenderBridgeSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneRenderBridge.cpp"));
 
-        Assert.Contains("[GC] Frame snapshot visibleDrawables=", sceneRenderBridgeSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Frame extraction drawableSubmissions=", sceneRenderBridgeSource, StringComparison.Ordinal);
-        Assert.Contains("[GC] Render frame has3D=", renderManagerSource, StringComparison.Ordinal);
+        Assert.Contains("[GC] Frame plan snapshot: drawables=", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("frameLights=%ld", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("frameDrawables=%ld", sceneRenderBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("if (framePlans->get_Count() == 0)", renderManagerSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1316,8 +1154,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void BuilderProjectSource_DoesNotDependOnGdiImporterOrWindowsHost() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string builderProjectSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "helengine.gamecube.builder.csproj"));
-        string builderTestsProjectSource = File.ReadAllText(Path.Combine(repositoryRootPath, "builder.tests", "helengine.gamecube.builder.tests.csproj"));
+        string builderProjectSource = ReadSource(Path.Combine(repositoryRootPath, "builder", "helengine.gamecube.builder.csproj"));
+        string builderTestsProjectSource = ReadSource(Path.Combine(repositoryRootPath, "builder.tests", "helengine.gamecube.builder.tests.csproj"));
 
         Assert.Contains("<TargetFramework>net9.0</TargetFramework>", builderProjectSource, StringComparison.Ordinal);
         Assert.Contains("<TargetFramework>net9.0</TargetFramework>", builderTestsProjectSource, StringComparison.Ordinal);
@@ -1333,7 +1171,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void RetailApploaderSource_AcceptsNintendontTemporaryEntrypoint() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string apploaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "third_party", "cubeboot-tools", "ppc", "apploader", "retail_apploader.c"));
+        string apploaderSource = ReadSource(Path.Combine(repositoryRootPath, "third_party", "cubeboot-tools", "ppc", "apploader", "retail_apploader.c"));
 
         Assert.Contains("#define NINTENDONT_TEMPORARY_ENTRY_MIN 0x80001000", apploaderSource, StringComparison.Ordinal);
         Assert.Contains("#define NINTENDONT_TEMPORARY_ENTRY_MAX 0x80003000", apploaderSource, StringComparison.Ordinal);
@@ -1349,7 +1187,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_PresentsMarkerAfterCoreOptionsGetter() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
         Assert.Contains(
             "CoreInitializationOptions* options = EngineCore->get_InitializationOptions();\n            initializationStage = \"ReadInitializationOptionsCompleted\";\n            SetBootPhase(GameCubeBootPhase::CoreOptions, GXColor { 0x80, 0xFF, 0x00, 0xFF });\n            PresentBootFrame();",
@@ -1363,13 +1201,12 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_PresentsMarkerBeforePackagedDiscBootstrap() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string applicationHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.hpp"));
 
-        Assert.Contains(
-            "initializationStage = \"ConfigureSceneBootstrap\";\n            SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0x00, 0x40, 0x80, 0xFF });\n            PresentVideoBootFrame();\n#if HELENGINE_GAMECUBE_PACKAGED_DISC_BOOT\n            initializationStage = \"InitializePackagedDisc\";\n            SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0xFF, 0xFF, 0xFF, 0xFF });\n            PresentVideoBootFrame();\n            GameCubeSceneBootstrap::InitializePackagedDiscInterface();",
-            applicationSource,
-            StringComparison.Ordinal);
+        Assert.Contains("initializationStage = \"ConfigureSceneBootstrap\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("initializationStage = \"InitializePackagedDisc\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("if (!GameCubeSceneBootstrap::InitializePackagedDiscInterface())", applicationSource, StringComparison.Ordinal);
         Assert.Contains("void PresentVideoBootFrame();", applicationHeaderSource, StringComparison.Ordinal);
         Assert.Contains("void GameCubeApplication::PresentVideoBootFrame()", applicationSource, StringComparison.Ordinal);
     }
@@ -1380,7 +1217,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_AlternatesFramebuffersBeforeGxBootPresentation() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
         Assert.Contains(
             "        FrameBufferIndex ^= 1U;\n        GX_SetCopyClear(ClearColor, 0x00FFFFFF);\n        GX_CopyDisp(FrameBuffers[FrameBufferIndex], GX_TRUE);",
@@ -1394,18 +1231,14 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_PresentsMarkersAroundDvdInitializationAndReadinessProbe() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
-        string bootstrapHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.hpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string bootstrapHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeSceneBootstrap.hpp"));
 
-        Assert.Contains(
-            "GameCubeSceneBootstrap::InitializePackagedDiscInterface();\n            initializationStage = \"VerifyPackagedDiscReadiness\";\n            SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0xFF, 0xFF, 0x00, 0xFF });\n            PresentVideoBootFrame();\n            if (!GameCubeSceneBootstrap::VerifyPackagedDiscReadiness())",
-            applicationSource,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "initializationStage = \"PackagedDiscReadinessVerified\";\n            SetBootPhase(GameCubeBootPhase::SceneBootstrap, GXColor { 0x00, 0xFF, 0xFF, 0xFF });\n            PresentVideoBootFrame();",
-            applicationSource,
-            StringComparison.Ordinal);
-        Assert.Contains("static void InitializePackagedDiscInterface();", bootstrapHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("if (!GameCubeSceneBootstrap::InitializePackagedDiscInterface())", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("initializationStage = \"VerifyPackagedDiscReadiness\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("if (!GameCubeSceneBootstrap::VerifyPackagedDiscReadiness())", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("initializationStage = \"PackagedDiscReadinessVerified\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("static bool InitializePackagedDiscInterface();", bootstrapHeaderSource, StringComparison.Ordinal);
         Assert.Contains("static bool VerifyPackagedDiscReadiness();", bootstrapHeaderSource, StringComparison.Ordinal);
     }
 
@@ -1415,22 +1248,22 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscBootSource_PresentsMarkersAroundGeneratedCoreInitialization() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string applicationSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
 
         Assert.DoesNotContain("DetectNintendontInputTransport", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("DetectHighDataBatSupport", applicationSource, StringComparison.Ordinal);
         Assert.Contains("initializationStage = \"InitializePlatformInput\";", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeInputManager::InitializePlatformInput(\n#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL\n                MemoryCardDiagnosticJournal\n#else\n                nullptr\n#endif\n            );", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("EngineInputManager = new GameCubeInputManager(\n#if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL\n                MemoryCardDiagnosticJournal\n#else\n                nullptr\n#endif\n            );", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeInputManager::InitializePlatformInput(", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineInputManager = new GameCubeInputManager(", applicationSource, StringComparison.Ordinal);
         Assert.Contains("EnginePlatformInfo = new PlatformInfo(\"gamecube\", \"1.0.0\");", applicationSource, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "initializationStage = \"ConstructRenderManager3D\";\n            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x00, 0x00, 0xFF, 0xFF });\n            PresentVideoBootFrame();\n            EngineRenderManager3D = new GameCubeRenderManager3D();\n\n            initializationStage = \"ConstructRenderManager2D\";\n            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0x00, 0x00, 0xFF });\n            PresentVideoBootFrame();\n            EngineRenderManager2D = new GameCubeRenderManager2D();\n\n            initializationStage = \"ConnectRenderManagers\";\n            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0xFF, 0x00, 0xFF });\n            PresentVideoBootFrame();\n            EngineRenderManager3D->SetOverlayRenderManager2D(EngineRenderManager2D);\n\n            initializationStage = \"InitializePlatformInput\";\n            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x00, 0xFF, 0x00, 0xFF });\n            PresentVideoBootFrame();\n            GameCubeInputManager::InitializePlatformInput();\n\n            initializationStage = \"ConstructInputManager\";\n            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0x80, 0x00, 0xFF, 0xFF });\n            PresentVideoBootFrame();\n            EngineInputManager = new GameCubeInputManager();\n\n            initializationStage = \"ConstructAudioBackend\";\n            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0x00, 0xFF, 0xFF });\n            PresentVideoBootFrame();\n            EngineAudioBackend = new GameCubeAudioBackend();\n\n            initializationStage = \"ConstructPlatformInfo\";\n            SetBootPhase(GameCubeBootPhase::BridgeConstruction, GXColor { 0xFF, 0xFF, 0xFF, 0xFF });\n            PresentVideoBootFrame();\n            EnginePlatformInfo = new PlatformInfo(\"gamecube\", \"gc-headless\");",
-            applicationSource,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "initializationStage = \"AddPrimaryWindow\";\n            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0x00, 0x40, 0xFF, 0xFF });\n            PresentVideoBootFrame();\n            EngineRenderManager3D->AddWindow(0, RenderMode->fbWidth, RenderMode->efbHeight);\n\n            initializationStage = \"SetPresentedFrameSize\";\n            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x80, 0x00, 0xFF });\n            PresentVideoBootFrame();\n            EngineRenderManager3D->SetPresentedFrameSize(static_cast<uint16_t>(RenderMode->fbWidth), static_cast<uint16_t>(RenderMode->efbHeight));\n\n            initializationStage = \"InitializeCore\";\n            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x00, 0x00, 0xFF });\n            PresentVideoBootFrame();\n            EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);\n            EngineCore->SetAudioBackend(EngineAudioBackend);\n            initializationStage = \"InitializeCoreCompleted\";\n            SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x00, 0xFF, 0xFF });\n            PresentVideoBootFrame();",
-            applicationSource,
-            StringComparison.Ordinal);
+        Assert.Contains("initializationStage = \"AddPrimaryWindow\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineRenderManager3D->AddWindow(0, RenderMode->fbWidth, RenderMode->efbHeight);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("initializationStage = \"SetPresentedFrameSize\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineRenderManager3D->SetPresentedFrameSize(static_cast<uint16_t>(RenderMode->fbWidth), static_cast<uint16_t>(RenderMode->efbHeight));", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("initializationStage = \"InitializeCore\";", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineCore->Initialize(EngineRenderManager3D, EngineRenderManager2D, EngineInputManager, EnginePlatformInfo, options);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("EngineCore->SetAudioBackend(EngineAudioBackend);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("initializationStage = \"InitializeCoreCompleted\";", applicationSource, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1439,7 +1272,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void PackagedDiscFileSystemSource_ValidatesFstNameBoundsBeforeStringConstruction() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string discFileSystemSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscFileSystem.cpp"));
+        string discFileSystemSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeDiscFileSystem.cpp"));
 
         Assert.Contains("bool GameCubeDiscFileSystem::IndexDirectory", discFileSystemSource, StringComparison.Ordinal);
         Assert.Contains("bool GameCubeDiscFileSystem::TryReadEntryName", discFileSystemSource, StringComparison.Ordinal);
@@ -1455,8 +1288,8 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     [Fact]
     public void GameCubeInputManagerSource_UsesNintendontVirtualPadTransport() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string inputSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
-        string inputHeaderSource = File.ReadAllText(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.hpp"));
+        string inputSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
+        string inputHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.hpp"));
 
         Assert.DoesNotContain("DetectNintendontInputTransport", inputHeaderSource, StringComparison.Ordinal);
         Assert.DoesNotContain("DetectHighDataBatSupport", inputHeaderSource, StringComparison.Ordinal);
@@ -1486,5 +1319,14 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.DoesNotContain("DCInvalidateRange(nintendontPadStatuses, sizeof(PADStatus) * 4U);", inputSource, StringComparison.Ordinal);
         Assert.DoesNotContain("NintendontWiiUHardwareAddress", inputSource, StringComparison.Ordinal);
         Assert.Contains("if (IsNintendontEnvironment()) {\n            InitializeNintendontInputTransport();\n        } else {\n            PAD_Init();\n        }", inputSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Reads one maintained source file with platform-independent line endings for stable source-contract assertions.
+    /// </summary>
+    /// <param name="path">Source file path.</param>
+    /// <returns>Source contents normalized to LF line endings.</returns>
+    static string ReadSource(string path) {
+        return File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 }

@@ -119,6 +119,7 @@ public sealed class GameCubePlatformAssetBuilderTests {
     public async Task BuildAsync_WhenManifestUsesDefaultFlow_CopiesPayloadsIntoOutputRoot() {
         string workingRootPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         string outputRootPath = Path.Combine(workingRootPath, "out");
+        string generatedCoreRootPath = Path.Combine(workingRootPath, "generated-core");
         string sourceRootPath = Path.Combine(workingRootPath, "project");
         string sceneSourcePath = Path.Combine(sourceRootPath, "scenes", "startup.helen");
         string textureSourcePath = Path.Combine(sourceRootPath, "assets", "textures", "checker.png");
@@ -127,6 +128,7 @@ public sealed class GameCubePlatformAssetBuilderTests {
         try {
             Directory.CreateDirectory(Path.GetDirectoryName(sceneSourcePath) ?? throw new InvalidOperationException("Scene source directory path could not be resolved."));
             Directory.CreateDirectory(Path.GetDirectoryName(textureSourcePath) ?? throw new InvalidOperationException("Texture source directory path could not be resolved."));
+            Directory.CreateDirectory(generatedCoreRootPath);
             await File.WriteAllTextAsync(sceneSourcePath, "scene payload");
             await File.WriteAllTextAsync(textureSourcePath, "texture payload");
             Directory.SetCurrentDirectory(sourceRootPath);
@@ -158,7 +160,7 @@ public sealed class GameCubePlatformAssetBuilderTests {
                 Array.Empty<PlatformBuildArtifact>(),
                 Array.Empty<PlatformBuildCodeModule>(),
                 Array.Empty<PlatformArtifactPlacement>(),
-                new PlatformContainerWritePlan("gamecube-disc-layout", Array.Empty<PlatformContainerArtifact>()),
+                new PlatformContainerWritePlan(string.Empty, Array.Empty<PlatformContainerArtifact>()),
                 Array.Empty<PlatformCookWorkItem>(),
                 PlatformBuildRuntimeFeatureManifest.Empty);
 
@@ -175,7 +177,14 @@ public sealed class GameCubePlatformAssetBuilderTests {
                         "gamecube-scene-v1",
                         PlatformSerializationEndianness.BigEndian))],
                 outputRootPath,
-                Path.Combine(workingRootPath, "tmp"));
+                Path.Combine(workingRootPath, "tmp"),
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                null,
+                null,
+                null,
+                generatedCoreRootPath);
 
             RecordingProgressReporter progressReporter = new();
             RecordingDiagnosticReporter diagnosticReporter = new();

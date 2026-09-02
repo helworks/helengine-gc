@@ -21,5 +21,6 @@
   <ItemGroup>
     <ProjectReference Include="..\builder\helengine.gamecube.builder.csproj" SkipGetTargetFrameworkProperties="true" />
     <ProjectReference Include="$(HelEngineRoot)\engine\helengine.baseplatform\helengine.baseplatform.csproj" SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="$(HelEngineRoot)\engine\helengine.nativeownership\helengine.nativeownership.csproj" SkipGetTargetFrameworkProperties="true" />
   </ItemGroup>
 </Project>

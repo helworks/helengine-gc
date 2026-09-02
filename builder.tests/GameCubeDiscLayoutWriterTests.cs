@@ -49,12 +49,14 @@ public sealed class GameCubeDiscLayoutWriterTests {
             byte[] fstBytes = File.ReadAllBytes(Path.Combine(discRootPath, "sys", "fst.bin"));
             Assert.Equal(GameCubeDiscSystemAreaWriter.BootBinSize, bootBinBytes.Length);
             Assert.Equal(0xC2339F3D, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(0x1C, sizeof(uint))));
-            uint expectedMainDolOffset = (GameCubeDiscSystemAreaWriter.ApploaderOffset + (uint)File.ReadAllBytes(apploaderImagePath).Length + 31U) & ~31U;
-            uint expectedFstOffset = (expectedMainDolOffset + (uint)File.ReadAllBytes(nativeExecutablePath).Length + 31U) & ~31U;
-            Assert.Equal(expectedMainDolOffset >> 2, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(GameCubeDiscSystemAreaWriter.BootBinDolOffsetFieldOffset, sizeof(uint))));
-            Assert.Equal(expectedFstOffset >> 2, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(GameCubeDiscSystemAreaWriter.BootBinFstOffsetFieldOffset, sizeof(uint))));
-            Assert.Equal((uint)fstBytes.Length >> 2, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(GameCubeDiscSystemAreaWriter.BootBinFstSizeFieldOffset, sizeof(uint))));
-            Assert.Equal((uint)fstBytes.Length >> 2, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(GameCubeDiscSystemAreaWriter.BootBinFstMaxSizeFieldOffset, sizeof(uint))));
+            uint expectedMainDolOffset = Math.Max(
+                GameCubeDiscSystemAreaWriter.FirstPayloadOffset,
+                (GameCubeDiscSystemAreaWriter.ApploaderOffset + (uint)File.ReadAllBytes(apploaderImagePath).Length + 0x20U + 31U) & ~31U);
+            uint expectedFstOffset = (expectedMainDolOffset + (uint)File.ReadAllBytes(nativeExecutablePath).Length + 0x20U + 31U) & ~31U;
+            Assert.Equal(expectedMainDolOffset, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(GameCubeDiscSystemAreaWriter.BootBinDolOffsetFieldOffset, sizeof(uint))));
+            Assert.Equal(expectedFstOffset, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(GameCubeDiscSystemAreaWriter.BootBinFstOffsetFieldOffset, sizeof(uint))));
+            Assert.Equal((uint)fstBytes.Length, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(GameCubeDiscSystemAreaWriter.BootBinFstSizeFieldOffset, sizeof(uint))));
+            Assert.Equal((uint)fstBytes.Length, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bootBinBytes.AsSpan(GameCubeDiscSystemAreaWriter.BootBinFstMaxSizeFieldOffset, sizeof(uint))));
         } finally {
             if (Directory.Exists(rootPath)) {
                 Directory.Delete(rootPath, recursive: true);
