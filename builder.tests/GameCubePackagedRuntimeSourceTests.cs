@@ -1364,23 +1364,24 @@ public sealed class GameCubePackagedRuntimeSourceTests {
     }
 
     /// <summary>
-    /// Ensures Nintendont input is selected only after a fault-contained virtual-pad probe succeeds without privileged processor-register reads.
+    /// Ensures Nintendont is selected from its mapped low-memory marker before any private MEM2 address is used.
     /// </summary>
     [Fact]
-    public void GameCubeInputManagerSource_UsesNintendontVirtualPadTransport() {
+    public void GameCubeInputManagerSource_SelectsNintendontTransportFromSafeLowMemoryMarker() {
         string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
         string inputSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.cpp"));
         string inputHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeInputManager.hpp"));
 
         Assert.DoesNotContain("DetectNintendontInputTransport", inputHeaderSource, StringComparison.Ordinal);
         Assert.DoesNotContain("DetectHighDataBatSupport", inputHeaderSource, StringComparison.Ordinal);
-        Assert.Contains("#include <tuxedo/ppc/exception.h>", inputSource, StringComparison.Ordinal);
-        Assert.Contains("PPCExcptCurPanicFn", inputSource, StringComparison.Ordinal);
-        Assert.Contains("PPC_EXCPT_DSI", inputSource, StringComparison.Ordinal);
-        Assert.Contains("context->pc += sizeof(uint32_t);", inputSource, StringComparison.Ordinal);
-        Assert.Contains("asm volatile(\"lwz %0, 0(%1)\"", inputSource, StringComparison.Ordinal);
-        Assert.Contains("\"+r\"(nintendontPadStubInstruction)", inputSource, StringComparison.Ordinal);
-        Assert.Contains("return !NintendontProbeFaulted && nintendontPadStubInstruction != 0U && nintendontPadStubInstruction != UINT32_MAX;", inputSource, StringComparison.Ordinal);
+        Assert.Contains("constexpr std::uintptr_t NintendontHollywoodVersionAddress = 0x80003138U;", inputSource, StringComparison.Ordinal);
+        Assert.Contains("DCInvalidateRange(reinterpret_cast<void*>(NintendontHollywoodVersionAddress), sizeof(uint32_t));", inputSource, StringComparison.Ordinal);
+        Assert.Contains("return *reinterpret_cast<volatile const uint32_t*>(NintendontHollywoodVersionAddress) == 0x11U;", inputSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("#include <tuxedo/ppc/exception.h>", inputSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("PPCExcptCurPanicFn", inputSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("PPC_EXCPT_DSI", inputSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("NintendontProbeFaulted", inputSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("asm volatile(\"lwz", inputSource, StringComparison.Ordinal);
         Assert.Contains("constexpr std::uintptr_t NintendontVirtualPadBufferAddress = 0x93003100U;", inputSource, StringComparison.Ordinal);
         Assert.Contains("constexpr std::uintptr_t NintendontSiInitializedAddress = 0x93003060U;", inputSource, StringComparison.Ordinal);
         Assert.Contains("constexpr std::uintptr_t NintendontPadReadStubAddress = 0x93000000U;", inputSource, StringComparison.Ordinal);
