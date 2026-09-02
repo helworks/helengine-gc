@@ -4,7 +4,6 @@
 #endif
 
 #include <gccore.h>
-#include <tuxedo/ppc/exception.h>
 
 #include "InputGamepadButton.hpp"
 #include "InputGamepadState.hpp"
@@ -12,6 +11,7 @@
 
 namespace helengine::gamecube {
     namespace {
+        constexpr std::uintptr_t NintendontHollywoodVersionAddress = 0x80003138U;
         constexpr std::uintptr_t NintendontPadReadStubAddress = 0x93000000U;
         constexpr std::uintptr_t NintendontSiInitializedAddress = 0x93003060U;
         constexpr std::uintptr_t NintendontVirtualPadBufferAddress = 0x93003100U;
@@ -19,35 +19,11 @@ namespace helengine::gamecube {
         using NintendontPadReadFunction = uint32_t (*)(uint32_t calledByGame);
 
         bool UsesNintendontInputTransport = false;
-        volatile bool NintendontProbeFaulted = false;
-        PPCExcptPanicFn NintendontProbePreviousPanicFunction = nullptr;
 
-        /// Recovers from an unavailable Nintendont PadStub address while preserving the previously installed panic handler for every other fault.
-        void HandleNintendontProbeException(unsigned exceptionId, PPCContext* context) {
-            if (exceptionId == PPC_EXCPT_DSI && context != nullptr) {
-                NintendontProbeFaulted = true;
-                context->pc += sizeof(uint32_t);
-                return;
-            }
-
-            if (NintendontProbePreviousPanicFunction != nullptr) {
-                NintendontProbePreviousPanicFunction(exceptionId, context);
-            }
-        }
-
-        /// Determines whether Nintendont's documented virtual-controller PadStub is mapped without touching unsupported processor registers on GameCube hardware.
+        /// Determines whether Nintendont initialized its mapped low-memory Hollywood revision marker before accessing private MEM2 addresses.
         bool IsNintendontEnvironment() {
-            uint32_t nintendontPadStubInstruction = 0U;
-            NintendontProbeFaulted = false;
-            NintendontProbePreviousPanicFunction = PPCExcptCurPanicFn;
-            PPCExcptCurPanicFn = HandleNintendontProbeException;
-
-            const volatile uint32_t* const nintendontPadReadStub = reinterpret_cast<volatile const uint32_t*>(NintendontPadReadStubAddress);
-            asm volatile("lwz %0, 0(%1)" : "+r"(nintendontPadStubInstruction) : "b"(nintendontPadReadStub) : "memory");
-
-            PPCExcptCurPanicFn = NintendontProbePreviousPanicFunction;
-            NintendontProbePreviousPanicFunction = nullptr;
-            return !NintendontProbeFaulted && nintendontPadStubInstruction != 0U && nintendontPadStubInstruction != UINT32_MAX;
+            DCInvalidateRange(reinterpret_cast<void*>(NintendontHollywoodVersionAddress), sizeof(uint32_t));
+            return *reinterpret_cast<volatile const uint32_t*>(NintendontHollywoodVersionAddress) == 0x11U;
         }
 
         /// Marks Nintendont's serial-interface replacement ready so its PadStub can populate the shared virtual-controller buffer.
