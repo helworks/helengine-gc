@@ -27,16 +27,24 @@ namespace helengine::gamecube {
     }
 
     /// Creates camera, light, and mesh runtime entities that mirror the city cube-test scene.
-    void GameCubeCubeTestSceneInstaller::Install() {
-        CreateCameraEntity();
-        CreateDirectionalLightEntity();
-        CreateCubeEntity();
+    void GameCubeCubeTestSceneInstaller::Install(Core* ownerCore) {
+        if (ownerCore == nullptr) {
+            throw new ArgumentNullException("ownerCore");
+        }
+
+        CreateCameraEntity(ownerCore);
+        CreateDirectionalLightEntity(ownerCore);
+        CreateCubeEntity(ownerCore);
     }
 
     /// Creates one render-only slope comparison scene that exercises rotated cube transforms without any physics runtime involvement.
-    void GameCubeCubeTestSceneInstaller::InstallSlopeScene() {
-        CreateSlopeCameraEntity();
-        CreateDirectionalLightEntity();
+    void GameCubeCubeTestSceneInstaller::InstallSlopeScene(Core* ownerCore) {
+        if (ownerCore == nullptr) {
+            throw new ArgumentNullException("ownerCore");
+        }
+
+        CreateSlopeCameraEntity(ownerCore);
+        CreateDirectionalLightEntity(ownerCore);
 
         float4 identityOrientation(0.0f, 0.0f, 0.0f, 1.0f);
         float4 slopeOrientation;
@@ -44,11 +52,13 @@ namespace helengine::gamecube {
         slopeOrientation.Normalize();
 
         CreateCubeEntity(
+            ownerCore,
             float3(0.0f, -1.25f, 0.0f),
             float3(8.0f, 0.5f, 8.0f),
             identityOrientation,
             "gamecube:runtime:slope-ground");
         CreateCubeEntity(
+            ownerCore,
             float3(0.0f, 0.25f, 0.0f),
             float3(4.0f, 0.5f, 2.5f),
             slopeOrientation,
@@ -56,8 +66,8 @@ namespace helengine::gamecube {
     }
 
     /// Creates the runtime camera entity used by the first GameCube cube-test milestone.
-    Entity* GameCubeCubeTestSceneInstaller::CreateCameraEntity() {
-        Entity* cameraEntity = new Entity();
+    Entity* GameCubeCubeTestSceneInstaller::CreateCameraEntity(Core* ownerCore) {
+        Entity* cameraEntity = new Entity(ownerCore);
         cameraEntity->InitComponents();
         cameraEntity->InitChildren();
         cameraEntity->set_LocalPosition(float3(0.0f, 0.0f, 6.0f));
@@ -81,8 +91,8 @@ namespace helengine::gamecube {
     }
 
     /// Creates the runtime camera entity used by the render-only slope comparison scene.
-    Entity* GameCubeCubeTestSceneInstaller::CreateSlopeCameraEntity() {
-        Entity* cameraEntity = new Entity();
+    Entity* GameCubeCubeTestSceneInstaller::CreateSlopeCameraEntity(Core* ownerCore) {
+        Entity* cameraEntity = new Entity(ownerCore);
         cameraEntity->InitComponents();
         cameraEntity->InitChildren();
         cameraEntity->set_LocalPosition(float3(0.0f, 4.0f, 10.0f));
@@ -111,8 +121,8 @@ namespace helengine::gamecube {
     }
 
     /// Creates the runtime directional light entity that mirrors the authored cube-test sun.
-    Entity* GameCubeCubeTestSceneInstaller::CreateDirectionalLightEntity() {
-        Entity* lightEntity = new Entity();
+    Entity* GameCubeCubeTestSceneInstaller::CreateDirectionalLightEntity(Core* ownerCore) {
+        Entity* lightEntity = new Entity(ownerCore);
         lightEntity->InitComponents();
         lightEntity->InitChildren();
         lightEntity->set_LocalPosition(float3(0.0f, 4.0f, 0.0f));
@@ -135,9 +145,10 @@ namespace helengine::gamecube {
     }
 
     /// Creates the rotating cube mesh entity using an in-memory runtime model and material.
-    Entity* GameCubeCubeTestSceneInstaller::CreateCubeEntity() {
+    Entity* GameCubeCubeTestSceneInstaller::CreateCubeEntity(Core* ownerCore) {
         float4 identityOrientation(0.0f, 0.0f, 0.0f, 1.0f);
         return CreateCubeEntity(
+            ownerCore,
             float3(0.0f, 0.0f, 0.0f),
             float3(2.0f, 2.0f, 2.0f),
             identityOrientation,
@@ -145,8 +156,8 @@ namespace helengine::gamecube {
     }
 
     /// Creates one transformed cube mesh entity for render-only transform validation.
-    Entity* GameCubeCubeTestSceneInstaller::CreateCubeEntity(float3 localPosition, float3 localScale, float4 localOrientation, const char* materialId) {
-        Entity* cubeEntity = new Entity();
+    Entity* GameCubeCubeTestSceneInstaller::CreateCubeEntity(Core* ownerCore, float3 localPosition, float3 localScale, float4 localOrientation, const char* materialId) {
+        Entity* cubeEntity = new Entity(ownerCore);
         cubeEntity->InitComponents();
         cubeEntity->InitChildren();
         cubeEntity->set_LayerMask(SceneObjectsLayerMask);

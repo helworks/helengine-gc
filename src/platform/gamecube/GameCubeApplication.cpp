@@ -1381,7 +1381,7 @@ namespace helengine::gamecube {
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
                 DisplayDirectFrameDiagnosticCode(0xA020U);
 #endif
-                GameCubeCubeTestSceneInstaller::InstallSlopeScene();
+                GameCubeCubeTestSceneInstaller::InstallSlopeScene(EngineCore);
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
                 DisplayDirectFrameDiagnosticCode(0xA021U);
 #endif
@@ -1402,12 +1402,12 @@ namespace helengine::gamecube {
 #else
             const std::string runtimeTestSceneOverride = GetRuntimeTestSceneOverride();
             if (runtimeTestSceneOverride == "slope") {
-                GameCubeCubeTestSceneInstaller::InstallSlopeScene();
+                GameCubeCubeTestSceneInstaller::InstallSlopeScene(EngineCore);
                 SYS_Report("[GC] Runtime slope test scene installed.\n");
             } else if (!runtimeTestSceneOverride.empty()) {
                 throw std::runtime_error(std::string("Unsupported GameCube runtime test scene override: ") + runtimeTestSceneOverride);
             } else {
-                GameCubeCubeTestSceneInstaller::Install();
+                GameCubeCubeTestSceneInstaller::Install(EngineCore);
                 SYS_Report("[GC] Runtime cube-test scene installed.\n");
             }
 #endif

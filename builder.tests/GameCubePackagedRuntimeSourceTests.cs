@@ -263,7 +263,7 @@ public sealed class GameCubePackagedRuntimeSourceTests {
         Assert.Contains("EngineCore->Initialize(", applicationSource, StringComparison.Ordinal);
         Assert.Contains("static std::string GetRuntimeTestSceneOverride();", applicationHeaderSource, StringComparison.Ordinal);
         Assert.Contains("HELENGINE_GAMECUBE_RUNTIME_TEST_SCENE", applicationSource, StringComparison.Ordinal);
-        Assert.Contains("GameCubeCubeTestSceneInstaller::InstallSlopeScene();", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeCubeTestSceneInstaller::InstallSlopeScene(EngineCore);", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("RunPackagedStartupProbe()", applicationSource, StringComparison.Ordinal);
         Assert.DoesNotContain("int RunPackagedStartupProbe();", applicationHeaderSource, StringComparison.Ordinal);
         Assert.Contains("HasSatisfiedVerificationExitCondition()", applicationSource, StringComparison.Ordinal);
@@ -547,6 +547,35 @@ public sealed class GameCubePackagedRuntimeSourceTests {
 
         Assert.Contains("TextureAssetColorFormat::GxRgb5A3", runtimeTextureSource, StringComparison.Ordinal);
         Assert.DoesNotContain("GameCube runtime textures currently require RGBA32 texture assets.", runtimeTextureSource, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ensures optional diagnostic entities are constructed with the active generated core owner at every installer boundary.
+    /// </summary>
+    [Fact]
+    public void DiagnosticSceneInstallerSource_ThreadsCoreOwnershipIntoEveryEntity() {
+        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        string installerHeaderSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeCubeTestSceneInstaller.hpp"));
+        string installerSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeCubeTestSceneInstaller.cpp"));
+        string applicationSource = ReadSource(Path.Combine(repositoryRootPath, "src", "platform", "gamecube", "GameCubeApplication.cpp"));
+
+        Assert.Contains("class Core;", installerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("static void Install(Core* ownerCore);", installerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("static void InstallSlopeScene(Core* ownerCore);", installerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("static Entity* CreateCameraEntity(Core* ownerCore);", installerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("static Entity* CreateSlopeCameraEntity(Core* ownerCore);", installerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("static Entity* CreateDirectionalLightEntity(Core* ownerCore);", installerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("static Entity* CreateCubeEntity(Core* ownerCore);", installerHeaderSource, StringComparison.Ordinal);
+        Assert.Contains("static Entity* CreateCubeEntity(Core* ownerCore, float3 localPosition", installerHeaderSource, StringComparison.Ordinal);
+
+        Assert.Contains("void GameCubeCubeTestSceneInstaller::Install(Core* ownerCore)", installerSource, StringComparison.Ordinal);
+        Assert.Contains("void GameCubeCubeTestSceneInstaller::InstallSlopeScene(Core* ownerCore)", installerSource, StringComparison.Ordinal);
+        Assert.Contains("if (ownerCore == nullptr)", installerSource, StringComparison.Ordinal);
+        Assert.Contains("throw new ArgumentNullException(\"ownerCore\");", installerSource, StringComparison.Ordinal);
+        Assert.Contains("new Entity(ownerCore)", installerSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Entity();", installerSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeCubeTestSceneInstaller::InstallSlopeScene(EngineCore);", applicationSource, StringComparison.Ordinal);
+        Assert.Contains("GameCubeCubeTestSceneInstaller::Install(EngineCore);", applicationSource, StringComparison.Ordinal);
     }
 
     /// <summary>
