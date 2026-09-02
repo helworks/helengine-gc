@@ -4,6 +4,7 @@
 #endif
 
 #include <gccore.h>
+#include <ogc/machine/processor.h>
 
 #include "InputGamepadButton.hpp"
 #include "InputGamepadState.hpp"
@@ -11,7 +12,7 @@
 
 namespace helengine::gamecube {
     namespace {
-        constexpr std::uintptr_t NintendontHollywoodVersionAddress = 0x80003138U;
+        constexpr uint32_t GameCubeProcessorVersion = 0x00083214U;
         constexpr std::uintptr_t NintendontPadReadStubAddress = 0x93000000U;
         constexpr std::uintptr_t NintendontSiInitializedAddress = 0x93003060U;
         constexpr std::uintptr_t NintendontVirtualPadBufferAddress = 0x93003100U;
@@ -20,10 +21,9 @@ namespace helengine::gamecube {
 
         bool UsesNintendontInputTransport = false;
 
-        /// Determines whether Nintendont initialized its mapped low-memory Hollywood revision marker before accessing private MEM2 addresses.
+        /// Determines whether this GameCube binary is running on Nintendont's Wii-family processor before accessing private MEM2 addresses.
         bool IsNintendontEnvironment() {
-            DCInvalidateRange(reinterpret_cast<void*>(NintendontHollywoodVersionAddress), sizeof(uint32_t));
-            return *reinterpret_cast<volatile const uint32_t*>(NintendontHollywoodVersionAddress) == 0x11U;
+            return mfpvr() != GameCubeProcessorVersion;
         }
 
         /// Marks Nintendont's serial-interface replacement ready so its PadStub can populate the shared virtual-controller buffer.
