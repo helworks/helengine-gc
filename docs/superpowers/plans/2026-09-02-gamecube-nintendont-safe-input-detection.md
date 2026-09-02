@@ -40,7 +40,7 @@
 - Consumes: libogc `mfpvr()` and the Gekko PVR value `0x00083214`.
 - Produces: `bool IsNintendontEnvironment()` with no memory access; existing initialization and capture interfaces remain unchanged.
 
-- [ ] **Step 1: Rewrite the source-contract test to require processor-only detection**
+- [x] **Step 1: Rewrite the source-contract test to require processor-only detection**
 
 Rename the test to `GameCubeInputManagerSource_SelectsNintendontTransportFromProcessorVersion`. State in its XML summary that a Gekko PVR selects libogc PAD while a Wii-family PVR selects Nintendont before any private MEM2 address is used.
 
@@ -65,7 +65,7 @@ Assert.DoesNotContain("asm volatile(\"lwz", inputSource, StringComparison.Ordina
 
 Keep the existing assertions for the three Nintendont private addresses, PadStub invocation, `SIInited` write and flush, libogc fallback branch, and rejection of DBAT/high-memory probing. Remove only assertions that reject every processor-version read or the `GameCubeProcessorVersion` identifier.
 
-- [ ] **Step 2: Run the targeted test and verify RED**
+- [x] **Step 2: Run the targeted test and verify RED**
 
 Run:
 
@@ -75,14 +75,14 @@ rtk dotnet test builder.tests/helengine.gamecube.builder.tests.csproj --no-resto
 
 Expected: FAIL because `GameCubeInputManager.cpp` still checks `NintendontHollywoodVersionAddress` and does not call `mfpvr()`.
 
-- [ ] **Step 3: Commit the failing contract**
+- [x] **Step 3: Commit the failing contract**
 
 ```powershell
 rtk git add -- builder.tests/GameCubePackagedRuntimeSourceTests.cs
 rtk git commit -m "Test GameCube processor input detection"
 ```
 
-- [ ] **Step 4: Implement the minimal processor-only detector**
+- [x] **Step 4: Implement the minimal processor-only detector**
 
 Add the maintained libogc processor header after `gccore.h`:
 
@@ -107,13 +107,13 @@ bool IsNintendontEnvironment() {
 
 Do not change `InitializeNintendontInputTransport`, `CaptureNintendontPadStatus`, or the libogc fallback branch.
 
-- [ ] **Step 5: Run the targeted test and verify GREEN**
+- [x] **Step 5: Run the targeted test and verify GREEN**
 
 Run the same filtered `dotnet test` command from Step 2.
 
 Expected: PASS with one test executed and zero failures.
 
-- [ ] **Step 6: Run the complete GameCube builder test suite**
+- [x] **Step 6: Run the complete GameCube builder test suite**
 
 Run:
 
@@ -123,7 +123,7 @@ rtk dotnet test builder.tests/helengine.gamecube.builder.tests.csproj --no-resto
 
 Expected: all GameCube builder tests pass with zero failures.
 
-- [ ] **Step 7: Check the scoped diff and commit the implementation**
+- [x] **Step 7: Check the scoped diff and commit the implementation**
 
 ```powershell
 rtk git diff --check -- src/platform/gamecube/GameCubeInputManager.cpp builder.tests/GameCubePackagedRuntimeSourceTests.cs
@@ -143,30 +143,42 @@ rtk git commit -m "Classify GameCube input transport by processor"
 - Consumes: the repaired `GameCubeInputManager.cpp` and the existing generated DemoDisc core cache.
 - Produces: one direct-launch GameCube disc image suitable for Dolphin, physical GameCube, and Nintendont.
 
-- [ ] **Step 1: Rebuild the native GameCube runtime in Docker**
+- [x] **Step 1: Rebuild the native GameCube runtime in Docker**
 
 Use the existing GameCube builder worktree, generated-core cache, and `HELENGINE_GAMECUBE_BOOT_MODE=packaged-disc`. Run `make all packaged-disc-assets` in the `helengine-gc` Docker image.
 
 Expected: `GameCubeInputManager.cpp` recompiles and the ELF/DOL relink successfully. During the build, monitor for `codegen.exe` windows and `WerFault.exe`; abort immediately if either appears.
 
-- [ ] **Step 2: Verify processor-only classification in the linked runtime**
+- [x] **Step 2: Verify processor-only classification in the linked runtime**
 
 Disassemble `IsNintendontEnvironment()` in `build/helengine_gc.elf` with `powerpc-eabi-objdump`.
 
 Expected: the detector reads the Processor Version Register and compares it with `0x00083214`; it performs no data-memory load, no DBAT read, and no access to `0x93000000` before the branch to the Nintendont initialization path.
 
-- [ ] **Step 3: Repack the existing direct-launch DemoDisc image**
+- [x] **Step 3: Repack the existing direct-launch DemoDisc image**
 
 Temporarily install the preserved direct manifest whose startup scene is `software_path_tracer`, rebuild the native runtime so the manifest is compiled into the DOL, and restore the generated-core cache's original manifest immediately afterward. Copy the rebuilt DOL into the dedicated direct-launch output's `native/helengine_gc.dol` and `disc/sys/main.dol`, then use the existing validation repack helper to create `software-path-tracer.gcm`.
 
 Expected: the GCM exists, has a non-zero length, contains the rebuilt DOL, and the generated-core cache is byte-for-byte restored to its pre-build manifest.
 
-- [ ] **Step 4: Launch the one GCM in Dolphin**
+- [x] **Step 4: Launch the one GCM in Dolphin**
 
 Launch `software-path-tracer.gcm` with the repository's `scripts/launch_in_emulator.ps1`. Do not request or take a screenshot.
 
 Expected: Dolphin no longer reports an invalid read at `0x93000000`, the orange exception screen does not appear, and the DemoDisc software path-tracer scene begins rendering.
 
-- [ ] **Step 5: Preserve the same artifact for hardware validation**
+- [x] **Step 5: Preserve the same artifact for hardware validation**
 
 Record the final GCM path, size, and SHA-256. The exact same file is the candidate for both physical GameCube and Nintendont testing; do not rebuild it with different options.
+
+## Validation Evidence
+
+- Corrected TDD commits: `e077d41086ef2994e840208a915623605dc68498` and `15a65e4a15dcca6bddb0f6ce598c3b17e0bd9b37`.
+- Fresh GameCube builder verification: 117 tests passed, zero failed.
+- Native devkitPPC compile, link, and `elf2dol` completed successfully with the packaged-disc configuration.
+- Linked `InitializePlatformInput` begins with `mfpvr`, compares against `0x00083214`, branches to `PAD_Init` on equality, and does not access `0x93xxxxxx` before selecting the non-Gekko path.
+- Generated-core manifest was restored to SHA-256 `16C172F040413E328477C47841CE10FB8AC472F77B3F92394A791760937FE8E5` after the direct-manifest build.
+- Direct-launch image: `C:\dev\helprojs\demodisc\.worktrees\software-path-tracer-core\gamecube-path-tracer-build\software-path-tracer.gcm`.
+- Image size: 21,989,376 bytes.
+- Image SHA-256: `E3569FA9E638054B1912BA811F7C1EEA37451A74397D601E9236F9D2BAF4AE7F`.
+- Dolphin runtime validation was visually confirmed by the user on 2026-09-02; physical GameCube and Nintendont validation use this exact image and remain separate hardware checks.
