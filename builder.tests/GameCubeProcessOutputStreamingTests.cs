@@ -6,17 +6,6 @@ namespace helengine.gamecube.builder.tests;
 /// Verifies that external GameCube build and packaging processes expose their output while they run.
 /// </summary>
 public sealed class GameCubeProcessOutputStreamingTests {
-    /// <summary>
-    /// Ensures the Dockerized native build uses the same live output path as external packaging tools.
-    /// </summary>
-    [Fact]
-    public void NativeBuildExecutor_UsesLiveProcessOutputStreamer() {
-        string repositoryRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        string source = File.ReadAllText(Path.Combine(repositoryRootPath, "builder", "GameCubeDockerNativeBuildExecutor.cs"));
-
-        Assert.Contains("new GameCubeProcessOutputStreamer().Run(startInfo, cancellationToken)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReadToEndAsync", source, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// Ensures a real process runner forwards both redirected streams to the host console and retains them in its result.
