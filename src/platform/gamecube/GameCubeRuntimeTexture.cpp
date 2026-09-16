@@ -77,6 +77,90 @@ namespace helengine::gamecube {
         EncodeRgba32ToRgb5A3(data);
     }
 
+    /// Re-encodes one RGBA8 source rectangle into the owned tiled GX RGB5A3 texture memory and republishes it to the graphics processor.
+    void GameCubeRuntimeTexture::UpdateRegionFromRgba8(int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch) {
+        if (rgba8 == nullptr || rgba8->Data == nullptr) {
+            throw new ArgumentNullException("rgba8");
+        } else if (!NativeTextureObjectInitialized || NativeTextureData == nullptr) {
+            throw new InvalidOperationException("GameCube texture region updates require initialized native texture memory.");
+        } else if (x < 0 || y < 0 || width <= 0 || height <= 0) {
+            throw new ArgumentOutOfRangeException("texture region");
+        }
+
+        const int32_t textureWidth = this->get_Width();
+        const int32_t textureHeight = this->get_Height();
+        if (textureWidth <= 0
+            || textureHeight <= 0
+            || static_cast<int64_t>(x) + width > textureWidth
+            || static_cast<int64_t>(y) + height > textureHeight) {
+            throw new ArgumentOutOfRangeException("texture region", "Texture region exceeds the destination texture bounds.");
+        }
+
+        if (width > (INT32_MAX / 4)) {
+            throw new ArgumentOutOfRangeException("width", "Texture region row size is too large.");
+        }
+
+        const int32_t requiredRowBytes = width * 4;
+        if (sourceRowPitch < requiredRowBytes || (sourceRowPitch % 4) != 0) {
+            throw new ArgumentOutOfRangeException("sourceRowPitch", "Source row pitch is smaller than the requested RGBA8 row.");
+        }
+
+        const int64_t requiredSourceBytes = static_cast<int64_t>(sourceRowPitch) * (height - 1) + requiredRowBytes;
+        if (requiredSourceBytes > rgba8->Length) {
+            throw new InvalidOperationException("Source buffer is shorter than the requested GameCube texture region.");
+        }
+
+        const uint32_t paddedWidth = (static_cast<uint32_t>(textureWidth) + 3U) & ~3U;
+        const uint32_t paddedHeight = (static_cast<uint32_t>(textureHeight) + 3U) & ~3U;
+        const uint32_t blockColumnCount = paddedWidth / 4U;
+        const uint32_t regionLeft = static_cast<uint32_t>(x);
+        const uint32_t regionTop = static_cast<uint32_t>(y);
+        const uint32_t regionRight = regionLeft + static_cast<uint32_t>(width);
+        const uint32_t regionBottom = regionTop + static_cast<uint32_t>(height);
+
+        // Padded texels replicate the clamped edge texel exactly as the full-texture encoder does, so a region that
+        // reaches the logical right or bottom edge must also rewrite the padding columns and rows that mirror it.
+        const uint32_t firstColumn = regionLeft & ~3U;
+        const uint32_t columnEnd = (regionRight >= static_cast<uint32_t>(textureWidth)) ? paddedWidth : ((regionRight + 3U) & ~3U);
+        const uint32_t firstRow = regionTop & ~3U;
+        const uint32_t rowEnd = (regionBottom >= static_cast<uint32_t>(textureHeight)) ? paddedHeight : ((regionBottom + 3U) & ~3U);
+
+        auto* destination = static_cast<uint16_t*>(NativeTextureData);
+        for (uint32_t destinationY = firstRow; destinationY < rowEnd; destinationY++) {
+            const uint32_t sampleY = std::min(destinationY, static_cast<uint32_t>(textureHeight) - 1U);
+            if (sampleY < regionTop || sampleY >= regionBottom) {
+                continue;
+            }
+
+            const std::size_t sourceRowOffset = static_cast<std::size_t>(sampleY - regionTop) * static_cast<std::size_t>(sourceRowPitch);
+            for (uint32_t destinationX = firstColumn; destinationX < columnEnd; destinationX++) {
+                const uint32_t sampleX = std::min(destinationX, static_cast<uint32_t>(textureWidth) - 1U);
+                if (sampleX < regionLeft || sampleX >= regionRight) {
+                    continue;
+                }
+
+                const std::size_t sourceOffset = sourceRowOffset + static_cast<std::size_t>(sampleX - regionLeft) * 4U;
+                const uint8_t red = (*rgba8)[static_cast<int32_t>(sourceOffset + 0U)];
+                const uint8_t green = (*rgba8)[static_cast<int32_t>(sourceOffset + 1U)];
+                const uint8_t blue = (*rgba8)[static_cast<int32_t>(sourceOffset + 2U)];
+                const uint8_t alpha = (*rgba8)[static_cast<int32_t>(sourceOffset + 3U)];
+                const std::size_t blockIndex = static_cast<std::size_t>(destinationY >> 2) * static_cast<std::size_t>(blockColumnCount)
+                    + static_cast<std::size_t>(destinationX >> 2);
+                const std::size_t texelIndex = blockIndex * 16U
+                    + static_cast<std::size_t>(destinationY & 3U) * 4U
+                    + static_cast<std::size_t>(destinationX & 3U);
+                destination[texelIndex] = EncodeRgb5A3Pixel(red, green, blue, alpha);
+            }
+        }
+
+        // Whole four-row texel blocks are contiguous, so only the touched block rows need to reach main memory.
+        const std::size_t blockRowByteCount = static_cast<std::size_t>(blockColumnCount) * 32U;
+        const std::size_t flushOffset = static_cast<std::size_t>(firstRow >> 2) * blockRowByteCount;
+        const std::size_t flushByteCount = static_cast<std::size_t>((rowEnd - firstRow) >> 2) * blockRowByteCount;
+        DCFlushRange(static_cast<uint8_t*>(NativeTextureData) + flushOffset, flushByteCount);
+        GX_InvalidateTexAll();
+    }
+
     /// Returns whether a native GX texture object was initialized for this runtime texture.
     bool GameCubeRuntimeTexture::HasNativeTextureObject() const {
         return NativeTextureObjectInitialized;

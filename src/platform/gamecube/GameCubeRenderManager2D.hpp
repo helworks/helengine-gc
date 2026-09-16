@@ -91,6 +91,10 @@ namespace helengine::gamecube {
         /// Returns the captured rounded-rectangle draw requests for the current frame.
         const std::vector<GameCubeRoundedRectDrawCommand>& GetRoundedRectQueue() const;
 
+    protected:
+        /// Uploads one validated RGBA8 rectangle into one GameCube-owned runtime texture.
+        void UpdateTextureRegionCore(RuntimeTexture* texture, int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch) override;
+
     private:
         /// Captured sprite draw requests in shared-engine render order.
         std::vector<GameCubeSpriteDrawCommand> SpriteQueue;

@@ -1,5 +1,7 @@
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 
+#include <algorithm>
+
 #include "Asset.hpp"
 #include "CameraComponent.hpp"
 #include "Core.hpp"
@@ -86,6 +88,33 @@ namespace helengine::gamecube {
         }
 
         ReleasedTextures.push_back(texture);
+    }
+
+    /// Uploads one validated RGBA8 rectangle into one GameCube-owned runtime texture.
+    void GameCubeRenderManager2D::UpdateTextureRegionCore(
+        RuntimeTexture* texture,
+        int32_t x,
+        int32_t y,
+        int32_t width,
+        int32_t height,
+        Array<uint8_t>* rgba8,
+        int32_t sourceRowPitch) {
+        if (texture == nullptr) {
+            throw new ArgumentNullException("texture");
+        } else if (rgba8 == nullptr) {
+            throw new ArgumentNullException("rgba8");
+        }
+
+        GameCubeRuntimeTexture* runtimeTexture = he_cpp_try_cast<GameCubeRuntimeTexture>(texture);
+        if (runtimeTexture == nullptr) {
+            throw new InvalidOperationException("GameCube texture region updates require GameCubeRuntimeTexture instances.");
+        }
+
+        if (std::find(ReleasedTextures.begin(), ReleasedTextures.end(), texture) != ReleasedTextures.end()) {
+            throw new InvalidOperationException("GameCube texture region updates cannot target a released texture.");
+        }
+
+        runtimeTexture->UpdateRegionFromRgba8(x, y, width, height, rgba8, sourceRowPitch);
     }
 
     /// Releases one GameCube font asset together with its owned runtime texture and source texture payload.

@@ -2,6 +2,7 @@
 
 #include "CameraClearSettings.hpp"
 #include "CameraComponent.hpp"
+#include "Core.hpp"
 #include "DirectionalLightComponent.hpp"
 #include "Entity.hpp"
 #include "MeshComponent.hpp"
@@ -24,6 +25,16 @@ namespace helengine::gamecube {
         constexpr float CubeHalfExtent = 0.5f;
         constexpr float SlopeCameraPitchRadians = -0.35f;
         constexpr float SlopeRampRollRadians = -0.35f;
+
+        /// Resolves the running engine core that owns every runtime entity this installer creates.
+        Core* ResolveOwnerCore() {
+            Core* core = Core::get_Instance();
+            if (core == nullptr) {
+                throw new InvalidOperationException("GameCube runtime test scenes require an initialized engine core.");
+            }
+
+            return core;
+        }
     }
 
     /// Creates camera, light, and mesh runtime entities that mirror the city cube-test scene.
@@ -57,7 +68,7 @@ namespace helengine::gamecube {
 
     /// Creates the runtime camera entity used by the first GameCube cube-test milestone.
     Entity* GameCubeCubeTestSceneInstaller::CreateCameraEntity() {
-        Entity* cameraEntity = new Entity();
+        Entity* cameraEntity = new Entity(ResolveOwnerCore());
         cameraEntity->InitComponents();
         cameraEntity->InitChildren();
         cameraEntity->set_LocalPosition(float3(0.0f, 0.0f, 6.0f));
@@ -82,7 +93,7 @@ namespace helengine::gamecube {
 
     /// Creates the runtime camera entity used by the render-only slope comparison scene.
     Entity* GameCubeCubeTestSceneInstaller::CreateSlopeCameraEntity() {
-        Entity* cameraEntity = new Entity();
+        Entity* cameraEntity = new Entity(ResolveOwnerCore());
         cameraEntity->InitComponents();
         cameraEntity->InitChildren();
         cameraEntity->set_LocalPosition(float3(0.0f, 4.0f, 10.0f));
@@ -112,7 +123,7 @@ namespace helengine::gamecube {
 
     /// Creates the runtime directional light entity that mirrors the authored cube-test sun.
     Entity* GameCubeCubeTestSceneInstaller::CreateDirectionalLightEntity() {
-        Entity* lightEntity = new Entity();
+        Entity* lightEntity = new Entity(ResolveOwnerCore());
         lightEntity->InitComponents();
         lightEntity->InitChildren();
         lightEntity->set_LocalPosition(float3(0.0f, 4.0f, 0.0f));
@@ -146,7 +157,7 @@ namespace helengine::gamecube {
 
     /// Creates one transformed cube mesh entity for render-only transform validation.
     Entity* GameCubeCubeTestSceneInstaller::CreateCubeEntity(float3 localPosition, float3 localScale, float4 localOrientation, const char* materialId) {
-        Entity* cubeEntity = new Entity();
+        Entity* cubeEntity = new Entity(ResolveOwnerCore());
         cubeEntity->InitComponents();
         cubeEntity->InitChildren();
         cubeEntity->set_LayerMask(SceneObjectsLayerMask);
