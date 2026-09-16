@@ -178,6 +178,7 @@ namespace helengine::gamecube {
 
     /// Clears previously captured 2D draw requests before the next engine frame begins.
     void GameCubeRenderManager2D::BeginFrame() {
+        DrawQueue.clear();
         SpriteQueue.clear();
         TextQueue.clear();
         RoundedRectQueue.clear();
@@ -186,7 +187,7 @@ namespace helengine::gamecube {
 
     /// Returns whether the current frame captured any 2D draw requests.
     bool GameCubeRenderManager2D::HasCapturedDrawables() const {
-        return !SpriteQueue.empty() || !TextQueue.empty() || !RoundedRectQueue.empty();
+        return !DrawQueue.empty();
     }
 
     /// Returns whether one camera submitted any 2D draw requests during the current frame.
@@ -195,25 +196,18 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("camera");
         }
 
-        for (const GameCubeSpriteDrawCommand& command : SpriteQueue) {
-            if (command.Camera == camera) {
-                return true;
-            }
-        }
-
-        for (const GameCubeTextDrawCommand& command : TextQueue) {
-            if (command.Camera == camera) {
-                return true;
-            }
-        }
-
-        for (const GameCubeRoundedRectDrawCommand& command : RoundedRectQueue) {
+        for (const GameCubeDrawCommand2D& command : DrawQueue) {
             if (command.Camera == camera) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /// Returns every captured 2D draw request in the exact order supplied by the shared engine render queue.
+    const std::vector<GameCubeDrawCommand2D>& GameCubeRenderManager2D::GetDrawQueue() const {
+        return DrawQueue;
     }
 
     /// Returns the captured sprite draw requests for the current frame.
@@ -240,6 +234,7 @@ namespace helengine::gamecube {
         }
 
         SpriteQueue.push_back(GameCubeSpriteDrawCommand { ActiveCaptureCamera, sprite });
+        DrawQueue.push_back(GameCubeDrawCommand2D { ActiveCaptureCamera, GameCubeDrawCommandType2D::Sprite, SpriteQueue.size() - 1U });
     }
 
     /// Accepts a text draw request without issuing native rendering yet.
@@ -251,6 +246,7 @@ namespace helengine::gamecube {
         }
 
         TextQueue.push_back(GameCubeTextDrawCommand { ActiveCaptureCamera, text });
+        DrawQueue.push_back(GameCubeDrawCommand2D { ActiveCaptureCamera, GameCubeDrawCommandType2D::Text, TextQueue.size() - 1U });
     }
 
     /// Accepts a rounded-rectangle draw request without issuing native rendering yet.
@@ -262,5 +258,6 @@ namespace helengine::gamecube {
         }
 
         RoundedRectQueue.push_back(GameCubeRoundedRectDrawCommand { ActiveCaptureCamera, shape });
+        DrawQueue.push_back(GameCubeDrawCommand2D { ActiveCaptureCamera, GameCubeDrawCommandType2D::RoundedRect, RoundedRectQueue.size() - 1U });
     }
 }

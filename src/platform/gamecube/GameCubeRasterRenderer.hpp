@@ -104,6 +104,12 @@ namespace helengine::gamecube {
         /// Persistent wrapped-text cache reused across overlay frames for stable menu labels.
         std::vector<CachedTextLayoutEntry> CachedTextLayouts;
 
+        /// Scratch per-line alignment offsets reused across 2D text draws to avoid rebuilding vector capacity every frame.
+        std::vector<double> TextLineOffsetsScratch;
+
+        /// Scratch line content reused while measuring aligned 2D text.
+        std::string TextLineScratch;
+
         /// Scratch rounded-rectangle outline reused across 2D shape draws to avoid per-call heap churn.
         std::vector<float2> RoundedRectOutlineScratch;
 
@@ -204,7 +210,7 @@ namespace helengine::gamecube {
         void RenderText2D(GameCubeFramePlan* framePlan, const GameCubeTextDrawCommand& command);
 
         /// Draws one already-resolved text layout at one authored effect offset and color without allocating frame-time state.
-        void DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, double fontScale, double baseX, double baseY, const float2& passOffset, GXColor glyphColor);
+        void DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, double fontScale, double baseX, double baseY, const float2& passOffset, GXColor glyphColor, const std::vector<double>& lineOffsets);
 
         /// Resolves reusable text-layout content for one text drawable, rebuilding wrapped text only when authored inputs change.
         const std::string& ResolveTextLayoutContent(ITextDrawable2D* drawable, FontAsset* font, double fontScale);

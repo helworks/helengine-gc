@@ -33,6 +33,7 @@
 #include "float3.hpp"
 #include "float4.hpp"
 #include "float4x4.hpp"
+#include "TextLayoutAlignmentUtils.hpp"
 #include "TextLayoutUtils.hpp"
 #include "int2.hpp"
 #include "platform/gamecube/GameCubeFramePlan.hpp"
@@ -127,6 +128,8 @@ namespace helengine::gamecube {
         , HasLoggedOverlayQueueSummary(false)
         , ReportedCameraPlanClasses(0U)
         , CachedTextLayouts()
+        , TextLineOffsetsScratch()
+        , TextLineScratch()
         , RoundedRectOutlineScratch()
         , ActiveTextLayoutFrameId(0U) {
         if (MeshCache == nullptr) {
@@ -134,6 +137,8 @@ namespace helengine::gamecube {
         }
 
         CachedTextLayouts.reserve(32U);
+        TextLineOffsetsScratch.reserve(8U);
+        TextLineScratch.reserve(128U);
         RoundedRectOutlineScratch.reserve(40U);
     }
 
@@ -312,47 +317,45 @@ namespace helengine::gamecube {
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
         ReportDirectFrameDiagnosticCode(0xD620U);
 #endif
+        const std::vector<GameCubeRoundedRectDrawCommand>& roundedRectQueue = renderManager2D.GetRoundedRectQueue();
+        const std::vector<GameCubeSpriteDrawCommand>& spriteQueue = renderManager2D.GetSpriteQueue();
+        const std::vector<GameCubeTextDrawCommand>& textQueue = renderManager2D.GetTextQueue();
         std::size_t roundedRectCount = 0U;
-        for (const GameCubeRoundedRectDrawCommand& command : renderManager2D.GetRoundedRectQueue()) {
+        std::size_t spriteCount = 0U;
+        std::size_t textCount = 0U;
+        for (const GameCubeDrawCommand2D& command : renderManager2D.GetDrawQueue()) {
             if (command.Camera != framePlan->Camera) {
                 continue;
             }
 
-            roundedRectCount++;
-            RenderRoundedRect2D(framePlan, command);
+            if (command.Type == GameCubeDrawCommandType2D::RoundedRect) {
+                if (command.TypeQueueIndex >= roundedRectQueue.size()) {
+                    throw new InvalidOperationException("GameCube ordered 2D draw queue referenced a missing rounded-rectangle command.");
+                }
+
+                roundedRectCount++;
+                RenderRoundedRect2D(framePlan, roundedRectQueue[command.TypeQueueIndex]);
+            } else if (command.Type == GameCubeDrawCommandType2D::Sprite) {
+                if (command.TypeQueueIndex >= spriteQueue.size()) {
+                    throw new InvalidOperationException("GameCube ordered 2D draw queue referenced a missing sprite command.");
+                }
+
+                spriteCount++;
+                RenderSprite2D(framePlan, spriteQueue[command.TypeQueueIndex]);
+            } else if (command.Type == GameCubeDrawCommandType2D::Text) {
+                if (command.TypeQueueIndex >= textQueue.size()) {
+                    throw new InvalidOperationException("GameCube ordered 2D draw queue referenced a missing text command.");
+                }
+
+                textCount++;
+                RenderText2D(framePlan, textQueue[command.TypeQueueIndex]);
+            } else {
+                throw new InvalidOperationException("GameCube ordered 2D draw queue contained an unsupported command type.");
+            }
         }
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
         ReportDirectFrameDiagnosticCode(0xD621U);
 #endif
-
-#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
-        ReportDirectFrameDiagnosticCode(0xD630U);
-#endif
-        std::size_t spriteCount = 0U;
-        for (const GameCubeSpriteDrawCommand& command : renderManager2D.GetSpriteQueue()) {
-            if (command.Camera != framePlan->Camera) {
-                continue;
-            }
-
-            spriteCount++;
-            RenderSprite2D(framePlan, command);
-        }
-#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
-        ReportDirectFrameDiagnosticCode(0xD631U);
-#endif
-
-#if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
-        ReportDirectFrameDiagnosticCode(0xD640U);
-#endif
-        std::size_t textCount = 0U;
-        for (const GameCubeTextDrawCommand& command : renderManager2D.GetTextQueue()) {
-            if (command.Camera != framePlan->Camera) {
-                continue;
-            }
-
-            textCount++;
-            RenderText2D(framePlan, command);
-        }
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
         ReportDirectFrameDiagnosticCode(0xD641U);
         if (!HasLoggedOverlayQueueSummary && framePlan->Camera->get_CameraDrawOrder() == 0U) {
@@ -1332,6 +1335,43 @@ namespace helengine::gamecube {
 
         const double fontScale = std::max(static_cast<double>(drawable->get_FontScale()), 0.0001);
         const std::string& content = ResolveTextLayoutContent(drawable, font, fontScale);
+        std::vector<double>& lineOffsets = TextLineOffsetsScratch;
+        lineOffsets.clear();
+        lineOffsets.reserve(static_cast<std::size_t>(std::count(content.begin(), content.end(), '\n')) + 1U);
+        std::string& currentLine = TextLineScratch;
+        currentLine.clear();
+        currentLine.reserve(content.size());
+        for (const char character : content) {
+            if (character == '\r') {
+                continue;
+            }
+
+            if (character == '\n') {
+                const double visibleLineWidth = TextLayoutAlignmentUtils::MeasureVisibleLineWidth(
+                    currentLine,
+                    font,
+                    fontScale,
+                    static_cast<double>(font->get_AtlasWidth()));
+                lineOffsets.push_back(TextLayoutAlignmentUtils::ResolveHorizontalOffset(
+                    drawable->get_Alignment(),
+                    drawable->get_Size().X,
+                    visibleLineWidth));
+                currentLine.clear();
+                continue;
+            }
+
+            currentLine.push_back(character);
+        }
+
+        const double trailingVisibleLineWidth = TextLayoutAlignmentUtils::MeasureVisibleLineWidth(
+            currentLine,
+            font,
+            fontScale,
+            static_cast<double>(font->get_AtlasWidth()));
+        lineOffsets.push_back(TextLayoutAlignmentUtils::ResolveHorizontalOffset(
+            drawable->get_Alignment(),
+            drawable->get_Size().X,
+            trailingVisibleLineWidth));
 
         const GXColor glyphColor = ConvertByteColorToGx(drawable->get_Color());
         const float3 position = drawable->get_Parent()->get_Position();
@@ -1341,32 +1381,40 @@ namespace helengine::gamecube {
         const float2 shadowOffset = drawable->get_ShadowOffset();
         if (shadowOffset.X != 0.0f || shadowOffset.Y != 0.0f) {
             const GXColor shadowColor = ConvertByteColorToGx(drawable->get_ShadowColor());
-            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, shadowOffset, shadowColor);
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, shadowOffset, shadowColor, lineOffsets);
         }
 
         const float outlineScale = drawable->get_OutlineScale();
         if (outlineScale > 0.0f) {
             const GXColor outlineColor = ConvertByteColorToGx(drawable->get_OutlineColor());
-            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(-outlineScale, 0.0f), outlineColor);
-            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(outlineScale, 0.0f), outlineColor);
-            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, -outlineScale), outlineColor);
-            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, outlineScale), outlineColor);
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(-outlineScale, 0.0f), outlineColor, lineOffsets);
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(outlineScale, 0.0f), outlineColor, lineOffsets);
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, -outlineScale), outlineColor, lineOffsets);
+            DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, outlineScale), outlineColor, lineOffsets);
         }
 
-        DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, 0.0f), glyphColor);
+        DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(0.0f, 0.0f), glyphColor, lineOffsets);
     }
 
     /// Draws one already-resolved text layout at one authored effect offset and color without allocating frame-time state.
-    void GameCubeRasterRenderer::DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, double fontScale, double baseX, double baseY, const float2& passOffset, GXColor glyphColor) {
+    void GameCubeRasterRenderer::DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, double fontScale, double baseX, double baseY, const float2& passOffset, GXColor glyphColor, const std::vector<double>& lineOffsets) {
         const double lineHeight = std::max(static_cast<double>(font->get_LineHeight()) * fontScale, 1.0);
         double offsetX = 0.0;
         double offsetY = 0.0;
+        std::size_t lineIndex = 0U;
+        double lineOffsetX = lineOffsets.empty() ? 0.0 : lineOffsets[0];
 
         for (int32_t index = 0; index < static_cast<int32_t>(content.size()); index++) {
             const char character = content[index];
+            if (character == '\r') {
+                continue;
+            }
+
             if (character == '\n') {
                 offsetY += lineHeight;
                 offsetX = 0.0;
+                lineIndex++;
+                lineOffsetX = lineIndex < lineOffsets.size() ? lineOffsets[lineIndex] : 0.0;
                 continue;
             }
 
@@ -1380,7 +1428,7 @@ namespace helengine::gamecube {
                 continue;
             }
 
-            float glyphX = static_cast<float>(baseX + passOffset.X + offsetX);
+            float glyphX = static_cast<float>(baseX + lineOffsetX + passOffset.X + offsetX);
             float glyphY = static_cast<float>(baseY + passOffset.Y + std::round(offsetY) + (glyph.OffsetY * fontScale));
             float glyphWidth = static_cast<float>(glyph.SourceRect.Z * font->get_AtlasWidth() * fontScale);
             float glyphHeight = static_cast<float>(glyph.SourceRect.W * font->get_AtlasHeight() * fontScale);

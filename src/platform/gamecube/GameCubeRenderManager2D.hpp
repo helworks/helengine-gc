@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <vector>
 
 #include "IRenderVisitor2D.hpp"
@@ -10,6 +11,25 @@ class IDrawable2D;
 class CameraComponent;
 
 namespace helengine::gamecube {
+    /// Identifies which primitive-specific queue owns one globally ordered GameCube 2D draw command.
+    enum class GameCubeDrawCommandType2D {
+        Sprite,
+        Text,
+        RoundedRect
+    };
+
+    /// Preserves one shared-engine 2D submission's position while primitive-specific queues retain strongly typed drawable pointers.
+    struct GameCubeDrawCommand2D {
+        /// Camera whose ordered queue submitted this drawable during the current frame.
+        CameraComponent* Camera;
+
+        /// Primitive queue that owns the strongly typed command referenced by this entry.
+        GameCubeDrawCommandType2D Type;
+
+        /// Index of the strongly typed command inside the queue selected by Type.
+        std::size_t TypeQueueIndex;
+    };
+
     /// Stores one captured sprite draw request for the current GameCube 2D frame.
     struct GameCubeSpriteDrawCommand {
         /// Camera whose ordered queue submitted this sprite during the current frame.
@@ -82,6 +102,9 @@ namespace helengine::gamecube {
         /// Returns whether one camera submitted any 2D draw requests during the current frame.
         bool HasCapturedDrawablesForCamera(CameraComponent* camera) const;
 
+        /// Returns every captured 2D draw request in the exact order supplied by the shared engine render queue.
+        const std::vector<GameCubeDrawCommand2D>& GetDrawQueue() const;
+
         /// Returns the captured sprite draw requests for the current frame.
         const std::vector<GameCubeSpriteDrawCommand>& GetSpriteQueue() const;
 
@@ -96,6 +119,9 @@ namespace helengine::gamecube {
         void UpdateTextureRegionCore(RuntimeTexture* texture, int32_t x, int32_t y, int32_t width, int32_t height, Array<uint8_t>* rgba8, int32_t sourceRowPitch) override;
 
     private:
+        /// Captured mixed-primitive draw requests in shared-engine render order.
+        std::vector<GameCubeDrawCommand2D> DrawQueue;
+
         /// Captured sprite draw requests in shared-engine render order.
         std::vector<GameCubeSpriteDrawCommand> SpriteQueue;
 
