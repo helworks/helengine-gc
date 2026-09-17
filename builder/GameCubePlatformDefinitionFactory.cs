@@ -337,6 +337,13 @@ public static class GameCubePlatformDefinitionFactory {
                             PlatformSettingKind.Text,
                             "host_file_system",
                             true,
+                            []),
+                        new PlatformSettingDefinition(
+                            "codegen-use-rtti",
+                            "Use Compiler RTTI",
+                            PlatformSettingKind.Boolean,
+                            "true",
+                            true,
                             [])
                     ])
             ],
