@@ -39,7 +39,8 @@ public sealed class GameCubeBuilderPaths {
             ResolveSystemReportEnabled(request),
             ResolveDirectFrameDiagnosticEnabled(request),
             ResolveLogoAnimationDiagnosticEnabled(request),
-            ResolveOptionalBooleanBuildOption(request, "enable-input-trace-diagnostic"));
+            ResolveOptionalBooleanBuildOption(request, "enable-input-trace-diagnostic"),
+            request.NativeObjectCacheRoot);
     }
 
     /// <summary>
@@ -218,13 +219,17 @@ public sealed class GameCubeBuilderPaths {
         bool systemReportEnabled = true,
         bool directFrameDiagnosticEnabled = false,
         bool logoAnimationDiagnosticEnabled = false,
-        bool inputTraceDiagnosticEnabled = false) {
+        bool inputTraceDiagnosticEnabled = false,
+        string nativeObjectCacheRootPath = "") {
         RepositoryRootPath = string.IsNullOrWhiteSpace(repositoryRootPath)
             ? throw new ArgumentException("Repository root path is required.", nameof(repositoryRootPath))
             : repositoryRootPath;
         GeneratedCoreRootPath = string.IsNullOrWhiteSpace(generatedCoreRootPath)
             ? throw new ArgumentException("Generated core root path is required.", nameof(generatedCoreRootPath))
             : generatedCoreRootPath;
+        NativeObjectCacheRootPath = string.IsNullOrWhiteSpace(nativeObjectCacheRootPath)
+            ? Path.Combine(repositoryRootPath, "build")
+            : Path.GetFullPath(nativeObjectCacheRootPath);
         StagingRootPath = string.IsNullOrWhiteSpace(stagingRootPath)
             ? throw new ArgumentException("Staging root path is required.", nameof(stagingRootPath))
             : stagingRootPath;
@@ -263,6 +268,11 @@ public sealed class GameCubeBuilderPaths {
     /// Gets the generated core root that receives packaged runtime manifest files.
     /// </summary>
     public string GeneratedCoreRootPath { get; }
+
+    /// <summary>
+    /// Gets the persistent native build directory for this project and profile.
+    /// </summary>
+    public string NativeObjectCacheRootPath { get; }
 
     /// <summary>
     /// Gets the working staging root that receives cooked artifacts before disc layout.

@@ -15,6 +15,7 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
         if (paths == null) {
             throw new ArgumentNullException(nameof(paths));
         }
+        Directory.CreateDirectory(paths.NativeObjectCacheRootPath);
 
         ProcessStartInfo startInfo = CreateStartInfo(paths);
 
@@ -29,7 +30,7 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
                 + result.StandardError);
         }
 
-        string builtDolPath = Path.Combine(paths.RepositoryRootPath, "build", "helengine_gc.dol");
+        string builtDolPath = Path.Combine(paths.NativeObjectCacheRootPath, "helengine_gc.dol");
         if (!File.Exists(builtDolPath)) {
             throw new FileNotFoundException("The packaged native GameCube DOL was not produced by the Docker build.", builtDolPath);
         }
@@ -38,7 +39,7 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
         Directory.CreateDirectory(nativeExecutableDirectoryPath);
         File.Copy(builtDolPath, paths.NativeExecutablePath, true);
 
-        string builtApploaderPath = Path.Combine(paths.RepositoryRootPath, "build", "packaged-disc", "apploader.img");
+        string builtApploaderPath = Path.Combine(paths.NativeObjectCacheRootPath, "packaged-disc", "apploader.img");
         if (!File.Exists(builtApploaderPath)) {
             throw new FileNotFoundException("The packaged native GameCube apploader image was not produced by the Docker build.", builtApploaderPath);
         }
@@ -47,7 +48,7 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
         Directory.CreateDirectory(nativeApploaderDirectoryPath);
         File.Copy(builtApploaderPath, paths.NativeApploaderImagePath, true);
 
-        string builtGenericBootImagePath = Path.Combine(paths.RepositoryRootPath, "build", "packaged-disc", "gbi.hdr");
+        string builtGenericBootImagePath = Path.Combine(paths.NativeObjectCacheRootPath, "packaged-disc", "gbi.hdr");
         if (!File.Exists(builtGenericBootImagePath)) {
             throw new FileNotFoundException("The packaged native GameCube generic boot image header was not produced by the Docker build.", builtGenericBootImagePath);
         }
@@ -82,6 +83,8 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
         startInfo.ArgumentList.Add("--rm");
         startInfo.ArgumentList.Add("-v");
         startInfo.ArgumentList.Add(paths.RepositoryRootPath + ":/workspace");
+        startInfo.ArgumentList.Add("-v");
+        startInfo.ArgumentList.Add(paths.NativeObjectCacheRootPath + ":/native-build");
         if (!IsPathUnderRoot(paths.GeneratedCoreRootPath, paths.RepositoryRootPath)) {
             generatedCoreContainerPath = "/helengine-generated-core";
             startInfo.ArgumentList.Add("-v");
@@ -132,9 +135,9 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
             + (paths.InputTraceDiagnosticEnabled ? "1" : "0"));
         startInfo.ArgumentList.Add("helengine-gc");
         startInfo.ArgumentList.Add("make");
-        startInfo.ArgumentList.Add("clean");
         startInfo.ArgumentList.Add("all");
         startInfo.ArgumentList.Add("packaged-disc-assets");
+        startInfo.ArgumentList.Add("BUILD_DIR=/native-build");
         return startInfo;
     }
 
