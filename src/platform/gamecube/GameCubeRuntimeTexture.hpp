@@ -7,6 +7,7 @@
 
 #include "RuntimeTexture.hpp"
 #include "runtime/array.hpp"
+#include "platform/gamecube/GameCubeNativeTextureLayout.hpp"
 
 class TextureAsset;
 
@@ -32,6 +33,9 @@ namespace helengine::gamecube {
         /// Returns the native GX texture object used by textured material submission.
         GXTexObj* GetNativeTextureObject();
 
+        /// Loads the associated TLUT, when present, before binding this texture to one hardware texture map.
+        void BindNativeTexture(std::uint8_t map);
+
     private:
         /// Owned native GX texture-memory buffer.
         void* NativeTextureData;
@@ -45,11 +49,26 @@ namespace helengine::gamecube {
         /// Tracks whether `NativeTextureObject` is valid.
         bool NativeTextureObjectInitialized;
 
+        /// Owned aligned native TLUT bytes retained until a safe renderer retirement boundary.
+        void* NativePaletteData;
+
+        /// Native TLUT descriptor whose format and actual entry count come from the validated header.
+        GXTlutObj NativePaletteObject;
+
+        /// Canonical layout for a GXN1 asset; legacy RGB5A3 textures retain their existing update policy.
+        GameCubeNativeTextureLayout NativeLayout;
+
+        /// Distinguishes strict GXN1 assets from the historical raw RGB5A3 route.
+        bool UsesNativePayload;
+
         /// Releases any previously encoded native texture memory.
         void ResetNativeTextureData();
 
         /// Loads one prepacked GX RGB5A3 payload that is already stored in native tiled texture memory order.
         void LoadPrepackedRgb5A3(TextureAsset* data);
+
+        /// Copies validated GXN1 tiled bytes and native TLUT bytes directly without RGBA expansion.
+        void LoadNativePayload(TextureAsset* data);
 
         /// Encodes one RGBA8 logical texture into tiled GX RGB5A3 memory.
         void EncodeRgba32ToRgb5A3(TextureAsset* data);

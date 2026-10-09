@@ -122,10 +122,15 @@ public static class GameCubeBuildWorkspace {
         List<PlatformBuildItemOutcome> sceneOutcomes = BuildSuccessfulSceneOutcomes(request.Manifest.Scenes);
         List<PlatformBuildItemOutcome> looseAssetOutcomes = BuildSuccessfulLooseAssetOutcomes(request.Manifest.LooseAssets);
 
+        WritePhaseMarker(phaseMarkerPath, "platform cook work items begin");
+        GameCubePlatformCookWorkItemExecutor textureExecutor = new();
+        IReadOnlyList<GameCubeTextureCookWorkPlan> texturePlans = textureExecutor.Prepare(
+            request.Manifest.PlatformCookWorkItems ?? [], request.Manifest.CookedArtifacts ?? [], Directory.GetCurrentDirectory(), paths.StagingRootPath, cancellationToken);
+        ValidatePackagedArtifactSources(request, paths.StagingRootPath, diagnosticReporter, diagnostics, cancellationToken);
+        if (diagnostics.Count > 0) return Task.FromResult(new PlatformBuildReport(false, [.. diagnostics], [.. sceneOutcomes], [.. looseAssetOutcomes]));
         ResetDirectory(paths.StagingRootPath);
         Directory.CreateDirectory(paths.StagingRootPath);
-        WritePhaseMarker(phaseMarkerPath, "platform cook work items begin");
-        ExecutePlatformCookWorkItems(request.Manifest.PlatformCookWorkItems ?? [], paths.StagingRootPath);
+        textureExecutor.Publish(texturePlans, cancellationToken);
         WritePhaseMarker(phaseMarkerPath, "platform cook work items completed");
         WritePhaseMarker(phaseMarkerPath, "stage cooked artifacts begin");
         StageCookedArtifacts(request, paths.StagingRootPath, progressReporter, diagnosticReporter, diagnostics, cancellationToken);
@@ -506,7 +511,7 @@ public static class GameCubeBuildWorkspace {
             cancellationToken.ThrowIfCancellationRequested();
 
             PlatformBuildArtifact artifact = cookedArtifacts[artifactIndex];
-            string sourcePath = ResolveSourcePath(artifact.RelativePath);
+            string sourcePath = GameCubeTextureCookPath.Resolve(Directory.GetCurrentDirectory(), artifact.RelativePath);
             if (!File.Exists(sourcePath)) {
                 AddDiagnostic(
                     diagnostics,
@@ -520,7 +525,7 @@ public static class GameCubeBuildWorkspace {
                 continue;
             }
 
-            string destinationPath = Path.Combine(stagingRootPath, NormalizeRelativePath(artifact.RelativePath));
+            string destinationPath = GameCubeTextureCookPath.Resolve(stagingRootPath, artifact.RelativePath);
             string destinationDirectoryPath = Path.GetDirectoryName(destinationPath) ?? throw new InvalidOperationException($"Destination directory could not be resolved for '{destinationPath}'.");
             Directory.CreateDirectory(destinationDirectoryPath);
             File.Copy(sourcePath, destinationPath, true);
@@ -533,23 +538,20 @@ public static class GameCubeBuildWorkspace {
         }
     }
 
-    /// <summary>
-    /// Executes any builder-owned platform cook work items emitted by the shared editor build graph.
-    /// </summary>
-    /// <param name="platformCookWorkItems">Platform cook work items emitted by the editor build graph.</param>
-    /// <param name="stagingRootPath">Staging root that receives the cooked outputs.</param>
-    static void ExecutePlatformCookWorkItems(PlatformCookWorkItem[] platformCookWorkItems, string stagingRootPath) {
-        if (platformCookWorkItems == null) {
-            throw new ArgumentNullException(nameof(platformCookWorkItems));
-        } else if (string.IsNullOrWhiteSpace(stagingRootPath)) {
-            throw new ArgumentException("Staging root path must be provided.", nameof(stagingRootPath));
+    /// <summary>Checks every manifest source before the previous staging tree is reset or any prepared texture is published.</summary>
+    static void ValidatePackagedArtifactSources(PlatformBuildRequest request, string stagingRootPath,
+        IPlatformBuildDiagnosticReporter reporter, List<PlatformBuildDiagnostic> diagnostics, CancellationToken cancellationToken) {
+        string stagePrefix = Path.TrimEndingDirectorySeparator(Path.GetFullPath(stagingRootPath)) + Path.DirectorySeparatorChar;
+        foreach (PlatformBuildArtifact artifact in request.Manifest.CookedArtifacts ?? []) {
+            cancellationToken.ThrowIfCancellationRequested();
+            string source = GameCubeTextureCookPath.Resolve(Directory.GetCurrentDirectory(), artifact.RelativePath);
+            if (source.StartsWith(stagePrefix, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("GameCube artifact source cannot reside in the staging tree being replaced.");
+            if (!File.Exists(source)) {
+                AddDiagnostic(diagnostics, reporter, PlatformBuildDiagnosticSeverity.Error, "GCPACK001",
+                    $"Cooked artifact '{artifact.RelativePath}' was not found in the staged package root.",
+                    string.Empty, artifact.LogicalArtifactId, artifact.RelativePath);
+            }
         }
-
-        if (platformCookWorkItems.Length == 0) {
-            return;
-        }
-
-        new GameCubePlatformCookWorkItemExecutor().Execute(platformCookWorkItems, Directory.GetCurrentDirectory(), stagingRootPath);
     }
 
     /// <summary>

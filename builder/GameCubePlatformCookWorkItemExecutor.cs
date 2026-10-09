@@ -25,42 +25,69 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
         TextureCooker = new GameCubeTextureCooker();
     }
 
-    /// <summary>
-    /// Executes the supplied GameCube platform cook work items into the staging root.
-    /// </summary>
-    /// <param name="workItems">Work items emitted by the editor build graph.</param>
-    /// <param name="projectRootPath">Project root used to resolve source asset paths.</param>
-    /// <param name="stagingRootPath">Staging root that receives cooked platform-owned outputs.</param>
+    /// <summary>Prepares the entire texture batch before publishing any output in the staging root.</summary>
     public void Execute(PlatformCookWorkItem[] workItems, string projectRootPath, string stagingRootPath) {
-        if (workItems == null) {
-            throw new ArgumentNullException(nameof(workItems));
-        } else if (string.IsNullOrWhiteSpace(projectRootPath)) {
-            throw new ArgumentException("Project root path must be provided.", nameof(projectRootPath));
-        } else if (string.IsNullOrWhiteSpace(stagingRootPath)) {
-            throw new ArgumentException("Staging root path must be provided.", nameof(stagingRootPath));
-        }
-
-        for (int index = 0; index < workItems.Length; index++) {
-            PlatformCookWorkItem workItem = workItems[index] ?? throw new InvalidOperationException("Platform cook work items must not contain null entries.");
-            if (string.Equals(workItem.SourceAssetKind, "texture", StringComparison.OrdinalIgnoreCase)) {
-                ExecuteTextureWorkItem(workItem, projectRootPath, stagingRootPath);
-            } else {
-                throw new InvalidOperationException($"GameCube builder does not support platform cook work item kind '{workItem.SourceAssetKind}'.");
-            }
-        }
+        IReadOnlyList<GameCubeTextureCookWorkPlan> plans = Prepare(workItems, [], projectRootPath, stagingRootPath, CancellationToken.None);
+        Publish(plans, CancellationToken.None);
     }
 
-    /// <summary>
-    /// Executes one builder-owned texture work item into the staging root.
-    /// </summary>
-    /// <param name="workItem">Texture work item emitted by the editor build graph.</param>
-    /// <param name="projectRootPath">Project root used to resolve the source texture asset.</param>
-    /// <param name="stagingRootPath">Staging root that receives the cooked texture asset.</param>
-    void ExecuteTextureWorkItem(PlatformCookWorkItem workItem, string projectRootPath, string stagingRootPath) {
-        TextureAsset sourceTexture = LoadSourceTexture(workItem, projectRootPath);
-        GameCubeTextureCookSettings settings = GameCubeTextureCookSettings.Parse(workItem.SerializedPlatformSettings);
-        TextureAsset cookedTexture = TextureCooker.CookTexture(sourceTexture, settings);
-        WriteTextureAsset(Path.Combine(stagingRootPath, NormalizePath(workItem.OutputRelativePath)), cookedTexture);
+    /// <summary>Validates all contracts and disc paths, then decodes and cooks every source without changing staged outputs.</summary>
+    internal IReadOnlyList<GameCubeTextureCookWorkPlan> Prepare(
+        PlatformCookWorkItem[] workItems, PlatformBuildArtifact[] artifacts, string projectRootPath, string stagingRootPath, CancellationToken cancellationToken) {
+        ArgumentNullException.ThrowIfNull(workItems);
+        ArgumentNullException.ThrowIfNull(artifacts);
+        if (string.IsNullOrWhiteSpace(projectRootPath)) throw new ArgumentException("Project root is required.", nameof(projectRootPath));
+        if (string.IsNullOrWhiteSpace(stagingRootPath)) throw new ArgumentException("Staging root is required.", nameof(stagingRootPath));
+        cancellationToken.ThrowIfCancellationRequested();
+        GameCubeTextureCookPath.ValidateRoot(stagingRootPath);
+        HashSet<string> reserved = new(StringComparer.OrdinalIgnoreCase);
+        foreach (PlatformBuildArtifact artifact in artifacts) {
+            GameCubeTextureCookPath.Reserve(reserved, artifact.RelativePath);
+            GameCubeTextureCookPath.Resolve(stagingRootPath, artifact.RelativePath);
+        }
+        HashSet<string> sources = new(StringComparer.OrdinalIgnoreCase);
+        foreach (PlatformCookWorkItem item in workItems) {
+            if (item == null) throw new InvalidOperationException("GameCube cook work items cannot be null.");
+            sources.Add(ResolveSourceAssetPath(projectRootPath, item.SourceAssetPath));
+        }
+        List<GameCubeTextureCookWorkPlan> plans = new(workItems.Length);
+        foreach (PlatformCookWorkItem item in workItems) {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!string.Equals(item.TargetPlatformId, "gamecube", StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(item.TargetArtifactKind, "runtime-texture", StringComparison.OrdinalIgnoreCase) ||
+                (!string.Equals(item.SourceAssetKind, "texture", StringComparison.OrdinalIgnoreCase) && !string.Equals(item.SourceAssetKind, "font-atlas-texture", StringComparison.OrdinalIgnoreCase))) {
+                throw new InvalidOperationException($"Unsupported GameCube cook contract '{item.WorkItemId}'.");
+            }
+            GameCubeTextureCookSettings settings = GameCubeTextureCookSettings.Parse(item.SerializedPlatformSettings);
+            string relative = GameCubeTextureCookPath.Normalize(item.OutputRelativePath);
+            GameCubeTextureCookPath.Reserve(reserved, relative);
+            string destination = GameCubeTextureCookPath.Resolve(stagingRootPath, relative);
+            string source = ResolveSourceAssetPath(projectRootPath, item.SourceAssetPath);
+            if (source.StartsWith(Path.TrimEndingDirectorySeparator(Path.GetFullPath(stagingRootPath)) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("GameCube source cannot reside in the staging tree being replaced.");
+            if (sources.Contains(destination)) throw new InvalidOperationException("GameCube cook output would replace a source.");
+            if (!File.Exists(source)) throw new FileNotFoundException("GameCube cook source was not found.", source);
+            plans.Add(new GameCubeTextureCookWorkPlan { WorkItem = item, Settings = settings, SourcePath = source, DestinationPath = destination, StagingRootPath = stagingRootPath });
+        }
+        foreach (GameCubeTextureCookWorkPlan plan in plans) {
+            cancellationToken.ThrowIfCancellationRequested();
+            using TextureAsset source = LoadSourceTexture(plan.WorkItem, projectRootPath);
+            using TextureAsset cooked = TextureCooker.CookTexture(source, plan.Settings);
+            cooked.Id = plan.WorkItem.OutputLogicalArtifactId;
+            cooked.RuntimeAssetId = RuntimeAssetIdGenerator.Generate(cooked.Id);
+            plan.Payload = FilesAssetSerializer.SerializeToBytes(cooked);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return plans;
+    }
+
+    /// <summary>Rechecks contained destinations and writes only a fully prepared texture batch.</summary>
+    internal void Publish(IReadOnlyList<GameCubeTextureCookWorkPlan> plans, CancellationToken cancellationToken) {
+        cancellationToken.ThrowIfCancellationRequested();
+        foreach (GameCubeTextureCookWorkPlan plan in plans) GameCubeTextureCookPath.Resolve(plan.StagingRootPath, plan.WorkItem.OutputRelativePath);
+        foreach (GameCubeTextureCookWorkPlan plan in plans) {
+            Directory.CreateDirectory(Path.GetDirectoryName(plan.DestinationPath));
+            File.WriteAllBytes(plan.DestinationPath, plan.Payload);
+        }
     }
 
     /// <summary>
@@ -77,11 +104,18 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
         }
 
         string sourcePath = ResolveSourceAssetPath(projectRootPath, workItem.SourceAssetPath);
+        if (string.Equals(workItem.SourceAssetKind, "font-atlas-texture", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(sourcePath).Equals(".hefont", StringComparison.OrdinalIgnoreCase)) {
+            using FileStream fontStream = File.OpenRead(sourcePath);
+            FontAsset font = helengine.files.FontAssetBinarySerializer.Deserialize(fontStream);
+            if (font.SourceTextureAsset == null) throw new InvalidOperationException("GameCube font cook source has no embedded atlas.");
+            return font.SourceTextureAsset;
+        }
         if (TryReadTextureAsset(sourcePath, out TextureAsset textureAsset)) {
             return textureAsset;
         }
 
         string bitmapSourcePath = ResolveBitmapSourcePath(sourcePath);
+        if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1)) throw new PlatformNotSupportedException("GameCube authored image decoding requires Windows; serialized atlas sources are portable.");
         Bitmap sourceBitmap;
         try {
             sourceBitmap = new Bitmap(bitmapSourcePath);
@@ -123,6 +157,7 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
     /// <param name="width">Bitmap width in pixels.</param>
     /// <param name="height">Bitmap height in pixels.</param>
     /// <returns>Tightly packed RGBA32 bytes.</returns>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows6.1")]
     static byte[] ReadBitmapColors(BitmapData bitmapData, int width, int height) {
         if (bitmapData == null) {
             throw new ArgumentNullException(nameof(bitmapData));
@@ -168,6 +203,7 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
 
         string extension = Path.GetExtension(sourcePath);
         if (!string.Equals(extension, ".hasset", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(extension, ".heasset", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(extension, ".hetex", StringComparison.OrdinalIgnoreCase)) {
             return false;
         }
@@ -238,22 +274,6 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
     }
 
     /// <summary>
-    /// Writes one cooked texture asset to the supplied staging path.
-    /// </summary>
-    /// <param name="destinationPath">Absolute staging path that receives the cooked texture asset.</param>
-    /// <param name="textureAsset">Cooked texture asset to serialize.</param>
-    static void WriteTextureAsset(string destinationPath, TextureAsset textureAsset) {
-        if (string.IsNullOrWhiteSpace(destinationPath)) {
-            throw new ArgumentException("Destination path must be provided.", nameof(destinationPath));
-        } else if (textureAsset == null) {
-            throw new ArgumentNullException(nameof(textureAsset));
-        }
-
-        string directoryPath = Path.GetDirectoryName(destinationPath) ?? throw new InvalidOperationException("Destination directory path could not be resolved.");
-        Directory.CreateDirectory(directoryPath);
-        using FileStream stream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        FilesAssetSerializer.Serialize(stream, textureAsset);
-    }
 
     /// Resolves one work-item metadata value by key.
     /// </summary>
@@ -291,24 +311,10 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
             throw new ArgumentException("Source asset path must be provided.", nameof(sourceAssetPath));
         }
 
-        string normalizedSourcePath = NormalizePath(sourceAssetPath);
-        if (Path.IsPathRooted(normalizedSourcePath)) {
-            return Path.GetFullPath(normalizedSourcePath);
+        if (Path.IsPathRooted(sourceAssetPath)) {
+            return Path.GetFullPath(sourceAssetPath);
         }
-
-        return Path.GetFullPath(Path.Combine(projectRootPath, "assets", normalizedSourcePath));
+        return GameCubeTextureCookPath.Resolve(Path.Combine(projectRootPath, "assets"), sourceAssetPath);
     }
 
-    /// <summary>
-    /// Normalizes one relative path for the current host filesystem.
-    /// </summary>
-    /// <param name="relativePath">Relative path emitted by the editor build graph.</param>
-    /// <returns>Host-normalized relative path.</returns>
-    static string NormalizePath(string relativePath) {
-        if (string.IsNullOrWhiteSpace(relativePath)) {
-            throw new ArgumentException("Relative path must be provided.", nameof(relativePath));
-        }
-
-        return relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-    }
 }

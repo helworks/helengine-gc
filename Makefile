@@ -132,6 +132,7 @@ GENERATED_BRIDGE_SOURCES := \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeMeshCache.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRuntimeMaterial.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRuntimeTexture.cpp \
+	$(SOURCE_DIR)/platform/gamecube/GameCubeNativeTextureLayout.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeRasterRenderer.cpp \
 	$(SOURCE_DIR)/platform/gamecube/GameCubeSceneTransitionTraceDiagnostics.cpp
 ifeq ($(strip $(HELENGINE_GAMECUBE_BOOT_MODE)),packaged-disc)

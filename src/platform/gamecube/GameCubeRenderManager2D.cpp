@@ -36,7 +36,12 @@ namespace helengine::gamecube {
 
         GameCubeRuntimeTexture* runtimeTexture = new GameCubeRuntimeTexture();
         runtimeTexture->set_Id(data->get_Id());
-        runtimeTexture->LoadFromRaw(data);
+        try {
+            runtimeTexture->LoadFromRaw(data);
+        } catch (...) {
+            delete runtimeTexture;
+            throw;
+        }
         return runtimeTexture;
     }
 
@@ -87,7 +92,9 @@ namespace helengine::gamecube {
             return;
         }
 
-        ReleasedTextures.push_back(texture);
+        if (std::find(ReleasedTextures.begin(), ReleasedTextures.end(), texture) == ReleasedTextures.end()) {
+            ReleasedTextures.push_back(texture);
+        }
     }
 
     /// Uploads one validated RGBA8 rectangle into one GameCube-owned runtime texture.
@@ -126,7 +133,7 @@ namespace helengine::gamecube {
         RuntimeTexture* texture = font->get_Texture();
         if (texture != nullptr && !texture->get_IsDisposed()) {
             texture->Dispose();
-            delete static_cast<GameCubeRuntimeTexture*>(texture);
+            ReleaseTexture(texture);
         }
 
         font->Dispose();

@@ -8,9 +8,24 @@
 #include <ogc/cache.h>
 #include "TextureAsset.hpp"
 #include "TextureAssetColorFormat.hpp"
+#include "TextureAssetPixelCodec.hpp"
 #include "runtime/native_exceptions.hpp"
 
 namespace {
+    /// Stable regions owned by this renderer, with nonoverlapping small and full fourteen-bit palette slots.
+    static GXTlutRegion NativeTlutRegions[12] {};
+    /// Callback retained for names not assigned by this renderer; initialization is global rather than tied to one texture lifetime.
+    static GXTlutRegionCallback PreviousTlutCallback = nullptr;
+    /// Records whether GX's existing callback was captured after GX initialization.
+    static bool NativeTlutCallbackInstalled = false;
+
+    /// Returns the same region object for a given renderer slot, preserving libogc's TLUT-name contract.
+    static GXTlutRegion* ResolveNativeTlutRegion(u32 name) {
+        if (name < 8) return &NativeTlutRegions[name];
+        if (name >= 16 && name < 20) return &NativeTlutRegions[name - 8];
+        return PreviousTlutCallback == nullptr ? nullptr : PreviousTlutCallback(name);
+    }
+
     /// Converts one 8-bit channel into the 5-bit range used by opaque GX RGB5A3 texels.
     static uint16_t Convert8To5(uint8_t value) {
         return static_cast<uint16_t>((static_cast<uint32_t>(value) * 31U + 127U) / 255U);
@@ -51,7 +66,11 @@ namespace helengine::gamecube {
         , NativeTextureData(nullptr)
         , NativeTextureDataSize(0U)
         , NativeTextureObject {}
-        , NativeTextureObjectInitialized(false) {
+        , NativeTextureObjectInitialized(false)
+        , NativePaletteData(nullptr)
+        , NativePaletteObject {}
+        , NativeLayout {}
+        , UsesNativePayload(false) {
     }
 
     /// Releases owned GameCube texture memory.
@@ -67,11 +86,26 @@ namespace helengine::gamecube {
 
         ResetNativeTextureData();
 
-        if (data->ColorFormat == TextureAssetColorFormat::GxRgb5A3) {
+        if (data->ColorFormat == TextureAssetColorFormat::GxNative) {
+            LoadNativePayload(data);
+            return;
+        } else if (data->ColorFormat == TextureAssetColorFormat::GxRgb5A3) {
             LoadPrepackedRgb5A3(data);
             return;
         } else if (data->ColorFormat != TextureAssetColorFormat::Rgba32) {
-            throw new InvalidOperationException("GameCube runtime textures require either GxRgb5A3 or RGBA32 texture assets.");
+            // Generic formats use the shared decoder; native GXN1 data never takes this expansion route.
+            Array<uint8_t>* decoded = TextureAssetPixelCodec::DecodeToRgba32(data);
+            try {
+                TextureAsset rgba;
+                rgba.Width = data->Width; rgba.Height = data->Height;
+                rgba.Colors = decoded;
+                EncodeRgba32ToRgb5A3(&rgba);
+                delete decoded;
+                return;
+            } catch (...) {
+                delete decoded;
+                throw;
+            }
         }
 
         EncodeRgba32ToRgb5A3(data);
@@ -86,6 +120,7 @@ namespace helengine::gamecube {
         } else if (x < 0 || y < 0 || width <= 0 || height <= 0) {
             throw new ArgumentOutOfRangeException("texture region");
         }
+
 
         const int32_t textureWidth = this->get_Width();
         const int32_t textureHeight = this->get_Height();
@@ -108,6 +143,16 @@ namespace helengine::gamecube {
         const int64_t requiredSourceBytes = static_cast<int64_t>(sourceRowPitch) * (height - 1) + requiredRowBytes;
         if (requiredSourceBytes > rgba8->Length) {
             throw new InvalidOperationException("Source buffer is shorter than the requested GameCube texture region.");
+        }
+
+        if (UsesNativePayload) {
+            if (!PatchNativeTextureRegion(NativeLayout, static_cast<std::uint8_t*>(NativeTextureData), NativeTextureDataSize,
+                x, y, width, height, rgba8->Data, rgba8->Length, sourceRowPitch)) {
+                throw new InvalidOperationException("GameCube RGBA updates cannot alter immutable indexed, CMPR or depth-view native textures.");
+            }
+            DCFlushRange(NativeTextureData, NativeTextureDataSize);
+            GX_InvalidateTexAll();
+            return;
         }
 
         const uint32_t paddedWidth = (static_cast<uint32_t>(textureWidth) + 3U) & ~3U;
@@ -175,6 +220,31 @@ namespace helengine::gamecube {
         return &NativeTextureObject;
     }
 
+    void GameCubeRuntimeTexture::BindNativeTexture(std::uint8_t map) {
+        if (!NativeTextureObjectInitialized || map >= 8) {
+            throw new InvalidOperationException("GameCube texture binding requires an initialized texture and a valid map.");
+        }
+        if (NativePaletteData != nullptr) {
+            GameCubeNativeTlutBinding binding;
+            if (!TryBuildNativeTlutBinding(NativeLayout, map, binding)) {
+                throw new InvalidOperationException("GameCube CI14 palettes require one of the four independent large TLUT map slots.");
+            }
+            if (!NativeTlutCallbackInstalled) {
+                PreviousTlutCallback = GX_SetTlutRegionCallback(ResolveNativeTlutRegion);
+                NativeTlutCallbackInstalled = true;
+            }
+            GXTlutRegion* region = ResolveNativeTlutRegion(binding.Name);
+            GX_InitTlutRegion(region, binding.TmemAddress, GX_TLUT_16);
+            // libogc df5c999 gx.c takes a u8 size and masks ten count bits. The hardware BP 0x65
+            // count is eleven bits (Dolphin BPMemory.h BPU_LoadTlutInfo), so 16,384 entries need
+            // this complete precompiled register word. Count reflects actual bytes, not slot capacity.
+            region->val[0] = binding.LoadRegister;
+            GX_InitTexObjTlut(&NativeTextureObject, binding.Name);
+            GX_LoadTlut(&NativePaletteObject, binding.Name);
+        }
+        GX_LoadTexObj(&NativeTextureObject, map);
+    }
+
     /// Releases any previously encoded native texture memory.
     void GameCubeRuntimeTexture::ResetNativeTextureData() {
         if (NativeTextureData != nullptr) {
@@ -183,8 +253,51 @@ namespace helengine::gamecube {
         }
 
         NativeTextureDataSize = 0U;
+        free(NativePaletteData);
+        NativePaletteData = nullptr;
+        NativePaletteObject = {};
+        NativeLayout = {};
+        UsesNativePayload = false;
         std::memset(&NativeTextureObject, 0, sizeof(NativeTextureObject));
         NativeTextureObjectInitialized = false;
+    }
+
+    void GameCubeRuntimeTexture::LoadNativePayload(TextureAsset* data) {
+        GameCubeNativeTextureLayout layout;
+        if (data->Colors == nullptr || data->Colors->Length < 0
+            || (data->PaletteColors != nullptr && data->PaletteColors->Length < 0)
+            || !TryParseNativeTexturePayload(data->Colors->Data, static_cast<std::size_t>(data->Colors->Length),
+                data->PaletteColors == nullptr ? nullptr : data->PaletteColors->Data,
+                data->PaletteColors == nullptr ? 0 : static_cast<std::size_t>(data->PaletteColors->Length), layout)
+            || layout.Width != data->Width || layout.Height != data->Height
+            || layout.AlphaPrecision != static_cast<std::uint32_t>(data->AlphaPrecision)) {
+            throw new InvalidOperationException("GameCube GXN1 header, metadata, tiled bytes or TLUT indices are invalid.");
+        }
+        NativeTextureData = memalign(32, layout.PixelBytes);
+        if (NativeTextureData == nullptr) throw new InvalidOperationException("Could not allocate native GameCube texture memory.");
+        if (layout.PaletteBytes != 0) {
+            NativePaletteData = memalign(32, layout.PaletteBytes);
+            if (NativePaletteData == nullptr) {
+                ResetNativeTextureData();
+                throw new InvalidOperationException("Could not allocate native GameCube TLUT memory.");
+            }
+            std::memcpy(NativePaletteData, data->PaletteColors->Data, layout.PaletteBytes);
+            DCFlushRange(NativePaletteData, layout.PaletteBytes);
+            GX_InitTlutObj(&NativePaletteObject, NativePaletteData, layout.TlutFormat, layout.PaletteEntries);
+            GX_InitTexObjCI(&NativeTextureObject, NativeTextureData, layout.Width, layout.Height, layout.SamplerFormat,
+                GX_CLAMP, GX_CLAMP, GX_FALSE, layout.SamplerFormat == 10 ? GX_BIGTLUT0 : GX_TLUT0);
+        } else {
+            GX_InitTexObj(&NativeTextureObject, NativeTextureData, layout.Width, layout.Height, layout.SamplerFormat,
+                GX_CLAMP, GX_CLAMP, GX_FALSE);
+        }
+        std::memcpy(NativeTextureData, data->Colors->Data + 48, layout.PixelBytes);
+        DCFlushRange(NativeTextureData, layout.PixelBytes);
+        GX_InitTexObjFilterMode(&NativeTextureObject, GX_LINEAR, GX_LINEAR);
+        NativeTextureDataSize = layout.PixelBytes;
+        NativeLayout = layout;
+        UsesNativePayload = true;
+        NativeTextureObjectInitialized = true;
+        this->set_Width(layout.Width); this->set_Height(layout.Height);
     }
 
     /// Loads one prepacked GX RGB5A3 payload that is already stored in native tiled texture memory order.

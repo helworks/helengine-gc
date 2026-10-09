@@ -37,7 +37,7 @@ public sealed class GameCubePlatformAssetBuilderTests {
                 && capability.TargetArtifactKind == "runtime-texture"
                 && capability.OwnershipKind == PlatformAssetCookOwnershipKind.BuilderOwned
                 && capability.SettingsContractId == "gamecube-texture");
-        Assert.DoesNotContain(
+        Assert.Contains(
             builder.Definition.AssetCookCapabilities,
             capability => capability.SourceAssetKind == "font-atlas-texture");
     }
@@ -49,7 +49,7 @@ public sealed class GameCubePlatformAssetBuilderTests {
     public void DescriptorAndDefinition_ExposeTextureFormatCapabilities() {
         GameCubePlatformAssetBuilder builder = new();
 
-        PlatformAssetCookCapabilityDefinition capability = Assert.Single(builder.Definition.AssetCookCapabilities);
+        PlatformAssetCookCapabilityDefinition capability = Assert.Single(builder.Definition.AssetCookCapabilities, item => item.SourceAssetKind == "texture");
         Assert.Equal("texture", capability.SourceAssetKind);
         Assert.Equal("runtime-texture", capability.TargetArtifactKind);
         Assert.Equal(PlatformAssetCookOwnershipKind.BuilderOwned, capability.OwnershipKind);
@@ -100,16 +100,19 @@ public sealed class GameCubePlatformAssetBuilderTests {
     /// <param name="textureFormatCapabilities">Texture capability metadata to validate.</param>
     static void AssertTextureFormatCapabilities(PlatformTextureFormatCapabilityDefinition textureFormatCapabilities) {
         Assert.NotNull(textureFormatCapabilities);
-        Assert.Equal("GxRgb5A3", Assert.Single(textureFormatCapabilities.SupportedColorFormatIds));
+        Assert.Equal(new[] { "GxRgb5A3" }.Concat(GxNativeTextureFormatCatalog.Formats.Select(format => format.Id)), textureFormatCapabilities.SupportedColorFormatIds);
         Assert.Equal(
-            [TextureAssetAlphaPrecision.A8],
+            GxNativeTextureFormatCatalog.Formats.SelectMany(format => format.SupportedAlphaPrecisions).Append(TextureAssetAlphaPrecision.A8).Distinct().OrderBy(alpha => alpha),
             textureFormatCapabilities.SupportedAlphaPrecisions);
         Assert.Collection(
-            textureFormatCapabilities.SupportedCombinations,
+            textureFormatCapabilities.SupportedCombinations.Where(combination => combination.ColorFormatId == "GxRgb5A3"),
             combination => {
                 Assert.Equal("GxRgb5A3", combination.ColorFormatId);
                 Assert.Equal(TextureAssetAlphaPrecision.A8, combination.AlphaPrecision);
             });
+        foreach (GxNativeTextureFormatDefinition format in GxNativeTextureFormatCatalog.Formats) {
+            Assert.Equal(format.SupportedAlphaPrecisions, textureFormatCapabilities.SupportedCombinations.Where(combination => combination.ColorFormatId == format.Id).Select(combination => combination.AlphaPrecision));
+        }
     }
 
     /// <summary>

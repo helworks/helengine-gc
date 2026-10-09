@@ -75,16 +75,17 @@ public static class GameCubePlatformDefinitionFactory {
     /// </summary>
     /// <returns>Texture capability metadata for GameCube builder-owned texture cook contracts.</returns>
     static PlatformTextureFormatCapabilityDefinition CreateTextureFormatCapabilities() {
-        return new PlatformTextureFormatCapabilityDefinition(
-            [
-                "GxRgb5A3"
-            ],
-            [
-                TextureAssetAlphaPrecision.A8
-            ],
-            [
-                new PlatformTextureFormatCombinationDefinition("GxRgb5A3", TextureAssetAlphaPrecision.A8)
-            ]);
+        List<string> ids = ["GxRgb5A3"];
+        HashSet<TextureAssetAlphaPrecision> alphas = [TextureAssetAlphaPrecision.A8];
+        List<PlatformTextureFormatCombinationDefinition> combinations = [new("GxRgb5A3", TextureAssetAlphaPrecision.A8)];
+        foreach (GxNativeTextureFormatDefinition format in GxNativeTextureFormatCatalog.Formats) {
+            ids.Add(format.Id);
+            foreach (TextureAssetAlphaPrecision alpha in format.SupportedAlphaPrecisions) {
+                alphas.Add(alpha);
+                combinations.Add(new PlatformTextureFormatCombinationDefinition(format.Id, alpha));
+            }
+        }
+        return new PlatformTextureFormatCapabilityDefinition(ids, alphas.OrderBy(alpha => alpha).ToArray(), combinations);
     }
 
     /// <summary>
@@ -382,7 +383,15 @@ public static class GameCubePlatformDefinitionFactory {
                     PlatformAssetCookOwnershipKind.BuilderOwned,
                     "gamecube-texture",
                     CreateDefaultSerializedTextureCookSettings(),
-                    CreateTextureFormatCapabilities())
+                    CreateTextureFormatCapabilities()),
+                new PlatformAssetCookCapabilityDefinition(
+                    "font-atlas-texture",
+                    "runtime-texture",
+                    PlatformAssetCookOwnershipKind.BuilderOwned,
+                    "gamecube-font-atlas-texture",
+                    CreateDefaultSerializedTextureCookSettings(),
+                    CreateTextureFormatCapabilities(),
+                    ".hetex")
             ]);
     }
 }

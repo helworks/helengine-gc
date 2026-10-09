@@ -997,7 +997,7 @@ namespace helengine::gamecube {
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
             ReportDirectFrameDiagnosticCode(0xD106U);
 #endif
-            GX_LoadTexObj(boundTexture->GetNativeTextureObject(), GX_TEXMAP0);
+            boundTexture->BindNativeTexture(GX_TEXMAP0);
         }
 
         const bool useLitBranch = UsesLitBranch(submission);
@@ -1331,7 +1331,7 @@ namespace helengine::gamecube {
         }
 
         Configure2DPipeline(true);
-        GX_LoadTexObj(texture->GetNativeTextureObject(), GX_TEXMAP0);
+        texture->BindNativeTexture(GX_TEXMAP0);
 
         const double fontScale = std::max(static_cast<double>(drawable->get_FontScale()), 0.0001);
         const std::string& content = ResolveTextLayoutContent(drawable, font, fontScale);
@@ -1608,7 +1608,7 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("texture");
         }
 
-        GX_LoadTexObj(texture->GetNativeTextureObject(), GX_TEXMAP0);
+        texture->BindNativeTexture(GX_TEXMAP0);
         GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
         GX_Position3f32(x, y, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
@@ -1631,7 +1631,7 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("texture");
         }
 
-        GX_LoadTexObj(texture->GetNativeTextureObject(), GX_TEXMAP0);
+        texture->BindNativeTexture(GX_TEXMAP0);
 
         const float halfWidth = width * 0.5f;
         const float halfHeight = height * 0.5f;
