@@ -1,3 +1,4 @@
+#include "SpriteQuad2D.hpp"
 #include "platform/gamecube/GameCubeRasterRenderer.hpp"
 
 #include <algorithm>
@@ -1260,16 +1261,6 @@ namespace helengine::gamecube {
             return;
         }
 
-        int2 size = drawable->get_Size();
-        float width = size.X > 0 ? static_cast<float>(size.X) : static_cast<float>(runtimeTexture->get_Width());
-        float height = size.Y > 0 ? static_cast<float>(size.Y) : static_cast<float>(runtimeTexture->get_Height());
-        float3 scale = drawable->get_Parent()->get_Scale();
-        width *= scale.X;
-        height *= scale.Y;
-        if (width <= 0.0f || height <= 0.0f) {
-            return;
-        }
-
         float4 clipRect;
         if (TryResolveClipRect(drawable->get_Parent(), clipRect)) {
             ApplyClipScissor(framePlan, clipRect);
@@ -1282,20 +1273,14 @@ namespace helengine::gamecube {
         }
 
         Configure2DPipeline(true);
-        const float3 position = drawable->get_Parent()->get_Position();
-        float x = position.X;
-        float y = position.Y;
-        TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);
-        float4 orientation = drawable->get_Parent()->get_Orientation();
-        orientation.Normalize();
-        float3 rotatedRight = float4::RotateVector(float3(1.0f, 0.0f, 0.0f), orientation);
-        const float rotation = std::atan2(rotatedRight.Y, rotatedRight.X);
-#if HELENGINE_GAMECUBE_LOGO_ANIMATION_DIAGNOSTIC
-        ReportLogoAnimationDiscontinuity(rotation);
-#endif
-        const float centerX = x + (width * 0.5f);
-        const float centerY = y + (height * 0.5f);
-        DrawTransformedTexturedQuad2D(centerX, centerY, width, height, rotation, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);
+        SpriteQuad2D quad = command.Geometry;
+        float unusedWidth = 0.0f;
+        float unusedHeight = 0.0f;
+        TransformLogicalRectToPhysicalViewport(framePlan, quad.TopLeft.X, quad.TopLeft.Y, unusedWidth, unusedHeight);
+        TransformLogicalRectToPhysicalViewport(framePlan, quad.TopRight.X, quad.TopRight.Y, unusedWidth, unusedHeight);
+        TransformLogicalRectToPhysicalViewport(framePlan, quad.BottomRight.X, quad.BottomRight.Y, unusedWidth, unusedHeight);
+        TransformLogicalRectToPhysicalViewport(framePlan, quad.BottomLeft.X, quad.BottomLeft.Y, unusedWidth, unusedHeight);
+        DrawTransformedTexturedQuad2D(quad, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);
     }
 
     /// Draws one captured text drawable through the current 2D GX path.
@@ -1625,39 +1610,25 @@ namespace helengine::gamecube {
         GX_End();
     }
 
-    /// Emits one textured screen-space quad in pixel coordinates after applying one centered 2D rotation.
-    void GameCubeRasterRenderer::DrawTransformedTexturedQuad2D(float centerX, float centerY, float width, float height, float rotation, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture) {
+    /// Emits exact screen-space corners in the same order as their source texture coordinates.
+    void GameCubeRasterRenderer::DrawTransformedTexturedQuad2D(const SpriteQuad2D& quad, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture) {
         if (texture == nullptr) {
             throw new ArgumentNullException("texture");
         }
 
         texture->BindNativeTexture(GX_TEXMAP0);
 
-        const float halfWidth = width * 0.5f;
-        const float halfHeight = height * 0.5f;
-        const float rotationSin = std::sin(rotation);
-        const float rotationCos = std::cos(rotation);
-
-        const float topLeftX = centerX + ((-halfWidth * rotationCos) - (-halfHeight * rotationSin));
-        const float topLeftY = centerY + ((-halfWidth * rotationSin) + (-halfHeight * rotationCos));
-        const float topRightX = centerX + ((halfWidth * rotationCos) - (-halfHeight * rotationSin));
-        const float topRightY = centerY + ((halfWidth * rotationSin) + (-halfHeight * rotationCos));
-        const float bottomRightX = centerX + ((halfWidth * rotationCos) - (halfHeight * rotationSin));
-        const float bottomRightY = centerY + ((halfWidth * rotationSin) + (halfHeight * rotationCos));
-        const float bottomLeftX = centerX + ((-halfWidth * rotationCos) - (halfHeight * rotationSin));
-        const float bottomLeftY = centerY + ((-halfWidth * rotationSin) + (halfHeight * rotationCos));
-
         GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-        GX_Position3f32(topLeftX, topLeftY, 0.0f);
+        GX_Position3f32(quad.TopLeft.X, quad.TopLeft.Y, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
         GX_TexCoord2f32(sourceRect.X, sourceRect.Y);
-        GX_Position3f32(topRightX, topRightY, 0.0f);
+        GX_Position3f32(quad.TopRight.X, quad.TopRight.Y, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
         GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y);
-        GX_Position3f32(bottomRightX, bottomRightY, 0.0f);
+        GX_Position3f32(quad.BottomRight.X, quad.BottomRight.Y, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
         GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y + sourceRect.W);
-        GX_Position3f32(bottomLeftX, bottomLeftY, 0.0f);
+        GX_Position3f32(quad.BottomLeft.X, quad.BottomLeft.Y, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
         GX_TexCoord2f32(sourceRect.X, sourceRect.Y + sourceRect.W);
         GX_End();

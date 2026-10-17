@@ -1,3 +1,4 @@
+#include "Batch2DGeometry.hpp"
 #include "platform/gamecube/GameCubeRenderManager2D.hpp"
 
 #include <algorithm>
@@ -240,7 +241,7 @@ namespace helengine::gamecube {
             throw new InvalidOperationException("GameCube sprite capture requires an active source camera.");
         }
 
-        SpriteQueue.push_back(GameCubeSpriteDrawCommand { ActiveCaptureCamera, sprite });
+        SpriteQueue.push_back(GameCubeSpriteDrawCommand { ActiveCaptureCamera, sprite, Batch2DGeometry::ResolveSpriteQuad(sprite) });
         DrawQueue.push_back(GameCubeDrawCommand2D { ActiveCaptureCamera, GameCubeDrawCommandType2D::Sprite, SpriteQueue.size() - 1U });
     }
 

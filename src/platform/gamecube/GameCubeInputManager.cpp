@@ -1,9 +1,11 @@
 #include "platform/gamecube/GameCubeInputManager.hpp"
+#include "platform/gamecube/GameCubeProcessorIdentity.hpp"
 #if HELENGINE_GAMECUBE_MEMORY_CARD_DIAGNOSTIC_JOURNAL
 #include "platform/gamecube/GameCubeMemoryCardDiagnosticJournal.hpp"
 #endif
 
 #include <gccore.h>
+#include <ogc/machine/processor.h>
 #include <tuxedo/ppc/exception.h>
 
 #include "InputGamepadButton.hpp"
@@ -37,6 +39,10 @@ namespace helengine::gamecube {
 
         /// Determines whether Nintendont's documented virtual-controller PadStub is mapped without touching unsupported processor registers on GameCube hardware.
         bool IsNintendontEnvironment() {
+            if (IsGameCubeProcessorVersion(mfpvr())) {
+                return false;
+            }
+
             uint32_t nintendontPadStubInstruction = 0U;
             NintendontProbeFaulted = false;
             NintendontProbePreviousPanicFunction = PPCExcptCurPanicFn;

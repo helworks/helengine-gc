@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SpriteQuad2D.hpp"
 #include <cstddef>
 #include <vector>
 
@@ -37,6 +38,9 @@ namespace helengine::gamecube {
 
         /// Pointer to the shared-engine sprite drawable submitted during the current frame.
         ISpriteDrawable2D* Drawable;
+
+        /// Exact logical corners resolved when the sprite is submitted.
+        SpriteQuad2D Geometry;
     };
 
     /// Stores one captured text draw request for the current GameCube 2D frame.

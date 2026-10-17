@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SpriteQuad2D.hpp"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -237,7 +238,7 @@ namespace helengine::gamecube {
         void DrawTexturedQuad2D(float x, float y, float width, float height, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture);
 
         /// Emits one textured screen-space quad in pixel coordinates after applying one centered 2D rotation.
-        void DrawTransformedTexturedQuad2D(float centerX, float centerY, float width, float height, float rotation, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture);
+        void DrawTransformedTexturedQuad2D(const SpriteQuad2D& quad, const float4& sourceRect, GXColor color, GameCubeRuntimeTexture* texture);
 
         /// Resolves the active clip rectangle for one 2D drawable by intersecting ancestor clip regions.
         bool TryResolveClipRect(Entity* entity, float4& clipRect);
