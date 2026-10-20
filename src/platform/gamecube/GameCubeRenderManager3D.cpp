@@ -62,7 +62,7 @@ namespace helengine::gamecube {
     }
 
     /// Rebuilds one legacy raw material asset path through the cooked platform-owned GameCube material contract.
-    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromRawAsset(ContentManager* assetContentManager, std::string materialAssetPath) {
+    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromRawAsset(ContentManager* assetContentManager, HeCppString materialAssetPath) {
         if (assetContentManager == nullptr) {
             throw new ArgumentNullException("assetContentManager");
         }
@@ -89,7 +89,7 @@ namespace helengine::gamecube {
             static_cast<float>(materialAsset->BaseColorR) / 255.0f,
             static_cast<float>(materialAsset->BaseColorG) / 255.0f,
             static_cast<float>(materialAsset->BaseColorB) / 255.0f));
-        runtimeMaterial->SetTextureRelativePath(materialAsset->TextureRelativePath);
+        runtimeMaterial->SetTextureRelativePath(materialAsset->TextureRelativePath.raw());
         if (materialAsset->DoubleSided) {
             runtimeMaterial->get_RenderState()->set_CullMode(MaterialCullMode::None);
         }
@@ -98,7 +98,7 @@ namespace helengine::gamecube {
     }
 
     /// Builds the minimal runtime material required for the first cooked-material GameCube draw path from one serialized cooked asset path.
-    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) {
+    RuntimeMaterial* GameCubeRenderManager3D::BuildMaterialFromCooked(HeCppString cookedAssetPath, IContentStreamSource* contentStreamSource) {
         if (cookedAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked material path is required.", "cookedAssetPath");
         } else if (contentStreamSource == nullptr) {
@@ -115,7 +115,7 @@ namespace helengine::gamecube {
 
             stream->Dispose();
             GameCubeRuntimeMaterial* runtimeMaterial = static_cast<GameCubeRuntimeMaterial*>(BuildMaterialFromCooked(cookedMaterialAsset));
-            AttachCookedDiffuseTexture(runtimeMaterial, cookedMaterialAsset, cookedAssetPath, contentStreamSource);
+            AttachCookedDiffuseTexture(runtimeMaterial, cookedMaterialAsset, cookedAssetPath.raw(), contentStreamSource);
             delete cookedMaterialAsset;
             return runtimeMaterial;
         } catch (...) {
@@ -149,7 +149,7 @@ namespace helengine::gamecube {
     }
 
     /// Builds a GameCube runtime model from one serialized cooked model asset path.
-    RuntimeModel* GameCubeRenderManager3D::BuildModelFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) {
+    RuntimeModel* GameCubeRenderManager3D::BuildModelFromCooked(HeCppString cookedAssetPath, IContentStreamSource* contentStreamSource) {
         if (cookedAssetPath.empty()) {
             throw new ArgumentException("GameCube cooked model path is required.", "cookedAssetPath");
         } else if (contentStreamSource == nullptr) {
@@ -403,7 +403,7 @@ namespace helengine::gamecube {
         }
 
         const std::string contentRootPath = cookedMaterialAssetPath.substr(0, cookedMarkerIndex);
-        return Path::GetFullPath(Path::Combine(contentRootPath, contentRelativePath));
+        return Path::GetFullPath(Path::Combine(contentRootPath, contentRelativePath)).raw();
     }
 
     /// Loads and attaches one cooked diffuse texture when the path-based GameCube cooked-material contract references one.
@@ -422,7 +422,7 @@ namespace helengine::gamecube {
             return;
         }
 
-        const std::string cookedTextureAssetPath = ResolvePackagedContentAssetPath(cookedMaterialAssetPath, materialAsset->TextureRelativePath);
+        const std::string cookedTextureAssetPath = ResolvePackagedContentAssetPath(cookedMaterialAssetPath, materialAsset->TextureRelativePath.raw());
         ::Stream* textureStream = contentStreamSource->OpenRead(cookedTextureAssetPath);
         try {
             ::Asset* textureAssetPayload = ::PackagedAssetBinarySerializer::Deserialize(textureStream);

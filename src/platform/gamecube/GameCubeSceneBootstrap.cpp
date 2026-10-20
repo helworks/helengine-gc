@@ -33,17 +33,17 @@ namespace helengine::gamecube {
 
     /// Returns the staged content root and fails if the bundle has not been prepared.
     std::string GameCubeSceneBootstrap::GetValidatedContentRootPath() {
-        const std::string relativeRootPath = Path::GetFullPath(BundledContentRootPath);
+        const std::string relativeRootPath = Path::GetFullPath(BundledContentRootPath).raw();
         if (HasRequiredFiles(relativeRootPath)) {
             return relativeRootPath;
         }
 
-        const std::string windowsHostRootPath = Path::GetFullPath(BundledContentRootWindowsHostPath);
+        const std::string windowsHostRootPath = Path::GetFullPath(BundledContentRootWindowsHostPath).raw();
         if (HasRequiredFiles(windowsHostRootPath)) {
             return windowsHostRootPath;
         }
 
-        const std::string wslRootPath = Path::GetFullPath(BundledContentRootWslPath);
+        const std::string wslRootPath = Path::GetFullPath(BundledContentRootWslPath).raw();
         if (HasRequiredFiles(wslRootPath)) {
             return wslRootPath;
         }
@@ -202,7 +202,7 @@ namespace helengine::gamecube {
 
     /// Verifies one required staged content file exists under the bundle root.
     void GameCubeSceneBootstrap::ValidateRequiredFile(std::string rootPath, std::string relativePath) {
-        const std::string fullPath = Path::GetFullPath(Path::Combine(rootPath, relativePath));
+        const std::string fullPath = Path::GetFullPath(Path::Combine(rootPath, relativePath)).raw();
         if (!File::Exists(fullPath)) {
             throw new InvalidOperationException(std::string("Required staged GameCube content file is missing: ") + fullPath);
         }

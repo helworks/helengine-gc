@@ -1442,12 +1442,11 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("font");
         }
 
-        const std::string& sourceText = drawable->get_Text();
-        if (!drawable->get_WrapText()) {
-            return sourceText;
-        }
-
-        const int32_t maxWidth = std::max(1, static_cast<int32_t>(std::lround(drawable->get_Size().X / fontScale)));
+        const HeCppString sourceText = drawable->get_Text();
+        const bool wrapText = drawable->get_WrapText();
+        const int32_t maxWidth = wrapText
+            ? std::max(1, static_cast<int32_t>(std::lround(drawable->get_Size().X / fontScale)))
+            : 0;
         for (CachedTextLayoutEntry& cachedTextLayout : CachedTextLayouts) {
             if (cachedTextLayout.Drawable != drawable) {
                 continue;
@@ -1463,7 +1462,9 @@ namespace helengine::gamecube {
             cachedTextLayout.Font = font;
             cachedTextLayout.MaxWidth = maxWidth;
             cachedTextLayout.SourceText = sourceText;
-            cachedTextLayout.WrappedText = TextLayoutUtils::WrapText(cachedTextLayout.SourceText, font, maxWidth);
+            cachedTextLayout.WrappedText = wrapText
+                ? TextLayoutUtils::WrapText(cachedTextLayout.SourceText, font, maxWidth).raw()
+                : cachedTextLayout.SourceText.raw();
             return cachedTextLayout.WrappedText;
         }
 
@@ -1472,7 +1473,7 @@ namespace helengine::gamecube {
             font,
             maxWidth,
             sourceText,
-            TextLayoutUtils::WrapText(sourceText, font, maxWidth),
+            wrapText ? TextLayoutUtils::WrapText(sourceText, font, maxWidth).raw() : sourceText.raw(),
             ActiveTextLayoutFrameId
         });
         return CachedTextLayouts.back().WrappedText;

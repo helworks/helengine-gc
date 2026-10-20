@@ -28,19 +28,19 @@ namespace helengine::gamecube {
         ~GameCubeRenderManager3D() override;
 
         /// Rebuilds one legacy raw material asset path through the cooked platform-owned GameCube material contract.
-        RuntimeMaterial* BuildMaterialFromRawAsset(ContentManager* assetContentManager, std::string materialAssetPath) override;
+        RuntimeMaterial* BuildMaterialFromRawAsset(ContentManager* assetContentManager, HeCppString materialAssetPath) override;
 
         /// Builds the minimal runtime material required for the first cooked-material GameCube draw path.
-        RuntimeMaterial* BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset);
+        RuntimeMaterial* BuildMaterialFromCooked(PlatformMaterialAsset* materialAsset) override;
 
         /// Builds the minimal runtime material required for the first cooked-material GameCube draw path from one serialized cooked material asset path.
-        RuntimeMaterial* BuildMaterialFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource);
+        RuntimeMaterial* BuildMaterialFromCooked(HeCppString cookedAssetPath, IContentStreamSource* contentStreamSource) override;
 
         /// Builds a GameCube runtime model that keeps authored submesh and geometry arrays alive.
         RuntimeModel* BuildModelFromRaw(ModelAsset* data) override;
 
         /// Builds a GameCube runtime model from one serialized cooked model asset path.
-        RuntimeModel* BuildModelFromCooked(std::string cookedAssetPath, IContentStreamSource* contentStreamSource) override;
+        RuntimeModel* BuildModelFromCooked(HeCppString cookedAssetPath, IContentStreamSource* contentStreamSource) override;
 
         /// Releases one GameCube runtime material after the final scene reference is removed.
         void ReleaseMaterial(RuntimeMaterial* material) override;

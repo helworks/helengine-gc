@@ -57,21 +57,21 @@ namespace helengine::gamecube {
         /// Draws the captured 2D overlay drawables for the current frame through GX using the active frame-plan camera to resolve 2D-only background clears.
         void Render2D(GameCubeFramePlan* framePlan, const GameCubeRenderManager2D& renderManager2D);
     private:
-        /// Stores one persistent wrapped-text result so unchanged UI labels do not rebuild layout every frame.
+        /// Owns text used by native drawing, with wrapping reused until authored inputs change.
         struct CachedTextLayoutEntry {
-            /// Drawable instance that owns the wrapped text state.
+            /// Drawable instance that owns the cached text state.
             ITextDrawable2D* Drawable;
 
-            /// Font asset used when the wrapped text was last rebuilt.
+            /// Font asset used when the native text was last rebuilt.
             FontAsset* Font;
 
-            /// Pixel width constraint used when the wrapped text was last rebuilt.
+            /// Pixel width constraint used for wrapping, or zero for unwrapped text.
             int32_t MaxWidth;
 
-            /// Source text captured from the drawable during the last rebuild.
-            std::string SourceText;
+            /// Source text captured with its managed null state during the last rebuild.
+            HeCppString SourceText;
 
-            /// Wrapped text content reused until the drawable text or width changes.
+            /// Native drawing content, copied from the source or the managed wrapping result.
             std::string WrappedText;
 
             /// Render2D frame id that last touched this cache entry.

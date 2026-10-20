@@ -28,21 +28,21 @@ namespace helengine::gamecube {
         /// <param name="sceneId">Stable scene identifier associated with the stage.</param>
         /// <param name="loadedSceneCount">Number of currently loaded scene records.</param>
         /// <param name="pendingOperationCount">Number of scene operations remaining after the notification.</param>
-        void ReportSceneTransitionStage(std::string stage, std::string sceneId, int32_t loadedSceneCount, int32_t pendingOperationCount) override;
+        void ReportSceneTransitionStage(HeCppString stage, HeCppString sceneId, int32_t loadedSceneCount, int32_t pendingOperationCount) override;
 
     private:
         /// Resolves whether one generated stage has a dedicated visible checkpoint color.
         /// <param name="stage">Generated scene-manager stage label.</param>
         /// <param name="color">Receives the selected checkpoint color when the stage is traced.</param>
         /// <returns>True when the stage should be presented; otherwise false.</returns>
-        static bool TryResolveStageColor(const std::string& stage, GXColor& color);
+        static bool TryResolveStageColor(const HeCppString& stage, GXColor& color);
 
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
         /// Resolves one generated scene-transition stage into a direct-frame diagnostic code.
         /// <param name="stage">Generated scene-manager stage label.</param>
         /// <param name="code">Receives the direct-frame code when the stage is traced.</param>
         /// <returns>True when the stage has a dedicated direct-frame checkpoint; otherwise false.</returns>
-        static bool TryResolveStageCode(const std::string& stage, uint16_t& code);
+        static bool TryResolveStageCode(const HeCppString& stage, uint16_t& code);
 #endif
 
         /// Stores the host that presents visible trace checkpoints.

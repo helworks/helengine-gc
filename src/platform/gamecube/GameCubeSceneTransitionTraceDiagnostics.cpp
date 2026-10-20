@@ -21,8 +21,8 @@ namespace helengine::gamecube {
 
     /// Presents the color assigned to one selected scene-manager transition stage.
     void GameCubeSceneTransitionTraceDiagnostics::ReportSceneTransitionStage(
-        std::string stage,
-        std::string sceneId,
+        HeCppString stage,
+        HeCppString sceneId,
         int32_t loadedSceneCount,
         int32_t pendingOperationCount) {
         static_cast<void>(sceneId);
@@ -43,7 +43,7 @@ namespace helengine::gamecube {
     }
 
     /// Resolves whether one generated stage has a dedicated visible checkpoint color.
-    bool GameCubeSceneTransitionTraceDiagnostics::TryResolveStageColor(const std::string& stage, GXColor& color) {
+    bool GameCubeSceneTransitionTraceDiagnostics::TryResolveStageColor(const HeCppString& stage, GXColor& color) {
         if (stage == "CommitPendingOperationsAtFrameBoundaryBegin") {
             color = GXColor { 0xC0, 0x20, 0xFF, 0xFF };
         } else if (stage == "CommitPendingOperationsAtFrameBoundaryOperation") {
@@ -97,7 +97,7 @@ namespace helengine::gamecube {
 
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
     /// Resolves one generated scene-transition stage into a direct-frame diagnostic code.
-    bool GameCubeSceneTransitionTraceDiagnostics::TryResolveStageCode(const std::string& stage, uint16_t& code) {
+    bool GameCubeSceneTransitionTraceDiagnostics::TryResolveStageCode(const HeCppString& stage, uint16_t& code) {
         if (stage == "CommitPendingOperationsAtFrameBoundaryBegin") {
             code = 0xE001U;
         } else if (stage == "CommitPendingOperationsAtFrameBoundaryOperation") {
