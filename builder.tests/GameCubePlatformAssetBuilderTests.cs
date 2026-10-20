@@ -78,7 +78,7 @@ public sealed class GameCubePlatformAssetBuilderTests {
                 [GameCubeMaterialSchemaIds.VertexColorModeFieldId] = "multiply",
                 [GameCubeMaterialSchemaIds.BaseColorFieldId] = "#FF8040FF",
                 [GameCubeMaterialSchemaIds.LightingModeFieldId] = "lit"
-            }));
+            }, numericPolicy: global::helengine.NumericPrecisionPolicy.Default));
 
         Assert.Empty(result.ReferencedShaderDependencies);
 
