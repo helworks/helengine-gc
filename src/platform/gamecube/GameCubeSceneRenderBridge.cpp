@@ -1,7 +1,5 @@
 #include "platform/gamecube/GameCubeSceneRenderBridge.hpp"
 
-#include <cmath>
-
 #include <ogc/system.h>
 
 #include "AmbientLightComponent.hpp"
@@ -15,6 +13,7 @@
 #include "IRenderQueue3D.hpp"
 #include "LightComponent.hpp"
 #include "ObjectManager.hpp"
+#include "RealMath.hpp"
 #include "RenderFrame.hpp"
 #include "RenderFrameDrawableSubmission.hpp"
 #include "RenderFrameExtractionResult.hpp"
@@ -219,19 +218,19 @@ namespace helengine::gamecube {
     }
 
     /// Builds the authored perspective projection matrix using the shared row-vector convention expected by the GameCube raster path.
-    float4x4 GameCubeSceneRenderBridge::BuildProjectionMatrix(CameraComponent* camera, float aspectRatio) {
+    float4x4 GameCubeSceneRenderBridge::BuildProjectionMatrix(CameraComponent* camera, RealEvaluation aspectRatio) {
         if (camera == nullptr) {
             throw new ArgumentNullException("camera");
         } else if (aspectRatio <= 0.0f) {
             throw new ArgumentOutOfRangeException("aspectRatio");
         }
 
-        const float fieldOfView = static_cast<float>(3.14159265358979323846 / 4.0);
-        const float nearPlaneDistance = camera->get_NearPlaneDistance();
-        const float farPlaneDistance = camera->get_FarPlaneDistance();
-        const float yScale = 1.0f / static_cast<float>(std::tan(static_cast<double>(fieldOfView) * 0.5));
-        const float xScale = yScale / aspectRatio;
-        const float negFarRange = farPlaneDistance / (nearPlaneDistance - farPlaneDistance);
+        const RealEvaluation fieldOfView = RealMath::get_PI() / 4.0;
+        const RealEvaluation nearPlaneDistance = camera->get_NearPlaneDistance();
+        const RealEvaluation farPlaneDistance = camera->get_FarPlaneDistance();
+        const RealEvaluation yScale = 1.0 / RealMath::Tan(fieldOfView * 0.5);
+        const RealEvaluation xScale = yScale / aspectRatio;
+        const RealEvaluation negFarRange = farPlaneDistance / (nearPlaneDistance - farPlaneDistance);
 
         float4x4 projection;
         projection.M11 = xScale;
