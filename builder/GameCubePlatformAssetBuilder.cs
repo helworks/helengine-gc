@@ -10,7 +10,13 @@ namespace helengine.gamecube.builder;
 /// <summary>
 /// Implements the GameCube platform asset builder contract.
 /// </summary>
-public sealed class GameCubePlatformAssetBuilder : IPlatformAssetBuilder {
+public sealed class GameCubePlatformAssetBuilder : IPlatformAssetBuilder, IPlatformLayoutTargetProvider {
+    /// <summary>Returns the framebuffer and pixel aspect of the build-selected native VI mode.</summary>
+    public PlatformLayoutTarget ResolveLayoutTarget(PlatformLayoutTargetRequest request) {
+        ArgumentNullException.ThrowIfNull(request);
+        PlatformVideoMode mode = request.VideoMode ?? GameCubeVideoModes.Resolve(request.GraphicsOptionValues);
+        return new PlatformLayoutTarget(mode.Width, mode.Height, mode.PixelAspect, false, 0d, 1d);
+    }
     /// <summary>
     /// Runtime specialization id that selects the packaged-disc GameCube build flow.
     /// </summary>

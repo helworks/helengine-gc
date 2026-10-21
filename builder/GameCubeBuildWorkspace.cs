@@ -142,6 +142,7 @@ public static class GameCubeBuildWorkspace {
         }
 
         new GameCubeRuntimeSceneManifestWriter().Write(paths.GeneratedCoreRootPath, request.Manifest);
+        GameCubeVideoModes.WriteNativeHeader(paths.GeneratedCoreRootPath, request.SelectedGraphicsOptionValues);
         WritePhaseMarker(phaseMarkerPath, "runtime scene manifest written");
         progressReporter.Report(new PlatformBuildProgressUpdate("Generate Runtime Manifest", "runtime-scene-manifest", 1, 4, "Generated GameCube packaged runtime scene manifest."));
 

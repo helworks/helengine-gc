@@ -30,6 +30,7 @@
 #endif
 
 #if HELENGINE_GAMECUBE_HAS_GENERATED_CORE
+#include "GameCubeVideoMode.hpp"
 #include "Core.hpp"
 #include "CoreInitializationOptions.hpp"
 #include "HostFileSystemContentStreamSource.hpp"
@@ -435,7 +436,11 @@ namespace helengine::gamecube {
     bool GameCubeApplication::InitializeVideo() {
         VIDEO_Init();
 
-        RenderMode = VIDEO_GetPreferredMode(nullptr);
+#if HELENGINE_GAMECUBE_HAS_GENERATED_CORE && HELENGINE_GAMECUBE_VIDEO_MODE_PAL
+        RenderMode = &TVPal528IntDf;
+#else
+        RenderMode = &TVNtsc480IntDf;
+#endif
         if (RenderMode == nullptr) {
             return false;
         }
@@ -1291,6 +1296,8 @@ namespace helengine::gamecube {
             DisplayDirectFrameDiagnosticCode(0xA015U);
 #endif
             EngineRenderManager3D->AddWindow(0, RenderMode->fbWidth, RenderMode->efbHeight);
+            EngineRenderManager3D->SetWindowPixelAspect(0,
+                (4.0 * static_cast<double>(RenderMode->efbHeight)) / (3.0 * static_cast<double>(RenderMode->fbWidth)));
 
             initializationStage = "SetPresentedFrameSize";
             SetBootPhase(GameCubeBootPhase::CoreInitialization, GXColor { 0xFF, 0x80, 0x00, 0xFF });

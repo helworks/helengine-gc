@@ -161,6 +161,7 @@ public static class GameCubePlatformDefinitionFactory {
                     "GX",
                     "Current GameCube rendering backend",
                     [
+                        GameCubeVideoModes.CreateGraphicsSetting(),
                         new PlatformSettingDefinition(
                             "default-width",
                             "Default Width",
@@ -375,7 +376,7 @@ public static class GameCubePlatformDefinitionFactory {
                 RuntimeMaterialResolutionMode.CookedPlatformOwned,
                 true,
                 PackagedPathPolicy.ContentRelativeOnly,
-                RuntimePortableInputPreprocessorSymbols),
+                RuntimePortableInputPreprocessorSymbols, false, requiresCookedViewportLayout: true),
             assetCookCapabilities: [
                 new PlatformAssetCookCapabilityDefinition(
                     "texture",
@@ -392,6 +393,6 @@ public static class GameCubePlatformDefinitionFactory {
                     CreateDefaultSerializedTextureCookSettings(),
                     CreateTextureFormatCapabilities(),
                     ".hetex")
-            ]);
+            ], videoModeCapability: GameCubeVideoModes.CreateCapability());
     }
 }
