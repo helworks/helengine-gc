@@ -59,9 +59,9 @@ namespace helengine::gamecube {
         for (int32_t positionIndex = 0; positionIndex < runtimeModel->Positions->Length; positionIndex++) {
             const float3 position = (*runtimeModel->Positions)[positionIndex];
             (*cachedMeshData->PackedPositions)[positionIndex] = GameCubePackedPosition3 {
-                position.X,
-                position.Y,
-                position.Z
+                static_cast<float>(position.X),
+                static_cast<float>(position.Y),
+                static_cast<float>(position.Z)
             };
         }
 
@@ -74,9 +74,9 @@ namespace helengine::gamecube {
             for (int32_t normalIndex = 0; normalIndex < runtimeModel->Normals->Length; normalIndex++) {
                 const float3 normal = (*runtimeModel->Normals)[normalIndex];
                 (*cachedMeshData->PackedNormals)[normalIndex] = GameCubePackedNormal3 {
-                    normal.X,
-                    normal.Y,
-                    normal.Z
+                    static_cast<float>(normal.X),
+                    static_cast<float>(normal.Y),
+                    static_cast<float>(normal.Z)
                 };
             }
 
@@ -93,8 +93,8 @@ namespace helengine::gamecube {
             for (int32_t texCoordIndex = 0; texCoordIndex < runtimeModel->TexCoords->Length; texCoordIndex++) {
                 const float2 texCoord = (*runtimeModel->TexCoords)[texCoordIndex];
                 (*cachedMeshData->PackedTexCoords)[texCoordIndex] = GameCubePackedTexCoord2 {
-                    texCoord.X,
-                    texCoord.Y
+                    static_cast<float>(texCoord.X),
+                    static_cast<float>(texCoord.Y)
                 };
             }
 
