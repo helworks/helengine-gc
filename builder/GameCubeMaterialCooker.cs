@@ -46,7 +46,7 @@ public sealed class GameCubeMaterialCooker {
         };
 
         return new PlatformMaterialCookResult(
-            global::helengine.files.AssetSerializer.SerializeToBytes(cookedAsset),
+            global::helengine.files.AssetSerializer.SerializeToBytes(cookedAsset, request.NumericPolicy),
             []);
     }
 

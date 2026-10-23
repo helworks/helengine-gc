@@ -27,13 +27,18 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
 
     /// <summary>Prepares the entire texture batch before publishing any output in the staging root.</summary>
     public void Execute(PlatformCookWorkItem[] workItems, string projectRootPath, string stagingRootPath) {
-        IReadOnlyList<GameCubeTextureCookWorkPlan> plans = Prepare(workItems, [], projectRootPath, stagingRootPath, CancellationToken.None);
+        Execute(workItems, projectRootPath, stagingRootPath, RealRepresentation.Policy);
+    }
+
+    /// <summary>Prepares textures using the selected target's numeric envelope.</summary>
+    public void Execute(PlatformCookWorkItem[] workItems, string projectRootPath, string stagingRootPath, NumericPrecisionPolicy numericPolicy) {
+        IReadOnlyList<GameCubeTextureCookWorkPlan> plans = Prepare(workItems, [], projectRootPath, stagingRootPath, numericPolicy, CancellationToken.None);
         Publish(plans, CancellationToken.None);
     }
 
     /// <summary>Validates all contracts and disc paths, then decodes and cooks every source without changing staged outputs.</summary>
     internal IReadOnlyList<GameCubeTextureCookWorkPlan> Prepare(
-        PlatformCookWorkItem[] workItems, PlatformBuildArtifact[] artifacts, string projectRootPath, string stagingRootPath, CancellationToken cancellationToken) {
+        PlatformCookWorkItem[] workItems, PlatformBuildArtifact[] artifacts, string projectRootPath, string stagingRootPath, NumericPrecisionPolicy numericPolicy, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(workItems);
         ArgumentNullException.ThrowIfNull(artifacts);
         if (string.IsNullOrWhiteSpace(projectRootPath)) throw new ArgumentException("Project root is required.", nameof(projectRootPath));
@@ -74,7 +79,7 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
             using TextureAsset cooked = TextureCooker.CookTexture(source, plan.Settings);
             cooked.Id = plan.WorkItem.OutputLogicalArtifactId;
             cooked.RuntimeAssetId = RuntimeAssetIdGenerator.Generate(cooked.Id);
-            plan.Payload = FilesAssetSerializer.SerializeToBytes(cooked);
+            plan.Payload = FilesAssetSerializer.SerializeToBytes(cooked, numericPolicy);
         }
         cancellationToken.ThrowIfCancellationRequested();
         return plans;

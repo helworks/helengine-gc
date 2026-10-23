@@ -9,6 +9,33 @@ namespace helengine.gamecube.builder.tests;
 
 /// <summary>Checks real texture and atlas cooking plus complete batch preflight before resetting a packaged staging tree.</summary>
 public sealed class GameCubeNativeTextureWorkItemTests : IDisposable {
+    /// <summary>Exercises the exact runtime decoder at each target width so the tooling host cannot silently define cooked texture precision.</summary>
+    [Theory]
+    [InlineData(16)]
+    [InlineData(32)]
+    [InlineData(64)]
+    public void TexturePayloadLoadsWithTargetNumericPolicy(int bits) {
+        var policy = new NumericPrecisionPolicy(bits, bits);
+        var item = Item("textures/policy.hetex");
+        new GameCubePlatformCookWorkItemExecutor().Execute([item], Root, Stage, policy);
+        using var stream = File.OpenRead(Path.Combine(Stage, item.OutputRelativePath));
+        using TextureAsset cooked = Assert.IsType<TextureAsset>(PackagedAssetBinarySerializer.Deserialize(stream, policy));
+        Assert.Equal(4, cooked.Width);
+    }
+
+    /// <summary>Checks that the runtime material envelope matches the requested target instead of the managed host.</summary>
+    [Theory]
+    [InlineData(16)]
+    [InlineData(32)]
+    [InlineData(64)]
+    public void MaterialPayloadLoadsWithTargetNumericPolicy(int bits) {
+        var policy = new NumericPrecisionPolicy(bits, bits);
+        var request = new PlatformMaterialCookRequest("material", "materials/sample.hasset", "gamecube", "gamecube-default", "gamecube-default",
+            GameCubeMaterialSchemaIds.StandardTexturedSchemaId, new Dictionary<string, string>(), numericPolicy: policy);
+        var result = new GameCubeMaterialCooker().Cook(request);
+        using var stream = new MemoryStream(result.CookedMaterialBytes);
+        Assert.IsType<PlatformMaterialAsset>(PackagedAssetBinarySerializer.Deserialize(stream, policy));
+    }
     /// <summary>Uses one fixed fixture tree beneath the explicit dotnet artifacts directory.</summary>
     readonly string Root = Path.Combine(AppContext.BaseDirectory, "gx-texture-work-items");
     /// <summary>Retains the caller's repository override while fixtures run from relocated artifacts.</summary>
@@ -163,6 +190,8 @@ public sealed class GameCubeNativeTextureWorkItemTests : IDisposable {
 
     /// <summary>Finds the sibling checkout from relocated test artifacts without relying on the host's current directory.</summary>
     static string ResolveRepositoryRoot() {
+        string explicitRoot = Environment.GetEnvironmentVariable("HELENGINE_GAMECUBE_REPOSITORY_ROOT");
+        if (!string.IsNullOrWhiteSpace(explicitRoot) && File.Exists(Path.Combine(explicitRoot, "builder", "helengine.gamecube.builder.csproj"))) return explicitRoot;
         string current = AppContext.BaseDirectory;
         while (!string.IsNullOrEmpty(current)) {
             string candidate = Path.Combine(current, "helengine-gc");

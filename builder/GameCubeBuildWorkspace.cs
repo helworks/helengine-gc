@@ -125,7 +125,7 @@ public static class GameCubeBuildWorkspace {
         WritePhaseMarker(phaseMarkerPath, "platform cook work items begin");
         GameCubePlatformCookWorkItemExecutor textureExecutor = new();
         IReadOnlyList<GameCubeTextureCookWorkPlan> texturePlans = textureExecutor.Prepare(
-            request.Manifest.PlatformCookWorkItems ?? [], request.Manifest.CookedArtifacts ?? [], Directory.GetCurrentDirectory(), paths.StagingRootPath, cancellationToken);
+            request.Manifest.PlatformCookWorkItems ?? [], request.Manifest.CookedArtifacts ?? [], Directory.GetCurrentDirectory(), paths.StagingRootPath, request.NumericPolicy, cancellationToken);
         ValidatePackagedArtifactSources(request, paths.StagingRootPath, diagnosticReporter, diagnostics, cancellationToken);
         if (diagnostics.Count > 0) return Task.FromResult(new PlatformBuildReport(false, [.. diagnostics], [.. sceneOutcomes], [.. looseAssetOutcomes]));
         ResetDirectory(paths.StagingRootPath);
