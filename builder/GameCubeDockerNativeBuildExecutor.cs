@@ -69,7 +69,7 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
         }
 
         ProcessStartInfo startInfo = new() {
-            FileName = "rtk",
+            FileName = "docker",
             WorkingDirectory = paths.RepositoryRootPath,
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -78,8 +78,9 @@ public sealed class GameCubeDockerNativeBuildExecutor : IGameCubeNativeBuildExec
         };
 
         string generatedCoreContainerPath = "/workspace/" + paths.GeneratedCoreRelativePath;
-        startInfo.ArgumentList.Add("docker");
         startInfo.ArgumentList.Add("run");
+        startInfo.ArgumentList.Add("--platform");
+        startInfo.ArgumentList.Add("linux/amd64");
         startInfo.ArgumentList.Add("--rm");
         startInfo.ArgumentList.Add("-v");
         startInfo.ArgumentList.Add(paths.RepositoryRootPath + ":/workspace");
