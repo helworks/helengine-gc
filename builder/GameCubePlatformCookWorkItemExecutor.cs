@@ -120,6 +120,18 @@ public sealed class GameCubePlatformCookWorkItemExecutor {
         }
 
         string bitmapSourcePath = ResolveBitmapSourcePath(sourcePath);
+        if (!OperatingSystem.IsWindows()) {
+            TextureImporterRegistration registration = PortableImporterFactory.CreateDefault()
+                .OfType<TextureImporterRegistration>()
+                .Single(registration => string.Equals(registration.ImporterId, "gdi", StringComparison.Ordinal));
+            using FileStream stream = File.OpenRead(bitmapSourcePath);
+            TextureAsset imported = registration.Importer.ImportTexture(stream)
+                ?? throw new InvalidOperationException($"Texture source '{workItem.SourceAssetPath}' could not be read from '{bitmapSourcePath}'.");
+            imported.Id = ResolveMetadataValue(workItem, "source-asset-id");
+            imported.ColorFormat = TextureAssetColorFormat.Rgba32;
+            imported.AlphaPrecision = TextureAssetAlphaPrecision.A8;
+            return imported;
+        }
         if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1)) throw new PlatformNotSupportedException("GameCube authored image decoding requires Windows; serialized atlas sources are portable.");
         Bitmap sourceBitmap;
         try {
