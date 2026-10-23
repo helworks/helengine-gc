@@ -106,7 +106,7 @@ namespace helengine::gamecube {
         std::vector<CachedTextLayoutEntry> CachedTextLayouts;
 
         /// Scratch per-line alignment offsets reused across 2D text draws to avoid rebuilding vector capacity every frame.
-        std::vector<double> TextLineOffsetsScratch;
+        std::vector<RealEvaluation> TextLineOffsetsScratch;
 
         /// Scratch line content reused while measuring aligned 2D text.
         std::string TextLineScratch;
@@ -149,6 +149,9 @@ namespace helengine::gamecube {
 
         /// Maps one logical 2D rectangle from shared-engine viewport space into the active physical GameCube viewport.
         void TransformLogicalRectToPhysicalViewport(GameCubeFramePlan* framePlan, float& x, float& y, float& width, float& height) const;
+
+        /// Maps one generated sprite point while preserving the configured engine arithmetic.
+        void TransformLogicalPointToPhysicalViewport(GameCubeFramePlan* framePlan, float2& point) const;
 
         /// Loads one GX normal matrix derived from the current authored model-view transform so fixed-function lighting stays in view space.
         void LoadNormalMatrix(const Mtx& modelViewMatrix);
@@ -211,10 +214,10 @@ namespace helengine::gamecube {
         void RenderText2D(GameCubeFramePlan* framePlan, const GameCubeTextDrawCommand& command);
 
         /// Draws one already-resolved text layout at one authored effect offset and color without allocating frame-time state.
-        void DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, double fontScale, double baseX, double baseY, const float2& passOffset, GXColor glyphColor, const std::vector<double>& lineOffsets);
+        void DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, RealEvaluation fontScale, RealEvaluation baseX, RealEvaluation baseY, const float2& passOffset, GXColor glyphColor, const std::vector<RealEvaluation>& lineOffsets);
 
         /// Resolves reusable text-layout content for one text drawable, rebuilding wrapped text only when authored inputs change.
-        const std::string& ResolveTextLayoutContent(ITextDrawable2D* drawable, FontAsset* font, double fontScale);
+        const std::string& ResolveTextLayoutContent(ITextDrawable2D* drawable, FontAsset* font, RealEvaluation fontScale);
 
         /// Discards wrapped-text cache entries that were not used by the active overlay frame.
         void PruneTextLayoutCache();

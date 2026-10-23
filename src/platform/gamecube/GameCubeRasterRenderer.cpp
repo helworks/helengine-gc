@@ -161,14 +161,14 @@ namespace helengine::gamecube {
             SYS_Report(
                 "[GC] Camera plan order=%u logical=(%.1f,%.1f,%.1f,%.1f) physical=(%.1f,%.1f,%.1f,%.1f) clearColor=%d clearDepth=%d\n",
                 static_cast<unsigned int>(cameraDrawOrder),
-                framePlan->LogicalViewport.X,
-                framePlan->LogicalViewport.Y,
-                framePlan->LogicalViewport.Z,
-                framePlan->LogicalViewport.W,
-                framePlan->PhysicalViewport.X,
-                framePlan->PhysicalViewport.Y,
-                framePlan->PhysicalViewport.Z,
-                framePlan->PhysicalViewport.W,
+                static_cast<double>(framePlan->LogicalViewport.X),
+                static_cast<double>(framePlan->LogicalViewport.Y),
+                static_cast<double>(framePlan->LogicalViewport.Z),
+                static_cast<double>(framePlan->LogicalViewport.W),
+                static_cast<double>(framePlan->PhysicalViewport.X),
+                static_cast<double>(framePlan->PhysicalViewport.Y),
+                static_cast<double>(framePlan->PhysicalViewport.Z),
+                static_cast<double>(framePlan->PhysicalViewport.W),
                 clearSettings.get_ClearColorEnabled() ? 1 : 0,
                 clearSettings.get_ClearDepthEnabled() ? 1 : 0);
             ReportedCameraPlanClasses |= cameraPlanClass;
@@ -179,12 +179,12 @@ namespace helengine::gamecube {
         ReportDirectFrameDiagnosticCode(0xD100U);
 #endif
         GX_SetCopyClear(ResolveClearColor(clearSettings), ResolveClearDepth(clearSettings));
-        GX_SetViewport(framePlan->PhysicalViewport.X, framePlan->PhysicalViewport.Y, framePlan->PhysicalViewport.Z, framePlan->PhysicalViewport.W, 0.0f, 1.0f);
+        GX_SetViewport(static_cast<float>(framePlan->PhysicalViewport.X), static_cast<float>(framePlan->PhysicalViewport.Y), static_cast<float>(framePlan->PhysicalViewport.Z), static_cast<float>(framePlan->PhysicalViewport.W), 0.0f, 1.0f);
         GX_SetScissor(
-            static_cast<u32>(framePlan->PhysicalViewport.X),
-            static_cast<u32>(framePlan->PhysicalViewport.Y),
-            static_cast<u32>(framePlan->PhysicalViewport.Z),
-            static_cast<u32>(framePlan->PhysicalViewport.W));
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.X)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Y)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Z)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.W)));
         GX_InvVtxCache();
         GX_InvalidateTexAll();
 
@@ -243,12 +243,12 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("framePlan");
         }
 
-        GX_SetViewport(framePlan->PhysicalViewport.X, framePlan->PhysicalViewport.Y, framePlan->PhysicalViewport.Z, framePlan->PhysicalViewport.W, 0.0f, 1.0f);
+        GX_SetViewport(static_cast<float>(framePlan->PhysicalViewport.X), static_cast<float>(framePlan->PhysicalViewport.Y), static_cast<float>(framePlan->PhysicalViewport.Z), static_cast<float>(framePlan->PhysicalViewport.W), 0.0f, 1.0f);
         GX_SetScissor(
-            static_cast<u32>(framePlan->PhysicalViewport.X),
-            static_cast<u32>(framePlan->PhysicalViewport.Y),
-            static_cast<u32>(framePlan->PhysicalViewport.Z),
-            static_cast<u32>(framePlan->PhysicalViewport.W));
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.X)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Y)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Z)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.W)));
     }
 
     /// Starts the shared overlay frame so text-layout cache state remains valid across every camera plan.
@@ -277,8 +277,8 @@ namespace helengine::gamecube {
                 Configure2DPipeline(false);
                 float x = 0.0f;
                 float y = 0.0f;
-                float width = framePlan->LogicalViewport.Z;
-                float height = framePlan->LogicalViewport.W;
+                float width = static_cast<float>(framePlan->LogicalViewport.Z);
+                float height = static_cast<float>(framePlan->LogicalViewport.W);
                 TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);
                 DrawSolidQuad2D(x, y, width, height, ResolveClearColor(clearSettings));
             }
@@ -294,14 +294,14 @@ namespace helengine::gamecube {
             SYS_Report(
                 "[GC] Overlay GX probe cameraOrder=%u logical=(%.1f,%.1f,%.1f,%.1f) physical=(%.1f,%.1f,%.1f,%.1f)\n",
                 static_cast<unsigned int>(framePlan->Camera->get_CameraDrawOrder()),
-                framePlan->LogicalViewport.X,
-                framePlan->LogicalViewport.Y,
-                framePlan->LogicalViewport.Z,
-                framePlan->LogicalViewport.W,
-                framePlan->PhysicalViewport.X,
-                framePlan->PhysicalViewport.Y,
-                framePlan->PhysicalViewport.Z,
-                framePlan->PhysicalViewport.W);
+                static_cast<double>(framePlan->LogicalViewport.X),
+                static_cast<double>(framePlan->LogicalViewport.Y),
+                static_cast<double>(framePlan->LogicalViewport.Z),
+                static_cast<double>(framePlan->LogicalViewport.W),
+                static_cast<double>(framePlan->PhysicalViewport.X),
+                static_cast<double>(framePlan->PhysicalViewport.Y),
+                static_cast<double>(framePlan->PhysicalViewport.Z),
+                static_cast<double>(framePlan->PhysicalViewport.W));
             SYS_Report(
                 "[GC] Overlay EFB after probe topLeft=(%02X,%02X,%02X,%02X)\n",
                 probeColor.r,
@@ -378,10 +378,10 @@ namespace helengine::gamecube {
         }
 #endif
         GX_SetScissor(
-            static_cast<u32>(framePlan->PhysicalViewport.X),
-            static_cast<u32>(framePlan->PhysicalViewport.Y),
-            static_cast<u32>(framePlan->PhysicalViewport.Z),
-            static_cast<u32>(framePlan->PhysicalViewport.W));
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.X)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Y)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Z)),
+            static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.W)));
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
         ReportDirectFrameDiagnosticCode(0xD650U);
 #endif
@@ -522,22 +522,22 @@ namespace helengine::gamecube {
             SYS_Report(
                 "[GC] Lighting state: frameLights=%ld ambientRgb=(%.3f, %.3f, %.3f) ambientGx=(%u, %u, %u) hasDirectional=%d directionalRgb=(%.3f, %.3f, %.3f) directionalView=(%.3f, %.3f, %.3f) directionalPos=(%.3f, %.3f, %.3f)\n",
                 static_cast<long>(framePlan->LightSubmissions->get_Count()),
-                ambientRgb.X,
-                ambientRgb.Y,
-                ambientRgb.Z,
+                static_cast<double>(ambientRgb.X),
+                static_cast<double>(ambientRgb.Y),
+                static_cast<double>(ambientRgb.Z),
                 static_cast<unsigned int>(ambientColor.r),
                 static_cast<unsigned int>(ambientColor.g),
                 static_cast<unsigned int>(ambientColor.b),
                 hasDirectionalLight ? 1 : 0,
-                directionalRgb.X,
-                directionalRgb.Y,
-                directionalRgb.Z,
-                directionalDirection.X,
-                directionalDirection.Y,
-                directionalDirection.Z,
-                directionalPosition.X,
-                directionalPosition.Y,
-                directionalPosition.Z);
+                static_cast<double>(directionalRgb.X),
+                static_cast<double>(directionalRgb.Y),
+                static_cast<double>(directionalRgb.Z),
+                static_cast<double>(directionalDirection.X),
+                static_cast<double>(directionalDirection.Y),
+                static_cast<double>(directionalDirection.Z),
+                static_cast<double>(directionalPosition.X),
+                static_cast<double>(directionalPosition.Y),
+                static_cast<double>(directionalPosition.Z));
         }
 
         if (!hasDirectionalLight) {
@@ -547,7 +547,7 @@ namespace helengine::gamecube {
             return;
         }
 
-        GX_InitLightPos(&lightObject, directionalPosition.X, directionalPosition.Y, directionalPosition.Z);
+        GX_InitLightPos(&lightObject, static_cast<float>(directionalPosition.X), static_cast<float>(directionalPosition.Y), static_cast<float>(directionalPosition.Z));
         GX_InitLightColor(&lightObject, ConvertLightingColorToGx(directionalRgb));
         GX_LoadLightObj(&lightObject, GX_LIGHT0);
     }
@@ -587,10 +587,10 @@ namespace helengine::gamecube {
 
         float4 color = clearSettings.get_ClearColor();
         return GXColor {
-            static_cast<u8>(color.X * 255.0f),
-            static_cast<u8>(color.Y * 255.0f),
-            static_cast<u8>(color.Z * 255.0f),
-            static_cast<u8>(color.W * 255.0f)
+            static_cast<u8>(static_cast<int32_t>(color.X * 255.0f)),
+            static_cast<u8>(static_cast<int32_t>(color.Y * 255.0f)),
+            static_cast<u8>(static_cast<int32_t>(color.Z * 255.0f)),
+            static_cast<u8>(static_cast<int32_t>(color.W * 255.0f))
         };
     }
 
@@ -613,9 +613,9 @@ namespace helengine::gamecube {
         guOrtho(
             projectionMatrix,
             0.0f,
-            framePlan->PhysicalViewport.W,
+            static_cast<float>(framePlan->PhysicalViewport.W),
             0.0f,
-            framePlan->PhysicalViewport.Z,
+            static_cast<float>(framePlan->PhysicalViewport.Z),
             -1.0f,
             1.0f);
         GX_LoadProjectionMtx(projectionMatrix, GX_ORTHOGRAPHIC);
@@ -631,38 +631,38 @@ namespace helengine::gamecube {
 
     /// Copies one generated affine matrix directly into a GX position matrix without runtime reinterpretation.
     void GameCubeRasterRenderer::CopyAffineMatrixToGx(const float4x4& source, Mtx& destination) {
-        destination[0][0] = source.M11;
-        destination[0][1] = source.M21;
-        destination[0][2] = source.M31;
-        destination[0][3] = source.M41;
-        destination[1][0] = source.M12;
-        destination[1][1] = source.M22;
-        destination[1][2] = source.M32;
-        destination[1][3] = source.M42;
-        destination[2][0] = source.M13;
-        destination[2][1] = source.M23;
-        destination[2][2] = source.M33;
-        destination[2][3] = source.M43;
+        destination[0][0] = static_cast<float>(source.M11);
+        destination[0][1] = static_cast<float>(source.M21);
+        destination[0][2] = static_cast<float>(source.M31);
+        destination[0][3] = static_cast<float>(source.M41);
+        destination[1][0] = static_cast<float>(source.M12);
+        destination[1][1] = static_cast<float>(source.M22);
+        destination[1][2] = static_cast<float>(source.M32);
+        destination[1][3] = static_cast<float>(source.M42);
+        destination[2][0] = static_cast<float>(source.M13);
+        destination[2][1] = static_cast<float>(source.M23);
+        destination[2][2] = static_cast<float>(source.M33);
+        destination[2][3] = static_cast<float>(source.M43);
     }
 
     /// Copies one generated projection matrix into the GX projection upload layout.
     void GameCubeRasterRenderer::CopyProjectionMatrixToGx(const float4x4& source, Mtx44& destination) {
-        destination[0][0] = source.M11;
-        destination[0][1] = source.M21;
-        destination[0][2] = source.M31;
-        destination[0][3] = source.M41;
-        destination[1][0] = source.M12;
-        destination[1][1] = source.M22;
-        destination[1][2] = source.M32;
-        destination[1][3] = source.M42;
-        destination[2][0] = source.M13;
-        destination[2][1] = source.M23;
-        destination[2][2] = source.M33 + 1.0f;
-        destination[2][3] = source.M43;
-        destination[3][0] = source.M14;
-        destination[3][1] = source.M24;
-        destination[3][2] = source.M34;
-        destination[3][3] = source.M44;
+        destination[0][0] = static_cast<float>(source.M11);
+        destination[0][1] = static_cast<float>(source.M21);
+        destination[0][2] = static_cast<float>(source.M31);
+        destination[0][3] = static_cast<float>(source.M41);
+        destination[1][0] = static_cast<float>(source.M12);
+        destination[1][1] = static_cast<float>(source.M22);
+        destination[1][2] = static_cast<float>(source.M32);
+        destination[1][3] = static_cast<float>(source.M42);
+        destination[2][0] = static_cast<float>(source.M13);
+        destination[2][1] = static_cast<float>(source.M23);
+        destination[2][2] = static_cast<float>(source.M33 + 1.0f);
+        destination[2][3] = static_cast<float>(source.M43);
+        destination[3][0] = static_cast<float>(source.M14);
+        destination[3][1] = static_cast<float>(source.M24);
+        destination[3][2] = static_cast<float>(source.M34);
+        destination[3][3] = static_cast<float>(source.M44);
     }
 
     /// Maps one logical 2D rectangle from shared-engine viewport space into the active physical GameCube viewport.
@@ -675,12 +675,25 @@ namespace helengine::gamecube {
             throw new InvalidOperationException("GameCube logical viewport height must be positive before mapping 2D rectangles.");
         }
 
-        const float horizontalScale = framePlan->PhysicalViewport.Z / framePlan->LogicalViewport.Z;
-        const float verticalScale = framePlan->PhysicalViewport.W / framePlan->LogicalViewport.W;
+        const float horizontalScale = static_cast<float>(framePlan->PhysicalViewport.Z / framePlan->LogicalViewport.Z);
+        const float verticalScale = static_cast<float>(framePlan->PhysicalViewport.W / framePlan->LogicalViewport.W);
         x *= horizontalScale;
         y *= verticalScale;
         width *= horizontalScale;
         height *= verticalScale;
+    }
+
+    /// Maps a generated sprite point in configured arithmetic without binding engine storage to native f32 references.
+    void GameCubeRasterRenderer::TransformLogicalPointToPhysicalViewport(GameCubeFramePlan* framePlan, float2& point) const {
+        if (framePlan == nullptr) {
+            throw new ArgumentNullException("framePlan");
+        } else if (framePlan->LogicalViewport.Z <= 0.0f || framePlan->LogicalViewport.W <= 0.0f) {
+            throw new InvalidOperationException("GameCube logical viewport dimensions must be positive before mapping sprite points.");
+        }
+        const RealEvaluation horizontalScale = framePlan->PhysicalViewport.Z / framePlan->LogicalViewport.Z;
+        const RealEvaluation verticalScale = framePlan->PhysicalViewport.W / framePlan->LogicalViewport.W;
+        point.X *= horizontalScale;
+        point.Y *= verticalScale;
     }
 
     /// Loads one GX normal matrix derived from the current authored model-view transform so fixed-function lighting stays in view space.
@@ -753,9 +766,9 @@ namespace helengine::gamecube {
     /// Converts a normalized RGB lighting value into a GX color with full alpha.
     GXColor GameCubeRasterRenderer::ConvertLightingColorToGx(float3 color) {
         return GXColor {
-            static_cast<u8>(std::clamp(color.X, 0.0f, 1.0f) * 255.0f),
-            static_cast<u8>(std::clamp(color.Y, 0.0f, 1.0f) * 255.0f),
-            static_cast<u8>(std::clamp(color.Z, 0.0f, 1.0f) * 255.0f),
+            static_cast<u8>(static_cast<int32_t>(RealMath::Clamp(color.X, RealEvaluation(0), RealEvaluation(1)) * 255.0f)),
+            static_cast<u8>(static_cast<int32_t>(RealMath::Clamp(color.Y, RealEvaluation(0), RealEvaluation(1)) * 255.0f)),
+            static_cast<u8>(static_cast<int32_t>(RealMath::Clamp(color.Z, RealEvaluation(0), RealEvaluation(1)) * 255.0f)),
             0xFF
         };
     }
@@ -789,15 +802,15 @@ namespace helengine::gamecube {
         float4 entityOrientation = entity->get_Orientation();
         float3 entityPosition = entity->get_Position();
         entityOrientation.Normalize();
-        const float xx = entityOrientation.X * entityOrientation.X;
-        const float yy = entityOrientation.Y * entityOrientation.Y;
-        const float zz = entityOrientation.Z * entityOrientation.Z;
-        const float xy = entityOrientation.X * entityOrientation.Y;
-        const float xz = entityOrientation.X * entityOrientation.Z;
-        const float yz = entityOrientation.Y * entityOrientation.Z;
-        const float xw = entityOrientation.X * entityOrientation.W;
-        const float yw = entityOrientation.Y * entityOrientation.W;
-        const float zw = entityOrientation.Z * entityOrientation.W;
+        const RealEvaluation xx = entityOrientation.X * entityOrientation.X;
+        const RealEvaluation yy = entityOrientation.Y * entityOrientation.Y;
+        const RealEvaluation zz = entityOrientation.Z * entityOrientation.Z;
+        const RealEvaluation xy = entityOrientation.X * entityOrientation.Y;
+        const RealEvaluation xz = entityOrientation.X * entityOrientation.Z;
+        const RealEvaluation yz = entityOrientation.Y * entityOrientation.Z;
+        const RealEvaluation xw = entityOrientation.X * entityOrientation.W;
+        const RealEvaluation yw = entityOrientation.Y * entityOrientation.W;
+        const RealEvaluation zw = entityOrientation.Z * entityOrientation.W;
 
         worldMatrix.M11 = (1.0f - (2.0f * (yy + zz))) * entityScale.X;
         worldMatrix.M12 = (2.0f * (xy + zw)) * entityScale.X;
@@ -936,11 +949,11 @@ namespace helengine::gamecube {
         GX_SetCullMode(GX_CULL_NONE);
 
         GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
-        GX_Position3f32(localA.X, localA.Y, localA.Z);
+        GX_Position3f32(static_cast<float>(localA.X), static_cast<float>(localA.Y), static_cast<float>(localA.Z));
         GX_Color4u8(255, 255, 255, 255);
-        GX_Position3f32(localB.X, localB.Y, localB.Z);
+        GX_Position3f32(static_cast<float>(localB.X), static_cast<float>(localB.Y), static_cast<float>(localB.Z));
         GX_Color4u8(255, 255, 255, 255);
-        GX_Position3f32(localC.X, localC.Y, localC.Z);
+        GX_Position3f32(static_cast<float>(localC.X), static_cast<float>(localC.Y), static_cast<float>(localC.Z));
         GX_Color4u8(255, 255, 255, 255);
         GX_End();
     }
@@ -1051,7 +1064,7 @@ namespace helengine::gamecube {
             if (useTexturedBranch) {
                 const GameCubePackedTexCoord2 packedTextureCoordinate = (*cachedMeshData->PackedTexCoords)[cachedIndex];
                 const float2 textureCoordinate(packedTextureCoordinate.U, packedTextureCoordinate.V);
-                GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);
+                GX_TexCoord2f32(static_cast<float>(textureCoordinate.X), static_cast<float>(textureCoordinate.Y));
             }
         }
         GX_End();
@@ -1121,7 +1134,7 @@ namespace helengine::gamecube {
             if (useTexturedBranch) {
                 const GameCubePackedTexCoord2 packedTextureCoordinate = (*cachedMeshData->PackedTexCoords)[cachedIndex];
                 const float2 textureCoordinate(packedTextureCoordinate.U, packedTextureCoordinate.V);
-                GX_TexCoord2f32(textureCoordinate.X, textureCoordinate.Y);
+                GX_TexCoord2f32(static_cast<float>(textureCoordinate.X), static_cast<float>(textureCoordinate.Y));
             }
         }
         GX_End();
@@ -1178,10 +1191,10 @@ namespace helengine::gamecube {
             ApplyClipScissor(framePlan, clipRect);
         } else {
             GX_SetScissor(
-                static_cast<u32>(framePlan->PhysicalViewport.X),
-                static_cast<u32>(framePlan->PhysicalViewport.Y),
-                static_cast<u32>(framePlan->PhysicalViewport.Z),
-                static_cast<u32>(framePlan->PhysicalViewport.W));
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.X)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Y)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Z)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.W)));
         }
 
 #if HELENGINE_GAMECUBE_DIRECT_FRAME_DIAGNOSTIC
@@ -1189,16 +1202,16 @@ namespace helengine::gamecube {
 #endif
         Configure2DPipeline(false);
         const float3 position = drawable->get_Parent()->get_Position();
-        const float horizontalScale = framePlan->PhysicalViewport.Z / framePlan->LogicalViewport.Z;
-        const float verticalScale = framePlan->PhysicalViewport.W / framePlan->LogicalViewport.W;
+        const float horizontalScale = static_cast<float>(framePlan->PhysicalViewport.Z / framePlan->LogicalViewport.Z);
+        const float verticalScale = static_cast<float>(framePlan->PhysicalViewport.W / framePlan->LogicalViewport.W);
         const float cornerScale = std::min(horizontalScale, verticalScale);
-        float x = position.X;
-        float y = position.Y;
+        float x = static_cast<float>(position.X);
+        float y = static_cast<float>(position.Y);
         float width = static_cast<float>(size.X);
         float height = static_cast<float>(size.Y);
         TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);
-        const float radius = std::max(0.0f, drawable->get_Radius()) * cornerScale;
-        const float borderThickness = std::max(0.0f, drawable->get_BorderThickness()) * cornerScale;
+        const float radius = static_cast<float>(RealMath::Max(RealEvaluation(0), drawable->get_Radius())) * cornerScale;
+        const float borderThickness = static_cast<float>(RealMath::Max(RealEvaluation(0), drawable->get_BorderThickness())) * cornerScale;
         const GXColor fillColor = ConvertByteColorToGx(drawable->get_FillColor());
         const GXColor borderColor = ConvertByteColorToGx(drawable->get_BorderColor());
 
@@ -1266,20 +1279,18 @@ namespace helengine::gamecube {
             ApplyClipScissor(framePlan, clipRect);
         } else {
             GX_SetScissor(
-                static_cast<u32>(framePlan->PhysicalViewport.X),
-                static_cast<u32>(framePlan->PhysicalViewport.Y),
-                static_cast<u32>(framePlan->PhysicalViewport.Z),
-                static_cast<u32>(framePlan->PhysicalViewport.W));
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.X)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Y)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Z)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.W)));
         }
 
         Configure2DPipeline(true);
         SpriteQuad2D quad = command.Geometry;
-        float unusedWidth = 0.0f;
-        float unusedHeight = 0.0f;
-        TransformLogicalRectToPhysicalViewport(framePlan, quad.TopLeft.X, quad.TopLeft.Y, unusedWidth, unusedHeight);
-        TransformLogicalRectToPhysicalViewport(framePlan, quad.TopRight.X, quad.TopRight.Y, unusedWidth, unusedHeight);
-        TransformLogicalRectToPhysicalViewport(framePlan, quad.BottomRight.X, quad.BottomRight.Y, unusedWidth, unusedHeight);
-        TransformLogicalRectToPhysicalViewport(framePlan, quad.BottomLeft.X, quad.BottomLeft.Y, unusedWidth, unusedHeight);
+        TransformLogicalPointToPhysicalViewport(framePlan, quad.TopLeft);
+        TransformLogicalPointToPhysicalViewport(framePlan, quad.TopRight);
+        TransformLogicalPointToPhysicalViewport(framePlan, quad.BottomRight);
+        TransformLogicalPointToPhysicalViewport(framePlan, quad.BottomLeft);
         DrawTransformedTexturedQuad2D(quad, drawable->get_SourceRect(), ConvertByteColorToGx(drawable->get_Color()), texture);
     }
 
@@ -1309,18 +1320,18 @@ namespace helengine::gamecube {
             ApplyClipScissor(framePlan, clipRect);
         } else {
             GX_SetScissor(
-                static_cast<u32>(framePlan->PhysicalViewport.X),
-                static_cast<u32>(framePlan->PhysicalViewport.Y),
-                static_cast<u32>(framePlan->PhysicalViewport.Z),
-                static_cast<u32>(framePlan->PhysicalViewport.W));
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.X)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Y)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.Z)),
+                static_cast<u32>(static_cast<float>(framePlan->PhysicalViewport.W)));
         }
 
         Configure2DPipeline(true);
         texture->BindNativeTexture(GX_TEXMAP0);
 
-        const double fontScale = std::max(static_cast<double>(drawable->get_FontScale()), 0.0001);
+        const RealEvaluation fontScale = RealMath::Max(drawable->get_FontScale(), RealEvaluation(0.0001f));
         const std::string& content = ResolveTextLayoutContent(drawable, font, fontScale);
-        std::vector<double>& lineOffsets = TextLineOffsetsScratch;
+        std::vector<RealEvaluation>& lineOffsets = TextLineOffsetsScratch;
         lineOffsets.clear();
         lineOffsets.reserve(static_cast<std::size_t>(std::count(content.begin(), content.end(), '\n')) + 1U);
         std::string& currentLine = TextLineScratch;
@@ -1332,11 +1343,11 @@ namespace helengine::gamecube {
             }
 
             if (character == '\n') {
-                const double visibleLineWidth = TextLayoutAlignmentUtils::MeasureVisibleLineWidth(
+                const RealEvaluation visibleLineWidth = TextLayoutAlignmentUtils::MeasureVisibleLineWidth(
                     currentLine,
                     font,
                     fontScale,
-                    static_cast<double>(font->get_AtlasWidth()));
+                    static_cast<RealEvaluation>(font->get_AtlasWidth()));
                 lineOffsets.push_back(TextLayoutAlignmentUtils::ResolveHorizontalOffset(
                     drawable->get_Alignment(),
                     drawable->get_Size().X,
@@ -1348,11 +1359,11 @@ namespace helengine::gamecube {
             currentLine.push_back(character);
         }
 
-        const double trailingVisibleLineWidth = TextLayoutAlignmentUtils::MeasureVisibleLineWidth(
+        const RealEvaluation trailingVisibleLineWidth = TextLayoutAlignmentUtils::MeasureVisibleLineWidth(
             currentLine,
             font,
             fontScale,
-            static_cast<double>(font->get_AtlasWidth()));
+            static_cast<RealEvaluation>(font->get_AtlasWidth()));
         lineOffsets.push_back(TextLayoutAlignmentUtils::ResolveHorizontalOffset(
             drawable->get_Alignment(),
             drawable->get_Size().X,
@@ -1360,8 +1371,8 @@ namespace helengine::gamecube {
 
         const GXColor glyphColor = ConvertByteColorToGx(drawable->get_Color());
         const float3 position = drawable->get_Parent()->get_Position();
-        const double baseX = std::round(position.X);
-        const double baseY = std::round(position.Y);
+        const RealEvaluation baseX = RealMath::Round(position.X, MidpointRounding::AwayFromZero);
+        const RealEvaluation baseY = RealMath::Round(position.Y, MidpointRounding::AwayFromZero);
 
         const float2 shadowOffset = drawable->get_ShadowOffset();
         if (shadowOffset.X != 0.0f || shadowOffset.Y != 0.0f) {
@@ -1369,7 +1380,7 @@ namespace helengine::gamecube {
             DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, shadowOffset, shadowColor, lineOffsets);
         }
 
-        const float outlineScale = drawable->get_OutlineScale();
+        const float outlineScale = static_cast<float>(drawable->get_OutlineScale());
         if (outlineScale > 0.0f) {
             const GXColor outlineColor = ConvertByteColorToGx(drawable->get_OutlineColor());
             DrawTextGlyphPass2D(framePlan, font, texture, content, fontScale, baseX, baseY, float2(-outlineScale, 0.0f), outlineColor, lineOffsets);
@@ -1382,12 +1393,12 @@ namespace helengine::gamecube {
     }
 
     /// Draws one already-resolved text layout at one authored effect offset and color without allocating frame-time state.
-    void GameCubeRasterRenderer::DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, double fontScale, double baseX, double baseY, const float2& passOffset, GXColor glyphColor, const std::vector<double>& lineOffsets) {
-        const double lineHeight = std::max(static_cast<double>(font->get_LineHeight()) * fontScale, 1.0);
-        double offsetX = 0.0;
-        double offsetY = 0.0;
+    void GameCubeRasterRenderer::DrawTextGlyphPass2D(GameCubeFramePlan* framePlan, FontAsset* font, GameCubeRuntimeTexture* texture, const std::string& content, RealEvaluation fontScale, RealEvaluation baseX, RealEvaluation baseY, const float2& passOffset, GXColor glyphColor, const std::vector<RealEvaluation>& lineOffsets) {
+        const RealEvaluation lineHeight = RealMath::Max(RealEvaluation(font->get_LineHeight()) * fontScale, RealEvaluation(1));
+        RealEvaluation offsetX = 0.0;
+        RealEvaluation offsetY = 0.0;
         std::size_t lineIndex = 0U;
-        double lineOffsetX = lineOffsets.empty() ? 0.0 : lineOffsets[0];
+        RealEvaluation lineOffsetX = lineOffsets.empty() ? 0.0 : lineOffsets[0];
 
         for (int32_t index = 0; index < static_cast<int32_t>(content.size()); index++) {
             const char character = content[index];
@@ -1414,7 +1425,7 @@ namespace helengine::gamecube {
             }
 
             float glyphX = static_cast<float>(baseX + lineOffsetX + passOffset.X + offsetX);
-            float glyphY = static_cast<float>(baseY + passOffset.Y + std::round(offsetY) + (glyph.OffsetY * fontScale));
+            float glyphY = static_cast<float>(baseY + passOffset.Y + RealMath::Round(offsetY, MidpointRounding::AwayFromZero) + (glyph.OffsetY * fontScale));
             float glyphWidth = static_cast<float>(glyph.SourceRect.Z * font->get_AtlasWidth() * fontScale);
             float glyphHeight = static_cast<float>(glyph.SourceRect.W * font->get_AtlasHeight() * fontScale);
             TransformLogicalRectToPhysicalViewport(framePlan, glyphX, glyphY, glyphWidth, glyphHeight);
@@ -1427,7 +1438,7 @@ namespace helengine::gamecube {
                 glyphColor,
                 texture);
 
-            const double advanceWidth = glyph.AdvanceWidth > 0.0f
+            const RealEvaluation advanceWidth = glyph.AdvanceWidth > 0.0f
                 ? glyph.AdvanceWidth * fontScale
                 : glyphWidth;
             offsetX += advanceWidth;
@@ -1435,7 +1446,7 @@ namespace helengine::gamecube {
     }
 
     /// Resolves reusable text-layout content for one text drawable, rebuilding wrapped text only when authored inputs change.
-    const std::string& GameCubeRasterRenderer::ResolveTextLayoutContent(ITextDrawable2D* drawable, FontAsset* font, double fontScale) {
+    const std::string& GameCubeRasterRenderer::ResolveTextLayoutContent(ITextDrawable2D* drawable, FontAsset* font, RealEvaluation fontScale) {
         if (drawable == nullptr) {
             throw new ArgumentNullException("drawable");
         } else if (font == nullptr) {
@@ -1445,7 +1456,7 @@ namespace helengine::gamecube {
         const HeCppString sourceText = drawable->get_Text();
         const bool wrapText = drawable->get_WrapText();
         const int32_t maxWidth = wrapText
-            ? std::max(1, static_cast<int32_t>(std::lround(drawable->get_Size().X / fontScale)))
+            ? std::max(1, static_cast<int32_t>(RealMath::Round(drawable->get_Size().X / fontScale, MidpointRounding::AwayFromZero)))
             : 0;
         for (CachedTextLayoutEntry& cachedTextLayout : CachedTextLayouts) {
             if (cachedTextLayout.Drawable != drawable) {
@@ -1523,10 +1534,10 @@ namespace helengine::gamecube {
         GX_Position3f32(centerX, centerY, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
         for (std::size_t vertexIndex = 0; vertexIndex < outline.size(); vertexIndex++) {
-            GX_Position3f32(outline[vertexIndex].X, outline[vertexIndex].Y, 0.0f);
+            GX_Position3f32(static_cast<float>(outline[vertexIndex].X), static_cast<float>(outline[vertexIndex].Y), 0.0f);
             GX_Color4u8(color.r, color.g, color.b, color.a);
         }
-        GX_Position3f32(outline[0].X, outline[0].Y, 0.0f);
+        GX_Position3f32(static_cast<float>(outline[0].X), static_cast<float>(outline[0].Y), 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
         GX_End();
     }
@@ -1598,16 +1609,16 @@ namespace helengine::gamecube {
         GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
         GX_Position3f32(x, y, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
-        GX_TexCoord2f32(sourceRect.X, sourceRect.Y);
+        GX_TexCoord2f32(static_cast<float>(sourceRect.X), static_cast<float>(sourceRect.Y));
         GX_Position3f32(x + width, y, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
-        GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y);
+        GX_TexCoord2f32(static_cast<float>(sourceRect.X + sourceRect.Z), static_cast<float>(sourceRect.Y));
         GX_Position3f32(x + width, y + height, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
-        GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y + sourceRect.W);
+        GX_TexCoord2f32(static_cast<float>(sourceRect.X + sourceRect.Z), static_cast<float>(sourceRect.Y + sourceRect.W));
         GX_Position3f32(x, y + height, 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
-        GX_TexCoord2f32(sourceRect.X, sourceRect.Y + sourceRect.W);
+        GX_TexCoord2f32(static_cast<float>(sourceRect.X), static_cast<float>(sourceRect.Y + sourceRect.W));
         GX_End();
     }
 
@@ -1620,18 +1631,18 @@ namespace helengine::gamecube {
         texture->BindNativeTexture(GX_TEXMAP0);
 
         GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-        GX_Position3f32(quad.TopLeft.X, quad.TopLeft.Y, 0.0f);
+        GX_Position3f32(static_cast<float>(quad.TopLeft.X), static_cast<float>(quad.TopLeft.Y), 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
-        GX_TexCoord2f32(sourceRect.X, sourceRect.Y);
-        GX_Position3f32(quad.TopRight.X, quad.TopRight.Y, 0.0f);
+        GX_TexCoord2f32(static_cast<float>(sourceRect.X), static_cast<float>(sourceRect.Y));
+        GX_Position3f32(static_cast<float>(quad.TopRight.X), static_cast<float>(quad.TopRight.Y), 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
-        GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y);
-        GX_Position3f32(quad.BottomRight.X, quad.BottomRight.Y, 0.0f);
+        GX_TexCoord2f32(static_cast<float>(sourceRect.X + sourceRect.Z), static_cast<float>(sourceRect.Y));
+        GX_Position3f32(static_cast<float>(quad.BottomRight.X), static_cast<float>(quad.BottomRight.Y), 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
-        GX_TexCoord2f32(sourceRect.X + sourceRect.Z, sourceRect.Y + sourceRect.W);
-        GX_Position3f32(quad.BottomLeft.X, quad.BottomLeft.Y, 0.0f);
+        GX_TexCoord2f32(static_cast<float>(sourceRect.X + sourceRect.Z), static_cast<float>(sourceRect.Y + sourceRect.W));
+        GX_Position3f32(static_cast<float>(quad.BottomLeft.X), static_cast<float>(quad.BottomLeft.Y), 0.0f);
         GX_Color4u8(color.r, color.g, color.b, color.a);
-        GX_TexCoord2f32(sourceRect.X, sourceRect.Y + sourceRect.W);
+        GX_TexCoord2f32(static_cast<float>(sourceRect.X), static_cast<float>(sourceRect.Y + sourceRect.W));
         GX_End();
     }
 
@@ -1659,11 +1670,11 @@ namespace helengine::gamecube {
                         continue;
                     }
 
-                    const float left = std::max(clipRect.X, currentClipRect.X);
-                    const float top = std::max(clipRect.Y, currentClipRect.Y);
-                    const float right = std::min(clipRect.X + clipRect.Z, currentClipRect.X + currentClipRect.Z);
-                    const float bottom = std::min(clipRect.Y + clipRect.W, currentClipRect.Y + currentClipRect.W);
-                    clipRect = float4(left, top, std::max(0.0f, right - left), std::max(0.0f, bottom - top));
+                    const RealEvaluation left = std::max(clipRect.X, currentClipRect.X);
+                    const RealEvaluation top = std::max(clipRect.Y, currentClipRect.Y);
+                    const RealEvaluation right = std::min(clipRect.X + clipRect.Z, currentClipRect.X + currentClipRect.Z);
+                    const RealEvaluation bottom = std::min(clipRect.Y + clipRect.W, currentClipRect.Y + currentClipRect.W);
+                    clipRect = float4(left, top, RealMath::Max(RealEvaluation(0), right - left), RealMath::Max(RealEvaluation(0), bottom - top));
                 }
             }
 
@@ -1679,15 +1690,15 @@ namespace helengine::gamecube {
             throw new ArgumentNullException("framePlan");
         }
 
-        float x = clipRect.X;
-        float y = clipRect.Y;
-        float width = clipRect.Z;
-        float height = clipRect.W;
+        float x = static_cast<float>(clipRect.X);
+        float y = static_cast<float>(clipRect.Y);
+        float width = static_cast<float>(clipRect.Z);
+        float height = static_cast<float>(clipRect.W);
         TransformLogicalRectToPhysicalViewport(framePlan, x, y, width, height);
-        const int32_t viewportLeft = static_cast<int32_t>(framePlan->PhysicalViewport.X);
-        const int32_t viewportTop = static_cast<int32_t>(framePlan->PhysicalViewport.Y);
-        const int32_t viewportRight = viewportLeft + static_cast<int32_t>(framePlan->PhysicalViewport.Z);
-        const int32_t viewportBottom = viewportTop + static_cast<int32_t>(framePlan->PhysicalViewport.W);
+        const int32_t viewportLeft = static_cast<int32_t>(static_cast<float>(framePlan->PhysicalViewport.X));
+        const int32_t viewportTop = static_cast<int32_t>(static_cast<float>(framePlan->PhysicalViewport.Y));
+        const int32_t viewportRight = viewportLeft + static_cast<int32_t>(static_cast<float>(framePlan->PhysicalViewport.Z));
+        const int32_t viewportBottom = viewportTop + static_cast<int32_t>(static_cast<float>(framePlan->PhysicalViewport.W));
         const int32_t left = std::max(viewportLeft, viewportLeft + static_cast<int32_t>(std::floor(x)));
         const int32_t top = std::max(viewportTop, viewportTop + static_cast<int32_t>(std::floor(y)));
         const int32_t right = std::min(viewportRight, viewportLeft + static_cast<int32_t>(std::ceil(x + width)));
